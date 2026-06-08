@@ -138,7 +138,9 @@ export const Validations: React.FC = () => {
         <>
             {lastSuccessfulAnalyticsRunTime.kind === "loaded" && (
                 <Typography>
-                    {`Data last updated: ${formatAnalyticsDate(lastSuccessfulAnalyticsRunTime.data)}. Any data submitted after this date may not yet be reflected in the visualisations or downloads below.`}
+                    {`Data last updated: ${formatAnalyticsDate(
+                        lastSuccessfulAnalyticsRunTime.data
+                    )}. Any data submitted after this date may not yet be reflected in the visualisations or downloads below.`}
                 </Typography>
             )}
             {moduleProperties.get(currentModuleAccess.moduleName)?.isDownloadDataAllowed && (
@@ -164,7 +166,9 @@ export const Validations: React.FC = () => {
                                     }
                                     helperText={
                                         lastSuccessfulAnalyticsRunTime.kind === "loaded"
-                                            ? `Contains data submitted before ${formatAnalyticsDate(lastSuccessfulAnalyticsRunTime.data)}`
+                                            ? `Contains data submitted before ${formatAnalyticsDate(
+                                                  lastSuccessfulAnalyticsRunTime.data
+                                              )}`
                                             : "An excel file with all the calculated data in this dashboard"
                                     }
                                     onClick={() => downloadTemplate("CALCULATED", fileTypeState.data)}
@@ -177,7 +181,9 @@ export const Validations: React.FC = () => {
                                         }
                                         helperText={
                                             lastSuccessfulAnalyticsRunTime.kind === "loaded"
-                                                ? `Contains data submitted before ${formatAnalyticsDate(lastSuccessfulAnalyticsRunTime.data)}`
+                                                ? `Contains data submitted before ${formatAnalyticsDate(
+                                                      lastSuccessfulAnalyticsRunTime.data
+                                                  )}`
                                                 : "An excel file with all the calculated substance data"
                                         }
                                         onClick={() => downloadTemplate("CALCULATED", "SUBSTANCE")}

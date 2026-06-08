@@ -43,9 +43,7 @@ export function checkSpecimenDate(dataItem: CustomDataColumns, period: string): 
     const yearValue = dataItem.find(item => item.key === RISIndividualFungalFileColumns.YEAR)?.value;
     const specimenYear = specimenDate.split("-")[0];
     if (specimenYear !== yearValue?.toString()) {
-        return `${RISIndividualFungalFileColumns.SPECIMEN_DATE} year is different from ${
-            RISIndividualFungalFileColumns.YEAR
-        }: Specimen date is: ${specimenDate}, Year in file: ${yearValue}`;
+        return `${RISIndividualFungalFileColumns.SPECIMEN_DATE} year is different from ${RISIndividualFungalFileColumns.YEAR}: Specimen date is: ${specimenDate}, Year in file: ${yearValue}`;
     }
     return null;
 }
@@ -64,9 +62,7 @@ export function checkAdmissionDate(dataItem: CustomDataColumns): string | null {
             dataItem.find(item => item.key === RISIndividualFungalFileColumns.SPECIMEN_DATE)?.value?.toString()
         );
         if (specimenDate && admissionDate > specimenDate) {
-            return `${RISIndividualFungalFileColumns.ADMISSION_DATE} cannot be after ${
-                RISIndividualFungalFileColumns.SPECIMEN_DATE
-            }: Admission Date: ${admissionDate}, Specimen Date: ${specimenDate}`;
+            return `${RISIndividualFungalFileColumns.ADMISSION_DATE} cannot be after ${RISIndividualFungalFileColumns.SPECIMEN_DATE}: Admission Date: ${admissionDate}, Specimen Date: ${specimenDate}`;
         }
     }
     return null;
