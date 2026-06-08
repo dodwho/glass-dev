@@ -193,8 +193,11 @@ export type ListGlassATCVersions = Record<ATCVersionKey, GlassAtcVersionData>;
 export type ListGlassATCLastVersionKeysByYear = Record<string, ATCVersionKey>;
 
 export function validateAtcVersion(atcVersionKey: ATCVersionKey): boolean {
-    const pattern = /^ATC-\d{4}-v\d+$/;
-    return pattern.test(atcVersionKey);
+    // Accept full format "ATC-YYYY-vN" or plain 4-digit year "YYYY".
+    // Reporters may submit plain years (e.g. "2018") — confirmed by Martina.
+    const fullKeyPattern = /^ATC-\d{4}-v\d+$/;
+    const plainYearPattern = /^\d{4}$/;
+    return fullKeyPattern.test(atcVersionKey) || plainYearPattern.test(atcVersionKey);
 }
 
 export function createAtcVersionKey(year: number, version: number): ATCVersionKey {
@@ -202,8 +205,14 @@ export function createAtcVersionKey(year: number, version: number): ATCVersionKe
 }
 
 export function getYearFromAtcVersionKey(key: ATCVersionKey): number | undefined {
-    const year = key.split("-")[1];
-    if (year) return parseInt(year);
+    // Handle plain-year format "2018" as well as full key "ATC-2018-v1".
+    // Split by "-": "ATC-2018-v1" → index[1]="2018"; "2018" → no dashes → index[0]="2018".
+    const parts = key.split("-");
+    const yearStr = parts.length > 1 ? parts[1] : parts[0];
+    if (yearStr) {
+        const parsed = parseInt(yearStr);
+        if (!isNaN(parsed)) return parsed;
+    }
 }
 
 export function getDDDChanges(changesData: ATCAndDDDChangesData[]): DDDChangesData[] {
@@ -331,11 +340,7 @@ export function getDDDForAtcVersion(params: {
     }
 }
 
-function parseDDDChangesDataToDDDData(
-    dddChange: DDDChangesData,
-    unitsData: UnitsData[],
-    saltCode: SaltCode
-): DDDData {
+function parseDDDChangesDataToDDDData(dddChange: DDDChangesData, unitsData: UnitsData[], saltCode: SaltCode): DDDData {
     const standarized = getStandardizedUnitsAndValue(unitsData, dddChange.NEW_DDD_UNIT, dddChange.NEW_DDD_VALUE);
     // For gram-family DDDs (the only case in the changes table), DDD_GRAMS equals the
     // standardized DDD value in grams. For IU-based DDDs this would need an IU→g factor;
