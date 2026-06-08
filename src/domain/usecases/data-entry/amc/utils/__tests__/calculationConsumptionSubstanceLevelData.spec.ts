@@ -104,7 +104,9 @@ describe("Given calculate Consumption Substance Level Data function", () => {
             const orgUnitId = "vboedbUs1As";
             const rawSubstanceConsumptionData = givenRawSubstanceConsumptionDataByType(type);
             const currentAtcVersionKey = "ATC-2023-v1";
-            const currentAtcVersionData = (atcVersionsByKeysData as Record<string, GlassAtcVersionData>)[currentAtcVersionKey];
+            const currentAtcVersionData = (atcVersionsByKeysData as Record<string, GlassAtcVersionData>)[
+                currentAtcVersionKey
+            ];
 
             const rawSubstanceConsumptionCalculatedData = calculateConsumptionSubstanceLevelData(
                 period,
@@ -125,7 +127,9 @@ describe("Given calculate Consumption Substance Level Data function", () => {
             const orgUnitId = "vboedbUs1As";
             const rawSubstanceConsumptionData = givenRawSubstanceConsumptionDataByType(type);
             const currentAtcVersionKey = "ATC-2023-v1";
-            const currentAtcVersionData = (atcVersionsByKeysData as Record<string, GlassAtcVersionData>)[currentAtcVersionKey];
+            const currentAtcVersionData = (atcVersionsByKeysData as Record<string, GlassAtcVersionData>)[
+                currentAtcVersionKey
+            ];
 
             const rawSubstanceConsumptionCalculatedData = calculateConsumptionSubstanceLevelData(
                 period,
@@ -181,7 +185,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
 
             // Current version knows the NEW DDD and records the change that happened in 2022
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: NEW_DDD_STD, DDD_UNIT: "G", DDD_GRAMS: NEW_DDD_STD, DDD_STD: NEW_DDD_STD, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: NEW_DDD_STD,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: NEW_DDD_STD,
+                        DDD_STD: NEW_DDD_STD,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(OLD_DDD_STD, NEW_DDD_STD, 2022)]
             );
 
@@ -213,7 +229,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
             const REPORTED_DDDS = 300;
 
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: NEW_DDD_STD, DDD_UNIT: "G", DDD_GRAMS: NEW_DDD_STD, DDD_STD: NEW_DDD_STD, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: NEW_DDD_STD,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: NEW_DDD_STD,
+                        DDD_STD: NEW_DDD_STD,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(OLD_DDD_STD, NEW_DDD_STD, 2022)]
             );
 
@@ -235,7 +263,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
 
         it("Exact formula: 300 × (0.1 / 0.12) = 250", () => {
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 0.12, DDD_UNIT: "G", DDD_GRAMS: 0.12, DDD_STD: 0.12, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: 0.12,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: 0.12,
+                        DDD_STD: 0.12,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(0.1, 0.12, 2022)]
             );
 
@@ -257,7 +297,17 @@ describe("Given calculate Consumption Substance Level Data function", () => {
         it("When no DDD change exists after the reported year, ratio is 1:1", () => {
             // No changes in the current version → DDD was the same in 2020 as now
             const currentAtcVersion = makeMinimalAtcVersion([
-                { ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 0.12, DDD_UNIT: "G", DDD_GRAMS: 0.12, DDD_STD: 0.12, NOTES: null },
+                {
+                    ARS: "J01AA01_OXXXX",
+                    ATC5: "J01AA01",
+                    ROA: "O",
+                    SALT: "XXXX",
+                    DDD: 0.12,
+                    DDD_UNIT: "G",
+                    DDD_GRAMS: 0.12,
+                    DDD_STD: 0.12,
+                    NOTES: null,
+                },
             ]);
 
             const rawData: RawSubstanceConsumptionData[] = [
@@ -278,7 +328,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
         it("Plain-year version value '2020' is parsed correctly and change after 2020 is applied", () => {
             // Martina confirmed reporters may supply plain year "2020" not "ATC-2020-v1"
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 0.12, DDD_UNIT: "G", DDD_GRAMS: 0.12, DDD_STD: 0.12, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: 0.12,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: 0.12,
+                        DDD_STD: 0.12,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(0.1, 0.12, 2022)] // change in 2022 > reported year 2020
             );
 
@@ -347,7 +409,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
             const expectedKg = (adjustedDdds * NEW_DDD_GRAMS) / 1000;
 
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: NEW_DDD_STD, DDD_UNIT: "G", DDD_GRAMS: NEW_DDD_GRAMS, DDD_STD: NEW_DDD_STD, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: NEW_DDD_STD,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: NEW_DDD_GRAMS,
+                        DDD_STD: NEW_DDD_STD,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(OLD_DDD_STD, NEW_DDD_STD, 2022)]
             );
 
@@ -457,7 +531,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
             const expectedAdjusted = REPORTED_DDDS * (0.1 / NEW_DDD_G); // OLD_DDD_STD = 0.1 G
 
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: NEW_DDD_G, DDD_UNIT: "G", DDD_GRAMS: NEW_DDD_G, DDD_STD: NEW_DDD_G, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: NEW_DDD_G,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: NEW_DDD_G,
+                        DDD_STD: NEW_DDD_G,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(OLD_DDD_MG, NEW_DDD_G * 1000, 2022, "MG")] // 100 MG → 120 MG (i.e. 0.12 G)
             );
 
@@ -482,21 +568,35 @@ describe("Given calculate Consumption Substance Level Data function", () => {
             // If the historical unit is absent from the current units table,
             // getOldDDDFromChanges returns undefined → 1:1 ratio (safe fallback).
             const unknownUnitVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 0.12, DDD_UNIT: "G", DDD_GRAMS: 0.12, DDD_STD: 0.12, NOTES: null }],
-                [{
-                    CATEGORY: "DDD",
-                    ATC_CODE: "J01AA01",
-                    CHANGE: "UPDATED",
-                    PREVIOUS_DDD_VALUE: 100,
-                    PREVIOUS_DDD_UNIT: "UNKNOWN_UNIT" as any, // not in current units table
-                    PREVIOUS_DDD_ROA: "O" as any,
-                    PREVIOUS_DDD_INFO: null,
-                    NEW_DDD_VALUE: 0.12,
-                    NEW_DDD_UNIT: "G" as any,
-                    NEW_DDD_ROA: "O" as any,
-                    NEW_DDD_INFO: null,
-                    YEAR: 2022,
-                }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: 0.12,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: 0.12,
+                        DDD_STD: 0.12,
+                        NOTES: null,
+                    },
+                ],
+                [
+                    {
+                        CATEGORY: "DDD",
+                        ATC_CODE: "J01AA01",
+                        CHANGE: "UPDATED",
+                        PREVIOUS_DDD_VALUE: 100,
+                        PREVIOUS_DDD_UNIT: "UNKNOWN_UNIT" as any, // not in current units table
+                        PREVIOUS_DDD_ROA: "O" as any,
+                        PREVIOUS_DDD_INFO: null,
+                        NEW_DDD_VALUE: 0.12,
+                        NEW_DDD_UNIT: "G" as any,
+                        NEW_DDD_ROA: "O" as any,
+                        NEW_DDD_INFO: null,
+                        YEAR: 2022,
+                    },
+                ],
                 [{ UNIT: "G", NAME: "gram" as any, UNIT_STD: "G", BASE_CONV: 1, USE_STRENGTH: true, USE_VOLUME: false }] // only G — no MG, no UNKNOWN_UNIT
             );
 
@@ -592,7 +692,19 @@ describe("Given calculate Consumption Substance Level Data function", () => {
 
         it("combination_manual is preserved in combination_autocalculated output (ratio-adjusted path)", () => {
             const currentAtcVersion = makeMinimalAtcVersion(
-                [{ ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 0.6, DDD_UNIT: "G", DDD_GRAMS: 0.6, DDD_STD: 0.6, NOTES: null }],
+                [
+                    {
+                        ARS: "J01AA01_OXXXX",
+                        ATC5: "J01AA01",
+                        ROA: "O",
+                        SALT: "XXXX",
+                        DDD: 0.6,
+                        DDD_UNIT: "G",
+                        DDD_GRAMS: 0.6,
+                        DDD_STD: 0.6,
+                        NOTES: null,
+                    },
+                ],
                 [makeDDDChange(0.5, 0.6, 2022)]
             );
 
@@ -701,7 +813,17 @@ describe("Given calculate Consumption Substance Level Data function", () => {
 
         it("When atc_version_manual equals current version and DDD exists, ddds_manual is copied normally", () => {
             const atcVersionWithDDD = makeMinimalAtcVersion([
-                { ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 1.0, DDD_UNIT: "G", DDD_GRAMS: 1.0, DDD_STD: 1.0, NOTES: null },
+                {
+                    ARS: "J01AA01_OXXXX",
+                    ATC5: "J01AA01",
+                    ROA: "O",
+                    SALT: "XXXX",
+                    DDD: 1.0,
+                    DDD_UNIT: "G",
+                    DDD_GRAMS: 1.0,
+                    DDD_STD: 1.0,
+                    NOTES: null,
+                },
             ]);
 
             const rawData: RawSubstanceConsumptionData[] = [
@@ -729,7 +851,17 @@ describe("Given calculate Consumption Substance Level Data function", () => {
         it("When atc_manual is not in current version and has no replacement, ddds_autocalculated is 0", () => {
             // makeMinimalAtcVersion only contains J01AA01 in atcs[]; J01AA99 has no entry and no change mapping
             const atcVersionKnownOtherCode = makeMinimalAtcVersion([
-                { ARS: "J01AA01_OXXXX", ATC5: "J01AA01", ROA: "O", SALT: "XXXX", DDD: 1.0, DDD_UNIT: "G", DDD_GRAMS: 1.0, DDD_STD: 1.0, NOTES: null },
+                {
+                    ARS: "J01AA01_OXXXX",
+                    ATC5: "J01AA01",
+                    ROA: "O",
+                    SALT: "XXXX",
+                    DDD: 1.0,
+                    DDD_UNIT: "G",
+                    DDD_GRAMS: 1.0,
+                    DDD_STD: 1.0,
+                    NOTES: null,
+                },
             ]);
 
             const rawData: RawSubstanceConsumptionData[] = [

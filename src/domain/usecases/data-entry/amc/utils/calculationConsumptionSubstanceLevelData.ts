@@ -109,9 +109,9 @@ export function calculateConsumptionSubstanceLevelData(
                         {
                             content: `[${new Date().toISOString()}] Substance ${
                                 rawSubstanceConsumption.id
-                            } - No official DDD found in current version for ${
-                                rawSubstanceConsumption.atc_manual
-                            } / ${rawSubstanceConsumption.route_admin_manual}. Setting ddd_autocalculated to 0.`,
+                            } - No official DDD found in current version for ${rawSubstanceConsumption.atc_manual} / ${
+                                rawSubstanceConsumption.route_admin_manual
+                            }. Setting ddd_autocalculated to 0.`,
                             messageType: "Warn",
                         },
                     ];
@@ -410,9 +410,7 @@ function setDDDAutocalculated(params: {
     // When dddsToSet is 0 (no official DDD), kg is also 0.
     // When dddsToSet > 0 but DDD_GRAMS is unavailable, kg is undefined (cannot compute).
     const kilograms: Maybe<number> =
-        dddsToSet === 0 ? 0
-        : dddsToSet != null && dddGrams != null ? (dddsToSet * dddGrams) / 1000
-        : undefined;
+        dddsToSet === 0 ? 0 : dddsToSet != null && dddGrams != null ? (dddsToSet * dddGrams) / 1000 : undefined;
 
     const am_class = getAmClass(amClassData, atcCode);
     const atcCodeByLevel = getAtcCodeByLevel(atcData, atcCode);
@@ -531,7 +529,11 @@ function getOldDDDFromChanges(
 
     const earliest = relevantChanges.reduce((a, b) => (a.YEAR <= b.YEAR ? a : b));
 
-    const standardized = getStandardizedUnitsAndValue(unitsData, earliest.PREVIOUS_DDD_UNIT, earliest.PREVIOUS_DDD_VALUE);
+    const standardized = getStandardizedUnitsAndValue(
+        unitsData,
+        earliest.PREVIOUS_DDD_UNIT,
+        earliest.PREVIOUS_DDD_VALUE
+    );
     if (!standardized) return undefined;
 
     return {

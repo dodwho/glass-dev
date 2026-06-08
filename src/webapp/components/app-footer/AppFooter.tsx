@@ -12,7 +12,8 @@ export const AppFooter: React.FC = () => {
             <Typography variant="body2" gutterBottom>
                 <Link href="https://www.who.int/about/policies/privacy" target="_blank" style={{ marginRight: 20 }}>
                     {i18n.t("WHO privacy policy")}
-                </Link>{" · "}
+                </Link>
+                {" · "}
                 <Link
                     href="https://cdn.who.int/media/docs/default-source/antimicrobial-resistance/hq-amr/glass-terms-of-use_2025.pdf"
                     target="_blank"
@@ -20,7 +21,8 @@ export const AppFooter: React.FC = () => {
                     style={{ marginRight: 20 }}
                 >
                     {i18n.t("Terms of Use")}
-                </Link>{" · "}
+                </Link>
+                {" · "}
                 <Link href="https://www.who.int/about/policies/publishing/copyright" target="_blank">
                     {i18n.t(`©WHO ${getCurrentYear()}`)}
                 </Link>
