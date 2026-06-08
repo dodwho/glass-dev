@@ -1,9 +1,9 @@
 {
     "name": "glass",
     "description": "DHIS2 Glass App",
-    "version": "1.6.39",
+    "version": "1.6.40-RC1",
     "license": "GPL-3.0",
-    "author": "EyeSeeTea team",
+    "author": "",
     "homepage": ".",
     "repository": {
         "type": "git",
@@ -107,8 +107,8 @@
         "start-profiling": "craco start",
         "postinstall": "yarn localize",
         "prebuild": "yarn localize",
-        "build-folder": "rm -rf build/ && d2-manifest package.json manifest.webapp && react-scripts build && yarn run manifest && cp -r i18n icon.png build",
-        "build": "yarn build-folder && rm -f $npm_package_name.zip && cd build && zip --quiet -r ../$npm_package_name.zip *",
+        "build-folder": "rm -rf build/ && react-scripts build && yarn run manifest && cp -r i18n icon.png build",
+        "build": "yarn build-folder && rm -f ${npm_package_name}-${npm_package_version}.zip && cd build && zip --quiet -r ../${npm_package_name}-${npm_package_version}.zip *",
         "test": "jest --passWithNoTests",
         "lint": "eslint src cypress --ext .js,.jsx,.ts,.tsx",
         "eject": "react-scripts eject",
