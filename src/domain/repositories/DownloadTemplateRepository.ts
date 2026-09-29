@@ -26,6 +26,20 @@ export interface GetDataPackageParams {
      *  during the per-org-unit fetch loops. Falls back to the raw org unit id when omitted or when
      *  a given id has no entry. */
     orgUnitLabels?: Record<Id, string>;
+    /** trackerPrograms only: skip the tracked-entity fetch entirely and return dataEntries alone
+     *  (trackedEntityInstances: []). For a caller that already holds a complete tracked-entity set
+     *  fetched separately (see getTrackedEntities) and wants events only, avoiding a redundant,
+     *  enrollment-date-scoped re-fetch of the same tracked entities on every call. */
+    skipTrackedEntityInstances?: boolean;
+}
+
+export interface GetTrackedEntitiesParams {
+    programId: Id;
+    orgUnits: Id[];
+    /** Max concurrent per-org-unit fetches. Defaults to 1 (sequential) when omitted. */
+    fetchConcurrency?: number;
+    /** Optional id -> human-readable label (e.g. country code), used only for progress logging. */
+    orgUnitLabels?: Record<Id, string>;
 }
 
 export interface GetElementMetadataParams {
@@ -43,6 +57,9 @@ export interface DownloadTemplateRepository {
     getDataPackage(params: GetDataPackageParams): Promise<DataPackage>;
     getElement(type: string, id: string): Promise<GetElementType>;
     getElementMetadata(params: GetElementMetadataParams): Promise<GetElementMetadataType>;
+    /** Fetches every tracked entity for a program/org-unit set, unfiltered by enrollment date — the
+     *  complete register, independent of any date window a caller might otherwise apply to events. */
+    getTrackedEntities(params: GetTrackedEntitiesParams): Promise<TrackedEntityInstance[]>;
 }
 
 export interface BuilderMetadata {

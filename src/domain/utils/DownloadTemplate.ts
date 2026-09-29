@@ -4,6 +4,7 @@ import { DataFormType } from "../entities/DataForm";
 import { Id } from "@eyeseetea/d2-api";
 import { RelationshipOrgUnitFilter } from "../../data/repositories/download-template/DownloadTemplateDefaultRepository";
 import { DataPackage } from "../entities/data-entry/DataPackage";
+import { TrackedEntityInstance } from "../entities/TrackedEntityInstance";
 import { GeneratedTemplate } from "../entities/Template";
 import { ExcelRepository } from "../repositories/ExcelRepository";
 import { DownloadTemplateRepository } from "../repositories/DownloadTemplateRepository";
@@ -199,6 +200,46 @@ export class DownloadTemplate {
         return new File([data], "Excel");
     }
 
+    // Fetches every tracked entity for a tracker program, unfiltered by enrollment date — the
+    // complete register, independent of any per-period date window a caller might separately apply
+    // to that program's EVENTS. Exists so a multi-year bulk caller can fetch the register ONCE for
+    // the whole run instead of once per year chunk: a tracked entity enrolls once and then has events
+    // across many years, so an enrollment-date-scoped fetch (which is what getDataPackageForPeriods
+    // does for a tracker program, via filterTEIEnrollmentDate) only ever returns the entities that
+    // enrolled WITHIN whichever period window that call happened to use — wrong for a register, which
+    // is a dimension table, not a per-period fact table.
+    public async getTrackedEntityRegister({
+        moduleName,
+        fileType,
+        orgUnits,
+        fetchConcurrency,
+        orgUnitLabels,
+    }: {
+        moduleName: string;
+        fileType: string;
+        orgUnits: string[];
+        fetchConcurrency?: number;
+        orgUnitLabels?: Record<Id, string>;
+    }): Promise<TrackedEntityInstance[]> {
+        const { programId } = getProgramId(moduleName, fileType, undefined);
+        if (getFormType(programId) !== "trackerPrograms") {
+            throw new Error(
+                `getTrackedEntityRegister: ${moduleName}/${fileType} (program ${programId}) is not a tracker ` +
+                    `program — it has no tracked-entity register to fetch.`
+            );
+        }
+        console.log(
+            `[download] Fetching the complete tracked-entity register for program ${programId}: ` +
+                `${orgUnits.length} org unit(s), unfiltered by enrollment date.`
+        );
+        return this.downloadtemplateRepository.getTrackedEntities({
+            programId,
+            orgUnits,
+            fetchConcurrency,
+            orgUnitLabels,
+        });
+    }
+
     // Fetches (and row-count-validates) a combined multi-period DataPackage standalone, without
     // building/populating a workbook — lets a caller prefetch once and feed the same package into
     // multiple downloadTemplate calls via `prefetchedDataPackage` (see PRODUCT SUBMITTED/CALCULATED
@@ -213,6 +254,9 @@ export class DownloadTemplate {
         relationshipsOuFilter,
         fetchConcurrency,
         orgUnitLabels,
+        translateCodes,
+        enforceSheetRowLimit,
+        skipTrackedEntityInstances,
     }: {
         moduleName: string;
         fileType: string;
@@ -223,6 +267,11 @@ export class DownloadTemplate {
         relationshipsOuFilter?: RelationshipOrgUnitFilter;
         fetchConcurrency?: number;
         orgUnitLabels?: Record<Id, string>;
+        /** See getMultiPeriodDataPackage — both default to the workbook-oriented behaviour. */
+        translateCodes?: boolean;
+        enforceSheetRowLimit?: boolean;
+        /** See getMultiPeriodDataPackage. */
+        skipTrackedEntityInstances?: boolean;
     }): Promise<DataPackage> {
         if (periods.length === 0) throw new Error("getDataPackageForPeriods: periods must not be empty");
 
@@ -244,6 +293,9 @@ export class DownloadTemplate {
             relationshipsOuFilter,
             fetchConcurrency,
             orgUnitLabels,
+            translateCodes,
+            enforceSheetRowLimit,
+            skipTrackedEntityInstances,
         });
     }
 
@@ -270,6 +322,9 @@ export class DownloadTemplate {
         relationshipsOuFilter,
         fetchConcurrency,
         orgUnitLabels,
+        translateCodes,
+        enforceSheetRowLimit = true,
+        skipTrackedEntityInstances,
     }: {
         formType: DataFormType;
         programId: Id;
@@ -281,6 +336,20 @@ export class DownloadTemplate {
         relationshipsOuFilter?: RelationshipOrgUnitFilter;
         fetchConcurrency?: number;
         orgUnitLabels?: Record<Id, string>;
+        /** When false, option-set values stay as the codes DHIS2 stores instead of being converted to
+         *  option uids. Defaults (undefined -> the repository's `true`) to the conversion the generated
+         *  workbook depends on: it writes `_<optionUid>` and resolves the label via a named range, so
+         *  only a non-workbook consumer (the CSV export) wants the raw codes. */
+        translateCodes?: boolean;
+        /** Guards the xlsx per-sheet row cap. Only meaningful when the package will be written into a
+         *  worksheet — a CSV consumer has no such cap and must not be aborted by it. */
+        enforceSheetRowLimit?: boolean;
+        /** trackerPrograms only: skip the tracked-entity fetch and return dataEntries alone. For a
+         *  caller (the AMC bulk script) that fetches the complete tracked-entity register separately —
+         *  via DownloadTemplate.getTrackedEntityRegister, once, unfiltered by enrollment date — and
+         *  would otherwise pay for a redundant, enrollment-date-scoped re-fetch of the SAME tracked
+         *  entities on every one of this call's per-year invocations. */
+        skipTrackedEntityInstances?: boolean;
     }): Promise<DataPackage> {
         console.log(
             `[download] Fetching combined data package from program ${programId}: ${orgUnits.length} org unit(s), ` +
@@ -297,6 +366,8 @@ export class DownloadTemplate {
             relationshipsOuFilter,
             fetchConcurrency,
             orgUnitLabels,
+            translateCodes,
+            skipTrackedEntityInstances,
         });
 
         const selectedYears = new Set(periods.map(period => period.slice(0, 4)));
@@ -333,7 +404,7 @@ export class DownloadTemplate {
                   }
                 : { type: widenedPackage.type, dataEntries };
 
-        this.assertRowCountWithinLimit(merged);
+        if (enforceSheetRowLimit) this.assertRowCountWithinLimit(merged);
 
         return merged;
     }

@@ -1,6 +1,7 @@
 import { UseCase } from "../../CompositionRoot";
 import { EGASPProgramDefaultRepository } from "../../data/repositories/download-template/EGASPProgramDefaultRepository";
 import { DataPackage } from "../entities/data-entry/DataPackage";
+import { TrackedEntityInstance } from "../entities/TrackedEntityInstance";
 import { Future, FutureData } from "../entities/Future";
 import { DownloadTemplateRepository } from "../repositories/DownloadTemplateRepository";
 import { ExcelRepository } from "../repositories/ExcelRepository";
@@ -93,6 +94,11 @@ export class DownloadBulkPopulatedTemplateUseCase implements UseCase {
      * here with downloadType="SUBMITTED" and pass the result as `prefetchedDataPackage` to two
      * `execute()` calls (SUBMITTED and CALCULATED), fetching the org-unit data only once instead
      * of twice. Not meaningful for SUBSTANCE, whose SUBMITTED/CALCULATED programIds differ.
+     *
+     * Also the entry point for consumers that want the data WITHOUT a workbook at all (the bulk CSV
+     * export): `options.downloadType` selects the substance program to read, and the two workbook-
+     * oriented behaviours — option code -> uid translation and the xlsx per-sheet row cap — can be
+     * turned off there. Omitting `options` keeps the original prefetch behaviour exactly.
      */
     public prefetchDataPackage(
         moduleName: string,
@@ -100,7 +106,15 @@ export class DownloadBulkPopulatedTemplateUseCase implements UseCase {
         periods: string[],
         fileType: string,
         fetchConcurrency?: number,
-        orgUnitLabels?: Record<string, string>
+        orgUnitLabels?: Record<string, string>,
+        options?: {
+            downloadType?: DownloadType;
+            translateCodes?: boolean;
+            enforceSheetRowLimit?: boolean;
+            /** See DownloadTemplate.getMultiPeriodDataPackage. Set when the caller already holds the
+             *  complete tracked-entity register from prefetchProductRegister and wants events only. */
+            skipTrackedEntityInstances?: boolean;
+        }
     ): FutureData<DataPackage> {
         const downloadRelationships = moduleName === "AMC" && fileType === "PRODUCT" ? true : false;
         const filterTEIEnrollmentDate = downloadRelationships;
@@ -115,12 +129,15 @@ export class DownloadBulkPopulatedTemplateUseCase implements UseCase {
                 .getDataPackageForPeriods({
                     moduleName,
                     fileType,
-                    downloadType: "SUBMITTED",
+                    downloadType: options?.downloadType ?? "SUBMITTED",
                     orgUnits,
                     periods,
                     filterTEIEnrollmentDate,
                     fetchConcurrency,
                     orgUnitLabels,
+                    translateCodes: options?.translateCodes,
+                    enforceSheetRowLimit: options?.enforceSheetRowLimit,
+                    skipTrackedEntityInstances: options?.skipTrackedEntityInstances,
                 })
                 .catch(e => {
                     console.error("[AMC bulk download] prefetchDataPackage failed:", {
@@ -128,6 +145,46 @@ export class DownloadBulkPopulatedTemplateUseCase implements UseCase {
                         fileType,
                         orgUnits,
                         periods,
+                        error: e,
+                        stack: e?.stack,
+                    });
+                    throw e;
+                })
+        );
+    }
+
+    /**
+     * Fetches the complete tracked-entity register for a tracker program (AMC PRODUCT), unfiltered by
+     * enrollment date, once — not scoped to any particular year. Pair with prefetchDataPackage's
+     * `skipTrackedEntityInstances` option for the per-year event fetches: this call gets the register
+     * exactly once per run; every subsequent per-year fetch skips re-fetching it. See
+     * DownloadTemplate.getTrackedEntityRegister for why a per-year-scoped register would be wrong (a
+     * product enrolls once but reports consumption for years afterward).
+     */
+    public prefetchProductRegister(
+        moduleName: string,
+        orgUnits: string[],
+        fetchConcurrency?: number,
+        orgUnitLabels?: Record<string, string>
+    ): FutureData<TrackedEntityInstance[]> {
+        const downloadTemplate = new DownloadTemplate(
+            this.downloadTemplateRepository,
+            this.excelRepository,
+            this.egaspRepository
+        );
+        return Future.fromPromise(
+            downloadTemplate
+                .getTrackedEntityRegister({
+                    moduleName,
+                    fileType: "PRODUCT",
+                    orgUnits,
+                    fetchConcurrency,
+                    orgUnitLabels,
+                })
+                .catch(e => {
+                    console.error("[AMC bulk download] prefetchProductRegister failed:", {
+                        moduleName,
+                        orgUnits,
                         error: e,
                         stack: e?.stack,
                     });

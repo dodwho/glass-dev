@@ -12,9 +12,11 @@ import { MetadataDefaultRepository } from "../data/repositories/MetadataDefaultR
 import { ExcelRepository } from "../domain/repositories/ExcelRepository";
 import { DownloadBulkPopulatedTemplateUseCase } from "../domain/usecases/DownloadBulkPopulatedTemplateUseCase";
 import { DataPackage } from "../domain/entities/data-entry/DataPackage";
+import { TrackedEntityInstance } from "../domain/entities/TrackedEntityInstance";
 import {
     describeProgramTarget,
     DownloadType,
+    MAX_SHEET_DATA_ROWS,
     NO_CALCULATED_DATA_AVAILABLE,
     TOO_MANY_ROWS,
 } from "../domain/utils/DownloadTemplate";
@@ -26,9 +28,10 @@ import {
 } from "../data/repositories/GlassUploadsProgramRepository";
 import { GlassUploadsStatus } from "../domain/entities/GlassUploads";
 import { setupConsoleLogger } from "../utils/logger";
-import { getInstance, warmUpSession } from "./common";
+import { getEnvVars, getInstance, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { escapeCsvField } from "./utils/csvStreamWriter";
+import { AMC_MODULE_ID } from "../domain/entities/data-entry/amc/amcProgramIds";
 
 dotenv.config();
 
@@ -37,6 +40,10 @@ dotenv.config();
 CONFIG — edit before each run
 ================================================================
 */
+// This script produces populated upload-template WORKBOOKS. For a complete analysis export of all
+// AMC data as CSV, use src/scripts/bulkDownloadAMCFiles.ts (`yarn bulk-download-amc-files`) — it
+// streams every country and year with no row cap, and is not built on this workbook path.
+//
 // DHIS2 org unit codes (ISO/M49 country codes) to include. Leave EMPTY to consider every country in
 // the system — the script fetches the full org unit list at startup (initializeOrgUnits(), same
 // pattern as bulkUploadAMRAggFiles.ts) and, combined with PRUNE_BY_COVERAGE below, downloads only
@@ -86,7 +93,6 @@ const COMBINE_PRODUCT_STAGES = true;
 const CHUNK_BY_YEAR = true;
 
 const moduleName = "AMC";
-const AMC_MODULE_ID = "BVnik5xiXGJ";
 const FILE_TYPES = ["PRODUCT", "SUBSTANCE"] as const;
 const DOWNLOAD_TYPES: DownloadType[] = ["SUBMITTED", "CALCULATED"];
 
@@ -342,32 +348,6 @@ async function retryWithBackoff<T>(
     throw new Error(`Failed to complete operation after ${maxRetries} retries`);
 }
 
-function getEnvVars() {
-    if (!process.env.REACT_APP_DHIS2_BASE_URL) throw new Error("REACT_APP_DHIS2_BASE_URL must be set in the .env file");
-
-    const token =
-        process.env.REACT_APP_DHIS2_TOKEN_PROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_PREPROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_TRAINING ||
-        process.env.REACT_APP_DHIS2_TOKEN;
-
-    if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-        throw new Error(
-            "Either REACT_APP_DHIS2_TOKEN_PROD, REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH must be set in the .env file"
-        );
-
-    return token
-        ? { url: process.env.REACT_APP_DHIS2_BASE_URL, token }
-        : (() => {
-              const auth = process.env.REACT_APP_DHIS2_AUTH!;
-              const username = auth.split(":")[0] ?? "";
-              const password = auth.split(":")[1] ?? "";
-              if (!username || !password)
-                  throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-              return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
-          })();
-}
-
 async function initializeOrgUnits(): Promise<{ [key: string]: string }> {
     const orgUnitsObject = await api.models.organisationUnits
         .get({
@@ -467,12 +447,51 @@ async function fetchAmcUploadMetadata(): Promise<{
     }
 }
 
-// Restricts the selected org units to those that actually have data of the given file type. Falls
+/*
+================================================================
+Which countries can have data in which program
+================================================================
+Coverage is read from the GLASS uploads program, so it is expressed in UPLOAD terms (a country
+submitted "Product Level Data" or "Substance Level Data" — never both; see ModuleProperties'
+isSingleFileTypePerSubmission). What a download actually reads is a PROGRAM, and the two do not line
+up one-to-one, because both AMC pipelines end in the same place:
+
+    product upload -> Product Register G6ChA5zMW9n
+                        stage GmElQHKXLIE  Raw Product Consumption
+                        stage q8cl5qllyjd  Raw Product/Substance Consumption Calculated (per product)
+                      -> aggregated into -> eUmWZeKZNrg
+    substance upload -> Raw Substance q8aSKr17J5S
+                      -> calculated into -> eUmWZeKZNrg
+
+    (both aggregation steps call AMCSubstanceDataRepository.importCalculations — see
+     CalculateConsumptionDataProductLevelUseCase.importSubstanceConsumptionCalculated and
+     CalculateConsumptionDataSubstanceLevelUseCase.)
+
+So Calculated Consumption (eUmWZeKZNrg) holds rows for product-reporting countries too. Scoping its
+download to substance uploaders — which is what keying the candidate list on fileType did — silently
+dropped every product-only country from it, i.e. most of them. The candidate set therefore belongs to
+the PROGRAM being read, not to the file type being downloaded.
+*/
+
+// The upload file type(s) that can put data into a given download target.
+type CoverageScope = typeof FILE_TYPES[number] | "ANY_AMC";
+
+const COVERAGE_SCOPE_SOURCES: Record<CoverageScope, typeof FILE_TYPES[number][]> = {
+    PRODUCT: ["PRODUCT"],
+    SUBSTANCE: ["SUBSTANCE"],
+    ANY_AMC: ["PRODUCT", "SUBSTANCE"],
+};
+
+// Restricts the selected org units to those that can actually have data in the target program. Falls
 // back to the full list when coverage is unavailable, so a coverage hiccup never drops a real country.
-function pruneOrgUnits(fileType: typeof FILE_TYPES[number], orgUnitIds: string[], coverage: Coverage | null): string[] {
+function pruneOrgUnits(scope: CoverageScope, orgUnitIds: string[], coverage: Coverage | null): string[] {
     if (!coverage) return orgUnitIds;
-    const withData = orgUnitIds.filter(id => coverage[fileType].has(id));
-    log(`${fileType}: ${withData.length}/${orgUnitIds.length} candidate countries have ${fileType.toLowerCase()} data`);
+    const sources = COVERAGE_SCOPE_SOURCES[scope];
+    const withData = orgUnitIds.filter(id => sources.some(source => coverage[source].has(id)));
+    log(
+        `${scope}: ${withData.length}/${orgUnitIds.length} candidate countries have data ` +
+            `(uploaded ${sources.map(source => source.toLowerCase()).join(" or ")} level)`
+    );
     return withData;
 }
 
@@ -510,6 +529,13 @@ Download logic
 // workbook" (PRODUCT combined mode); `label` names the file and its progress-report rows.
 type DownloadTask = { downloadType?: DownloadType; label: string };
 
+// SUBSTANCE/CALCULATED is the one target that reads Calculated Consumption (eUmWZeKZNrg), which both
+// pipelines feed — so it must consider product uploaders too. Every other target reads a program fed
+// by a single upload type. See the COVERAGE_SCOPE_SOURCES block above.
+function taskCoverageScope(fileType: typeof FILE_TYPES[number], task: DownloadTask): CoverageScope {
+    return fileType === "SUBSTANCE" && task.downloadType === "CALCULATED" ? "ANY_AMC" : fileType;
+}
+
 // The set of output files planned for a file type. PRODUCT in combined mode yields a single
 // all-stages file; otherwise each download type is a separate file (and SUBSTANCE always is, since
 // its types are different programs, not stages).
@@ -524,24 +550,40 @@ function bulkFileName(fileType: string, label: string, periodLabel: string): str
     return `AMC_bulk_${fileType}_${label}_${periodLabel}_${envLabel}_${runTimestamp}.xlsx`;
 }
 
+// The register is fetched once for the whole run rather than per year chunk (see the prefetch in
+// main()), so its progress rows are labelled ALL rather than by period.
+function productRegisterLabel(): string {
+    return `AMC_product_register_ALL_${envLabel}_${runTimestamp}`;
+}
+
+// One planned output file, named the same way whether it ends up written, skipped or failed — so the
+// progress CSV lists every file the run intended to produce. `coverageScope` is what decides which
+// countries that particular file is fetched for.
+type PlannedOutput = {
+    label: string;
+    coverageScope: CoverageScope;
+    fileNameFor: (periodLabel: string) => string;
+};
+
+function getPlannedOutputs(fileType: typeof FILE_TYPES[number], tasks: DownloadTask[]): PlannedOutput[] {
+    return tasks.map(task => ({
+        label: task.label,
+        coverageScope: taskCoverageScope(fileType, task),
+        fileNameFor: (periodLabel: string) => bulkFileName(fileType, task.label, periodLabel),
+    }));
+}
+
 // Records the same outcome for every planned output of a file type/period — used when a whole
 // file type is skipped (no coverage) or fails before per-file work starts (PRODUCT prefetch failure).
-function recordOutcomeForTasks(
+function recordOutcomeForOutputs(
     outcome: "SKIPPED" | "FAILED",
     fileType: typeof FILE_TYPES[number],
-    tasks: DownloadTask[],
+    outputs: PlannedOutput[],
     periodLabel: string,
     reason: string
 ): void {
-    for (const task of tasks) {
-        recordOutcome(
-            outcome,
-            fileType,
-            task.label,
-            periodLabel,
-            bulkFileName(fileType, task.label, periodLabel),
-            reason
-        );
+    for (const output of outputs) {
+        recordOutcome(outcome, fileType, output.label, periodLabel, output.fileNameFor(periodLabel), reason);
     }
 }
 
@@ -630,6 +672,7 @@ async function main(): Promise<void> {
     const startTime = Date.now();
 
     console.info(`DHIS2 instance: ${process.env.REACT_APP_DHIS2_BASE_URL ?? "(unset)"} (env label: ${envLabel})`);
+    console.info("Output: populated upload-template workbooks (.xlsx)");
     console.info(`Output folder: ${outputDir}`);
     console.info(`Log file: ${logFilePath}`);
     console.info(`Progress report: ${progressFilePath}`);
@@ -717,14 +760,73 @@ async function main(): Promise<void> {
     // Coverage-based org units and planned output files per file type are year-agnostic, so this is
     // computed ONCE here rather than inside the year loop below (avoids repeating the same coverage
     // lookup/log once per year chunk).
+    // Candidate countries per coverage scope, resolved once (coverage is year-agnostic). Each planned
+    // output picks the scope of the PROGRAM it reads — which is why Calculated Consumption gets
+    // ANY_AMC rather than SUBSTANCE. See COVERAGE_SCOPE_SOURCES.
+    const orgUnitsByScope: Record<CoverageScope, string[]> = {
+        PRODUCT: pruneOrgUnits("PRODUCT", orgUnitIds, coverage),
+        SUBSTANCE: pruneOrgUnits("SUBSTANCE", orgUnitIds, coverage),
+        ANY_AMC: pruneOrgUnits("ANY_AMC", orgUnitIds, coverage),
+    };
+
     const fileTypePlans = FILE_TYPES.map(fileType => {
-        const fileTypeOrgUnitIds = pruneOrgUnits(fileType, orgUnitIds, coverage);
         const tasks = getDownloadTasks(fileType);
-        if (fileTypeOrgUnitIds.length === 0) {
+        const outputs = getPlannedOutputs(fileType, tasks);
+        // A file type is only fully skippable when EVERY one of its outputs has no candidate country;
+        // substance_calculated can still have data when substance_submitted does not.
+        if (outputs.every(output => orgUnitsByScope[output.coverageScope].length === 0)) {
             log(`No candidate country has ${fileType.toLowerCase()} data — skipping ${fileType}.`, LogLevel.WARN);
         }
-        return { fileType, fileTypeOrgUnitIds, tasks };
+        return { fileType, tasks, outputs };
     });
+
+    // The PRODUCT register (tracked entities), fetched ONCE for the whole run — not once per year
+    // chunk. A product enrolls once and then reports consumption for years afterward, so an
+    // enrollment-date-scoped per-chunk fetch would only ever return that chunk's newly-enrolled
+    // products: every later year's file would be missing the register rows its OWN events need to
+    // join against. See DownloadTemplate.getTrackedEntityRegister for the full reasoning.
+    // `productRegisterTeis` is merged into each year's DataPackage below, so every year's workbook
+    // gets a complete attributes tab.
+    let productRegisterTeis: TrackedEntityInstance[] = [];
+    let productRegisterFailed = false;
+
+    if (orgUnitsByScope.PRODUCT.length > 0) {
+        try {
+            productRegisterTeis = await retryWithBackoff(() =>
+                downloadBulkPopulatedTemplate
+                    .prefetchProductRegister(moduleName, orgUnitsByScope.PRODUCT, FETCH_CONCURRENCY, idToCode)
+                    .toPromise()
+            );
+            if (productRegisterTeis.length > MAX_SHEET_DATA_ROWS) {
+                throw new Error(
+                    `${TOO_MANY_ROWS}: the full PRODUCT register has ${productRegisterTeis.length.toLocaleString()} ` +
+                        `tracked entities, exceeding the Excel per-sheet limit of ${MAX_SHEET_DATA_ROWS.toLocaleString()}. ` +
+                        `Split the run into fewer countries.`
+                );
+            }
+            log(
+                `PRODUCT register: ${productRegisterTeis.length.toLocaleString()} tracked entities fetched for the ` +
+                    `whole run (unfiltered by enrollment date).`
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            log(
+                `Error fetching the PRODUCT register (shared by every PRODUCT output this run): ${message}`,
+                LogLevel.ERROR
+            );
+            recordOutcome("FAILED", "PRODUCT", "product_register", "ALL", productRegisterLabel(), message);
+            productRegisterFailed = true;
+        }
+    } else {
+        recordOutcome(
+            "SKIPPED",
+            "PRODUCT",
+            "product_register",
+            "ALL",
+            productRegisterLabel(),
+            "No countries with product data"
+        );
+    }
 
     // One file-set per year (CHUNK_BY_YEAR) bounds peak memory to roughly 1/N of an all-years fetch
     // and keeps every sheet under Excel's row cap — see the CHUNK_BY_YEAR config comment. With
@@ -739,11 +841,32 @@ async function main(): Promise<void> {
         const chunkStartTime = Date.now();
         log(`=== ${periodLabel} (${chunkIndex + 1}/${yearChunks.length}) ===`);
 
-        for (const { fileType, fileTypeOrgUnitIds, tasks } of fileTypePlans) {
+        for (const { fileType, tasks, outputs } of fileTypePlans) {
             if (fatalAuthErrorMessage) break;
 
-            if (fileTypeOrgUnitIds.length === 0) {
-                recordOutcomeForTasks("SKIPPED", fileType, tasks, periodLabel, "No countries with this data type");
+            // Skip is per output, not per file type: substance_calculated draws on every AMC-reporting
+            // country, so it can have data in a period where substance_submitted has none.
+            const emptyOutputs = outputs.filter(output => orgUnitsByScope[output.coverageScope].length === 0);
+            recordOutcomeForOutputs(
+                "SKIPPED",
+                fileType,
+                emptyOutputs,
+                periodLabel,
+                "No countries with data in this program"
+            );
+            if (emptyOutputs.length === outputs.length) continue;
+
+            // Without the register, PRODUCT outputs would be either useless (CSV: every productId
+            // empty) or misleading (XLSX: attributes tab always empty) — skip cleanly rather than
+            // produce a file that looks complete but silently isn't.
+            if (fileType === "PRODUCT" && productRegisterFailed) {
+                recordOutcomeForOutputs(
+                    "FAILED",
+                    fileType,
+                    outputs,
+                    periodLabel,
+                    "PRODUCT register fetch failed earlier in this run — see the product_register/ALL row"
+                );
                 continue;
             }
 
@@ -775,18 +898,29 @@ async function main(): Promise<void> {
             let prefetchedDataPackage: DataPackage | undefined;
             if (fileType === "PRODUCT") {
                 try {
-                    prefetchedDataPackage = await retryWithBackoff(() =>
+                    // Events only (skipTrackedEntityInstances) — the register was already fetched
+                    // once for the WHOLE run above; re-fetching it here, per year chunk, would be both
+                    // redundant (same data, N times) and wrong (enrollment-date-scoped to just this
+                    // chunk's year, missing every previously-enrolled product's attributes — the exact
+                    // fragmentation this refactor exists to fix). Merge the whole-run register in so
+                    // every year's workbook still gets a complete attributes tab.
+                    const eventsOnlyPackage = await retryWithBackoff(() =>
                         downloadBulkPopulatedTemplate
                             .prefetchDataPackage(
                                 moduleName,
-                                fileTypeOrgUnitIds,
+                                orgUnitsByScope.PRODUCT,
                                 chunkYears,
                                 fileType,
                                 FETCH_CONCURRENCY,
-                                idToCode
+                                idToCode,
+                                { skipTrackedEntityInstances: true }
                             )
                             .toPromise()
                     );
+                    prefetchedDataPackage =
+                        eventsOnlyPackage.type === "trackerPrograms"
+                            ? { ...eventsOnlyPackage, trackedEntityInstances: productRegisterTeis }
+                            : eventsOnlyPackage;
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
                     const reason = message.startsWith(TOO_MANY_ROWS)
@@ -796,7 +930,7 @@ async function main(): Promise<void> {
                         `Error prefetching PRODUCT data for ${periodLabel} (shared by all PRODUCT outputs): ${message}`,
                         LogLevel.ERROR
                     );
-                    recordOutcomeForTasks("FAILED", fileType, tasks, periodLabel, reason);
+                    recordOutcomeForOutputs("FAILED", fileType, outputs, periodLabel, reason);
                     continue;
                 }
             }
@@ -806,7 +940,11 @@ async function main(): Promise<void> {
                     log(`Aborting — ${fatalAuthErrorMessage}`, LogLevel.ERROR);
                     break;
                 }
-                await downloadCombination(fileType, task, fileTypeOrgUnitIds, chunkYears, periodLabel, {
+                // Each task is fetched for the countries its own target program can hold data for —
+                // which for SUBSTANCE/CALCULATED (Calculated Consumption) is every AMC reporter.
+                const taskOrgUnitIds = orgUnitsByScope[taskCoverageScope(fileType, task)];
+                if (taskOrgUnitIds.length === 0) continue; // already recorded as SKIPPED above
+                await downloadCombination(fileType, task, taskOrgUnitIds, chunkYears, periodLabel, {
                     fetchConcurrency: FETCH_CONCURRENCY,
                     prefetchedDataPackage,
                     orgUnitLabels: idToCode,

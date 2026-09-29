@@ -4,6 +4,7 @@ import {
     BuilderMetadata,
     DownloadTemplateRepository,
     GetDataPackageParams,
+    GetTrackedEntitiesParams,
 } from "../../../domain/repositories/DownloadTemplateRepository";
 import { Instance } from "../../entities/Instance";
 import { getD2APiFromInstance } from "../../../utils/d2-api";
@@ -201,6 +202,20 @@ export class DownloadTemplateDefaultRepository implements DownloadTemplateReposi
         };
     }
 
+    // Fetches every tracked entity for a program/org-unit set, unfiltered by enrollment date — the
+    // same underlying fetch getTrackerProgramPackage's TEI pass uses (buildTei and all), just exposed
+    // standalone so a caller can pull the complete register once instead of a date-scoped slice of it
+    // on every per-period fetch. See GetTrackedEntitiesParams.
+    public async getTrackedEntities(params: GetTrackedEntitiesParams): Promise<TrackedEntityInstance[]> {
+        return getTrackedEntityInstances({
+            api: this.api,
+            program: { id: params.programId },
+            orgUnits: params.orgUnits.map(id => ({ id })),
+            fetchConcurrency: params.fetchConcurrency,
+            orgUnitLabels: params.orgUnitLabels,
+        });
+    }
+
     public async getDataPackage(params: GetDataPackageParams): Promise<DataPackage> {
         switch (params.type) {
             // case "dataSets":
@@ -387,18 +402,23 @@ export class DownloadTemplateDefaultRepository implements DownloadTemplateReposi
         // result; they stay distinguishable by their "Events"/"TEIs" prefixes.
         const [dataPackage, trackedEntityInstances] = await Promise.all([
             this.getProgramPackage(params),
-            getTrackedEntityInstances({
-                api,
-                program,
-                orgUnits,
-                enrollmentStartDate: params.filterTEIEnrollmentDate ? params.startDate : undefined,
-                enrollmentEndDate: params.filterTEIEnrollmentDate ? params.endDate : undefined,
-                relationshipsOuFilter: params.relationshipsOuFilter,
-                fetchConcurrency: params.fetchConcurrency,
-                orgUnitLabels: params.orgUnitLabels,
-                // @ts-ignore FIXME: Add property in d2-api
-                fields: "*",
-            }),
+            // skipTrackedEntityInstances lets a caller that already holds a complete, separately-
+            // fetched tracked-entity set (see getTrackedEntities) skip this redundant, date-scoped
+            // re-fetch and just get events — see the flag's doc comment on GetDataPackageParams.
+            params.skipTrackedEntityInstances
+                ? Promise.resolve<TrackedEntityInstance[]>([])
+                : getTrackedEntityInstances({
+                      api,
+                      program,
+                      orgUnits,
+                      enrollmentStartDate: params.filterTEIEnrollmentDate ? params.startDate : undefined,
+                      enrollmentEndDate: params.filterTEIEnrollmentDate ? params.endDate : undefined,
+                      relationshipsOuFilter: params.relationshipsOuFilter,
+                      fetchConcurrency: params.fetchConcurrency,
+                      orgUnitLabels: params.orgUnitLabels,
+                      // @ts-ignore FIXME: Add property in d2-api
+                      fields: "*",
+                  }),
         ]);
 
         return {

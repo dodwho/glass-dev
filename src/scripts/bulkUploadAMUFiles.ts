@@ -1,4 +1,4 @@
-import { D2Api, Id } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.34";
 import dotenv from "dotenv";
 import { promises as fs } from "node:fs";
 import { writeFileSync, appendFileSync } from "node:fs";
@@ -23,7 +23,7 @@ import { SetUploadStatusUseCase } from "../domain/usecases/SetUploadStatusUseCas
 
 import { generateUid } from "../utils/uid";
 import { setupConsoleLogger, logger, BatchLogContent } from "../utils/logger";
-import { getInstance, warmUpSession } from "./common";
+import { getEnvVars, getInstance, warmUpSession } from "./common";
 import { GlassUploadsProgramRepository } from "../data/repositories/GlassUploadsProgramRepository";
 import { getUploadsFormDataBuilder } from "../utils/getUploadsFormDataBuilder";
 import { getD2APiFromInstance } from "../utils/d2-api";
@@ -307,37 +307,6 @@ function getUploadFileTypeLabel(fileType: AmuFileType): string {
     // Match the labels the UI stores on the upload record (moduleProperties primary/secondary
     // file types) so downstream dashboards and filters see identical data.
     return FILE_TYPE_LABELS[fileType];
-}
-
-function getEnvVars() {
-    if (!process.env.REACT_APP_DHIS2_BASE_URL)
-        throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-    console.log("REACT_APP_DHIS2_BASE_URL:", process.env.REACT_APP_DHIS2_BASE_URL);
-
-    const token =
-        process.env.REACT_APP_DHIS2_TOKEN_PROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_PREPROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_TRAINING ||
-        process.env.REACT_APP_DHIS2_TOKEN;
-
-    if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-        throw new Error(
-            "Either REACT_APP_DHIS2_TOKEN_PROD, REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH must be set in the .env file"
-        );
-
-    const envVars = token
-        ? { url: process.env.REACT_APP_DHIS2_BASE_URL, token }
-        : (() => {
-              const auth = process.env.REACT_APP_DHIS2_AUTH!;
-              const username = auth.split(":")[0] ?? "";
-              const password = auth.split(":")[1] ?? "";
-              if (!username || !password)
-                  throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-              return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
-          })();
-
-    return envVars;
 }
 
 // Memoizes a repository method that returns FutureData, by resolved value (not by Future reference —
@@ -680,7 +649,12 @@ async function reauthenticate(reason: string): Promise<void> {
     const now = Date.now();
     if (lastAuthTime && now - lastAuthTime < AUTH_COOLDOWN_PERIOD) return; // refreshed very recently
     if (authPromise) {
-        await authPromise; // a refresh is already in progress
+        // A refresh is already in progress; wait for it but never adopt its rejection. The owner
+        // below logs and classifies the failure. Without the swallow this rethrows into whichever
+        // caller happened to arrive second — and the heartbeat's fire-and-forget call would become
+        // an unhandled rejection, which terminates the process (Node's default since v15) and
+        // kills a multi-hour run over a single transient /me failure.
+        await authPromise.catch(() => undefined);
         return;
     }
     authPromise = warmUpSession(api);
@@ -713,9 +687,13 @@ async function retryWithBackoff<T>(
             const errorText = error instanceof Error ? error.message : String(error);
 
             if (errorText.includes("Import Ignored")) {
+                // Rethrow the ORIGINAL error rather than breaking out: the loop's fall-through
+                // throw says "Failed to complete operation after N retries", which is both untrue
+                // (no retry was attempted) and erases the only description of what went wrong from
+                // the CSV `reason` column.
                 console.warn("The server returned Import Ignored. No reason to retry.");
                 log(errorText, LogLevel.ERROR);
-                break;
+                throw error instanceof Error ? error : new Error(errorText);
             }
 
             if (attempt === maxRetries) {
@@ -1796,18 +1774,19 @@ async function preflight(directories: string[]): Promise<void> {
     const periods = new Set<string>();
     const unresolvedCodes = new Set<string>();
 
-    for (const directory of directories) {
-        const exists = await fs
-            .stat(directory)
-            .then(stat => stat.isDirectory())
-            .catch(() => false);
-        if (!exists) {
-            problems.push(`Directory not found: ${directory}`);
-            continue;
-        }
+    // orgUnitCode_period -> the accepted files claiming it. AMC is isSingleFileTypePerSubmission,
+    // so more than one entry here is a conflict the run cannot resolve on its own.
+    const claims = new Map<string, { fileName: string; fileType: AmuFileType }[]>();
 
+    // Recurses, because processDirectory does — a preflight that stopped at the top level would
+    // silently under-report exactly the files the real run would go on to process.
+    const scan = async (directory: string): Promise<void> => {
         for (const file of await fs.readdir(directory)) {
-            if ((await fs.lstat(path.join(directory, file))).isDirectory()) continue;
+            const filePath = path.join(directory, file);
+            if ((await fs.lstat(filePath)).isDirectory()) {
+                await scan(filePath);
+                continue;
+            }
 
             const parsed = parseAmuFileName(file);
             if (parsed.kind === "ignore" || parsed.kind === "skip") {
@@ -1825,9 +1804,47 @@ async function preflight(directories: string[]): Promise<void> {
                 problems.push(`${file}: org unit code "${parsed.orgUnitCode}" does not resolve to a DHIS2 org unit`);
                 continue;
             }
+
+            const key = `${parsed.orgUnitCode}_${parsed.period}`;
+            claims.set(key, [...(claims.get(key) ?? []), { fileName: file, fileType: parsed.fileType }]);
             ok.push(file);
         }
+    };
+
+    for (const directory of directories) {
+        const exists = await fs
+            .stat(directory)
+            .then(stat => stat.isDirectory())
+            .catch(() => false);
+        if (!exists) {
+            problems.push(`Directory not found: ${directory}`);
+            continue;
+        }
+        await scan(directory);
     }
+
+    // Reported as a problem, not merely noted: whichever file the run reaches second becomes
+    // NEEDS_REVIEW — but only AFTER the first has cost a full tracker import plus a consumption
+    // calculation. Finding it here costs seconds. (Scope: the input set only. A conflicting upload
+    // that already exists in DHIS2 is still caught per-file by classifyFileState during the run.)
+    [...claims.entries()]
+        .filter(([, files]) => files.length > 1)
+        .forEach(([key, files]) => {
+            const distinctTypes = new Set(files.map(file => file.fileType));
+            problems.push(
+                distinctTypes.size > 1
+                    ? `CONFLICT ${key}: ${files
+                          .map(file => `${file.fileName} (${file.fileType})`)
+                          .join(
+                              " and "
+                          )} both target this country-year. AMC allows only one file type per submission — only the first will be uploaded.`
+                    : `DUPLICATE ${key}: ${files
+                          .map(file => file.fileName)
+                          .join(
+                              " and "
+                          )} are the same file type for the same country-year. Only the first will be uploaded.`
+            );
+        });
 
     log(`PREFLIGHT: ${ok.length} file(s) would be processed, ${problems.length} problem(s), ${ignored.length} ignored`);
     log(`PREFLIGHT: periods present: ${[...periods].sort().join(", ")}`);
@@ -1866,7 +1883,10 @@ async function main() {
 
         // Keep the DHIS2 session warm across this long-running job (see reauthenticate).
         const authHeartbeat = setInterval(() => {
-            void reauthenticate("heartbeat");
+            // Fire-and-forget, so it must never be able to reject: an unhandled rejection here
+            // terminates the process and loses the rest of the run. reauthenticate already swallows
+            // its own failures; this is the belt to that braces.
+            reauthenticate("heartbeat").catch(() => undefined);
         }, AUTH_HEARTBEAT_INTERVAL);
 
         try {
@@ -1920,6 +1940,6 @@ process.on("SIGINT", () => {
 });
 
 main().catch(err => {
-    console.error("Fatal error occurred:", err.message);
+    console.error("Fatal error occurred:", err instanceof Error ? err.message : String(err));
     process.exit(1);
 });
