@@ -160,22 +160,21 @@ export class ProgramRuleValidationForBLEventProgram {
     private getActions(eventEffects: EventEffect[], metadata: BulkLoadMetadata): ActionResult {
         const updateActions: ActionResult = { actions: [], blockingErrors: [], nonBlockingErrors: [] };
 
-        _(eventEffects)
-            .flatMap(eventEffect => {
-                return _(eventEffect.effects).flatMap(ruleEffect => {
-                    const result = this.getUpdateAction(ruleEffect, eventEffect, metadata);
+        // Plain loops: this used to be a lazy lodash chain whose inner callbacks only ran when uniqWith compared
+        // two items, so a batch in which a single event had effects silently lost all of that event's effects.
+        eventEffects.forEach(eventEffect => {
+            eventEffect.effects.forEach(ruleEffect => {
+                const result = this.getUpdateAction(ruleEffect, eventEffect, metadata);
 
-                    if (result?.type === "blocking") {
-                        updateActions.blockingErrors.push(result.error);
-                    } else if (result?.type === "non-blocking") {
-                        updateActions.nonBlockingErrors.push(result.error);
-                    } else if (result) {
-                        updateActions.actions.push(result);
-                    }
-                });
-            })
-            .uniqWith(_.isEqual)
-            .value();
+                if (result?.type === "blocking") {
+                    updateActions.blockingErrors.push(result.error);
+                } else if (result?.type === "non-blocking") {
+                    updateActions.nonBlockingErrors.push(result.error);
+                } else if (result) {
+                    updateActions.actions.push(result);
+                }
+            });
+        });
 
         const uniqBlockingErrors = _(updateActions.blockingErrors).uniqWith(_.isEqual).groupBy("error").value();
         const uniqNonBlockingErrors = _(updateActions.nonBlockingErrors).uniqWith(_.isEqual).groupBy("error").value();
