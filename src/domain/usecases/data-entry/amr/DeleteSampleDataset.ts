@@ -10,7 +10,7 @@ import {
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import { SampleDataRepository } from "../../../repositories/data-entry/SampleDataRepository";
 import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
-import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./ImportSampleFile";
+import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
 import { Maybe } from "../../../../utils/ts-utils";
 import { deleteDataValues } from "../utils/deleteDataValues";
 

@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { Future, FutureData } from "../../../entities/Future";
 import { ImportStrategy } from "../../../entities/data-entry/DataValuesSaveSummary";
 import { ConsistencyError, ImportSummary } from "../../../entities/data-entry/ImportSummary";
@@ -21,8 +22,7 @@ import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import { RISData } from "../../../entities/data-entry/amr-external/RISData";
 import { checkDuplicateRowsRIS } from "../utils/checkDuplicateRows";
 
-export const AMR_AMR_DS_INPUT_FILES_RIS_DS_ID = "CeQPmXgrhHF";
-export const AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID = "S427AvQESbw";
+import { AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID } from "./amrAggMetadataIds";
 
 export class ImportRISFile {
     constructor(

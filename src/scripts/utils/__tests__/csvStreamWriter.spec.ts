@@ -108,6 +108,39 @@ describe("CsvStreamWriter", () => {
         expect(writer.rowsWritten).toBe(2);
     });
 
+    it("writeRows emits a batch identically to writing each row on its own", async () => {
+        const batched = join(dir, "batched.csv");
+        const individual = join(dir, "individual.csv");
+        const rows = [
+            ["ESP", "2023", "a,b"],
+            ["FRA", "2024", 'say "hi"'],
+            ["", "", ""],
+        ];
+
+        const batchWriter = new CsvStreamWriter(batched, ["COUNTRY", "YEAR", "NOTE"]);
+        await batchWriter.writeRows(rows);
+        await batchWriter.finalize();
+
+        const rowWriter = new CsvStreamWriter(individual, ["COUNTRY", "YEAR", "NOTE"]);
+        for (const row of rows) await rowWriter.writeRow(row);
+        await rowWriter.finalize();
+
+        expect(readFileSync(batched, "utf8")).toBe(readFileSync(individual, "utf8"));
+        expect(batchWriter.rowsWritten).toBe(3);
+        expect(batchWriter.rowsWritten).toBe(rowWriter.rowsWritten);
+    });
+
+    it("writeRows on an empty batch writes nothing and counts nothing", async () => {
+        const finalPath = join(dir, "empty-batch.csv");
+        const writer = new CsvStreamWriter(finalPath, ["COUNTRY"]);
+
+        await writer.writeRows([]);
+        await writer.finalize();
+
+        expect(writer.rowsWritten).toBe(0);
+        expect(readFileSync(finalPath, "utf8")).toBe("COUNTRY\r\n");
+    });
+
     it("rejects writes after the stream is closed", async () => {
         const finalPath = join(dir, "closed.csv");
         const writer = new CsvStreamWriter(finalPath, ["COUNTRY"]);

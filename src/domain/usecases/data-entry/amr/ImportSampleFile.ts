@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { Future, FutureData } from "../../../entities/Future";
 import { ImportStrategy } from "../../../entities/data-entry/DataValuesSaveSummary";
 import { ConsistencyError, ImportSummary } from "../../../entities/data-entry/ImportSummary";
@@ -18,8 +19,7 @@ import { SampleDataRepository } from "../../../repositories/data-entry/SampleDat
 import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
 import { checkDuplicateRowsSAMPLE } from "../utils/checkDuplicateRows";
 
-export const AMR_AMR_DS_Input_files_Sample_DS_ID = "OcAB7oaC072";
-export const AMR_BATCHID_CC_ID = "rEMx3WFeLcU";
+import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
 
 export class ImportSampleFile {
     constructor(

@@ -78,6 +78,28 @@ export class CsvStreamWriter {
     }
 
     /**
+     * Writes a whole batch of rows as ONE stream write, and awaits backpressure at most once for the
+     * batch. On a bulk export this replaces a write call, a promise and a microtask per row with one
+     * of each per page — the per-row cost stops being visible at millions of rows.
+     *
+     * Concurrency: the serialised batch is handed to `stream.write` in a single synchronous call, so
+     * batches from concurrent producers can interleave with each other but can never interleave
+     * WITHIN a row or a batch. That is what lets several org-unit workers stream into one shared
+     * table file safely; row order across workers is not deterministic, which a CSV does not depend on.
+     */
+    public async writeRows(rows: (string | number | null | undefined)[][]): Promise<void> {
+        if (this.closed) throw new Error(`Cannot write to a closed CsvStreamWriter (${this.finalPath})`);
+        this.throwIfStreamFailed();
+        if (rows.length === 0) return;
+        const canContinue = this.stream.write(rows.map(formatCsvRow).join(""));
+        this.rowsWritten += rows.length;
+        if (!canContinue) {
+            await once(this.stream, "drain");
+        }
+        this.throwIfStreamFailed();
+    }
+
+    /**
      * Flushes and closes the stream, fsyncs the bytes to disk, then renames `.partial` -> the final
      * path. The fsync matters: without it the rename can reach disk before the file contents do, so
      * a crash/power-loss at the wrong moment leaves a full-length file at `finalPath` containing
