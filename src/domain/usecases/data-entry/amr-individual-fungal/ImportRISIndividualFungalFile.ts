@@ -1,6 +1,6 @@
 import { Future, FutureData } from "../../../entities/Future";
 import { ImportStrategy } from "../../../entities/data-entry/DataValuesSaveSummary";
-import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
+import { getDefaultErrorImportSummary, ImportSummary } from "../../../entities/data-entry/ImportSummary";
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
 import { GlassUploadsRepository } from "../../../repositories/GlassUploadsRepository";
 import { TrackerRepository } from "../../../repositories/TrackerRepository";
@@ -9,16 +9,18 @@ import { mapToImportSummary, uploadIdListFileAndSave } from "../ImportBLTemplate
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { GlassModuleRepository } from "../../../repositories/GlassModuleRepository";
 import { CustomDataColumns } from "../../../entities/data-entry/amr-individual-fungal-external/RISIndividualFungalData";
-import { ProgramRulesMetadataRepository } from "../../../repositories/program-rules/ProgramRulesMetadataRepository";
 import { downloadIdsAndDeleteTrackedEntities } from "../utils/downloadIdsAndDeleteTrackedEntities";
 import { Country } from "../../../entities/Country";
-import { mapIndividualFungalDataItemsToEntities, runCustomValidations, runProgramRuleValidations } from "./common";
-import { checkSpecimenPathogenFromDataColumns } from "../utils/checkSpecimenPathogen";
+import { getLineNumbersByTrackerId, mapIndividualFungalDataItemsToEntities } from "./common";
+import { validateRISIndividualFungalRows } from "./validateRISIndividualFungalRows";
 
 export const AMRIProgramID = "mMAj6Gofe49";
 export const AMR_GLASS_AMR_TET_PATIENT = "CcgnfemKr5U";
 export const AMRDataProgramStageId = "KCmWZD8qoAk";
 export const AMRCandidaProgramStageId = "ysGSonDq9Bc";
+
+// Line 1 of the file is the header row.
+const FIRST_DATA_LINE = 2;
 
 export class ImportRISIndividualFungalFile {
     constructor(
@@ -27,7 +29,6 @@ export class ImportRISIndividualFungalFile {
         private glassDocumentsRepository: GlassDocumentsRepository,
         private glassUploadsRepository: GlassUploadsRepository,
         private metadataRepository: MetadataRepository,
-        private programRulesMetadataRepository: ProgramRulesMetadataRepository,
         private moduleRepository: GlassModuleRepository
     ) {}
 
@@ -49,121 +50,62 @@ export class ImportRISIndividualFungalFile {
         allCountries: Country[]
     ): FutureData<ImportSummary> {
         if (action === "CREATE_AND_UPDATE") {
-            return this.risIndividualFungalRepository
-                .get(dataColumns, inputFile)
-                .flatMap(risIndividualFungalDataItems => {
-                    return Future.joinObj({
-                        risIndividualFungalDataItems: Future.success(risIndividualFungalDataItems),
-                        module: this.moduleRepository.getByName(moduleName),
-                    });
-                })
-                .flatMap(({ risIndividualFungalDataItems, module }) => {
-                    const specimenPathogenAntibioticErrors = module.consistencyChecks
-                        ? checkSpecimenPathogenFromDataColumns(
-                              risIndividualFungalDataItems,
-                              module.consistencyChecks.specimenPathogen
-                          )
-                        : [];
-                    if (specimenPathogenAntibioticErrors.length > 0) {
-                        const errorSummary: ImportSummary = {
-                            status: "ERROR",
-                            importCount: {
-                                ignored: 0,
-                                imported: 0,
-                                deleted: 0,
-                                updated: 0,
-                                total: 0,
-                            },
-                            nonBlockingErrors: [],
-                            blockingErrors: specimenPathogenAntibioticErrors,
-                        };
-                        return Future.success(errorSummary);
+            const programId = program ? program.id : AMRIProgramID;
+            const programStageId = program
+                ? program.programStageId
+                : moduleName === "AMR - Individual"
+                ? AMRDataProgramStageId
+                : AMRCandidaProgramStageId;
+
+            return Future.joinObj({
+                rows: this.risIndividualFungalRepository.get(dataColumns, inputFile),
+                module: this.moduleRepository.getByName(moduleName),
+                programMetadata: this.trackerRepository.getProgramMetadata(programId, programStageId),
+            }).flatMap(({ rows, module, programMetadata }) =>
+                validateRISIndividualFungalRows(
+                    rows,
+                    {
+                        countryCode,
+                        period,
+                        programStageId,
+                        programMetadata,
+                        specimenPathogen: module.consistencyChecks?.specimenPathogen,
+                    },
+                    FIRST_DATA_LINE
+                ).flatMap(blockingErrors => {
+                    if (blockingErrors.length > 0) {
+                        return Future.success(getDefaultErrorImportSummary({ blockingErrors }));
                     }
-                    return runCustomValidations(risIndividualFungalDataItems, countryCode, period).flatMap(
-                        validationSummary => {
-                            //If there are blocking errors on custom validation, do not import. Return immediately.
-                            if (validationSummary.blockingErrors.length > 0) {
-                                return Future.success(validationSummary);
-                            }
-                            //Import RIS data
-                            const AMRIProgramIDl = program ? program.id : AMRIProgramID;
 
-                            const AMRDataProgramStageIdl = () => {
-                                if (program) {
-                                    return program.programStageId;
-                                } else {
-                                    return moduleName === "AMR - Individual"
-                                        ? AMRDataProgramStageId
-                                        : AMRCandidaProgramStageId;
-                                }
-                            };
-
-                            return this.trackerRepository
-                                .getProgramMetadata(AMRIProgramIDl, AMRDataProgramStageIdl())
-                                .flatMap(programMetadata => {
-                                    return mapIndividualFungalDataItemsToEntities(
-                                        risIndividualFungalDataItems,
-                                        orgUnit,
-                                        AMRIProgramIDl,
-                                        AMRDataProgramStageIdl(),
-                                        countryCode,
-                                        period,
-                                        allCountries,
-                                        programMetadata
-                                    ).flatMap(entities => {
-                                        return runProgramRuleValidations(
-                                            AMRIProgramIDl,
-                                            entities,
-                                            AMRDataProgramStageIdl(),
-                                            this.programRulesMetadataRepository
-                                        ).flatMap(validationResult => {
-                                            if (validationResult.blockingErrors.length > 0) {
-                                                const errorSummary: ImportSummary = {
-                                                    status: "ERROR",
-                                                    importCount: {
-                                                        ignored: 0,
-                                                        imported: 0,
-                                                        deleted: 0,
-                                                        updated: 0,
-                                                        total: 0,
-                                                    },
-                                                    nonBlockingErrors: validationResult.nonBlockingErrors,
-                                                    blockingErrors: validationResult.blockingErrors,
-                                                };
-                                                return Future.success(errorSummary);
-                                            }
-
-                                            return this.trackerRepository
-                                                .import(
-                                                    {
-                                                        trackedEntities:
-                                                            validationResult.teis && validationResult.teis.length > 0
-                                                                ? validationResult.teis
-                                                                : [],
-                                                    },
-                                                    { action: action, async: true }
-                                                )
-                                                .flatMap(response => {
-                                                    return mapToImportSummary(
-                                                        response,
-                                                        "trackedEntity",
-                                                        this.metadataRepository
-                                                    ).flatMap(summary => {
-                                                        return uploadIdListFileAndSave(
-                                                            "primaryUploadId",
-                                                            summary,
-                                                            moduleName,
-                                                            this.glassDocumentsRepository,
-                                                            this.glassUploadsRepository
-                                                        );
-                                                    });
-                                                });
-                                        });
-                                    });
-                                });
-                        }
+                    return mapIndividualFungalDataItemsToEntities(
+                        rows,
+                        orgUnit,
+                        programId,
+                        programStageId,
+                        countryCode,
+                        period,
+                        allCountries,
+                        programMetadata
+                    ).flatMap(trackedEntities =>
+                        this.trackerRepository
+                            .import({ trackedEntities }, { action: action, async: true })
+                            .flatMap(response =>
+                                mapToImportSummary(response, "trackedEntity", this.metadataRepository, {
+                                    eventIdLineNoMap: getLineNumbersByTrackerId(trackedEntities, FIRST_DATA_LINE),
+                                })
+                            )
+                            .flatMap(summary =>
+                                uploadIdListFileAndSave(
+                                    "primaryUploadId",
+                                    summary,
+                                    moduleName,
+                                    this.glassDocumentsRepository,
+                                    this.glassUploadsRepository
+                                )
+                            )
                     );
-                });
+                })
+            );
         } else {
             // NOTICE: check also DeleteRISIndividualFungalFileUseCase.ts that contains same code adapted for node environment (only DELETE)
             return downloadIdsAndDeleteTrackedEntities(

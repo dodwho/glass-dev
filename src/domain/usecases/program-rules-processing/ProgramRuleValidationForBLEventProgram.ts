@@ -67,17 +67,6 @@ export class ProgramRuleValidationForBLEventProgram {
         });
     }
 
-    public getValidatedTeisAndEventsFromMetadataForAsyncUpload(
-        metadata: BulkLoadMetadata,
-        events?: TrackerEvent[],
-        teis?: TrackerTrackedEntity[], //For tracker programs only
-        currentProgramStage?: Id
-    ): FutureData<ValidationResult> {
-        return this.getEventEffectsForAsyncUpload(metadata, events, teis, currentProgramStage).flatMap(eventEffects => {
-            return Future.success(this.toValidationResult(eventEffects, metadata, events, teis));
-        });
-    }
-
     private toValidationResult(
         eventEffects: EventEffect[],
         metadata: BulkLoadMetadata,
@@ -399,47 +388,6 @@ export class ProgramRuleValidationForBLEventProgram {
 
         const eventEffects = this.computeEventEffects(teis, (event, teiEvents, tei) =>
             this.getEffects({ event, program, programRulesIds, metadata, events: teiEvents, teis, tei })
-        );
-
-        return Future.success(eventEffects);
-    }
-
-    private getEventEffectsForAsyncUpload(
-        metadata: BulkLoadMetadata,
-        events?: TrackerEvent[],
-        teis?: TrackerTrackedEntity[],
-        currentProgramStage?: Id
-    ): FutureData<EventEffect[]> {
-        const program = metadata.programs[0];
-        if (program) {
-            switch (program.programType) {
-                case "WITHOUT_REGISTRATION":
-                    if (events) return Future.success(this.getEventEffectsForEventProgram(events, metadata));
-                    else return Future.error("No events");
-
-                case "WITH_REGISTRATION":
-                    return this.getEventEffectsForTrackerProgramForAsyncUpload(
-                        teis,
-                        { program, metadata },
-                        currentProgramStage
-                    );
-            }
-        } else return Future.error("Unknown program");
-    }
-
-    private getEventEffectsForTrackerProgramForAsyncUpload(
-        teis: TrackerTrackedEntity[] | undefined,
-        options: { program: Program; metadata: BulkLoadMetadata },
-        currentProgramStage?: Id
-    ): FutureData<EventEffect[]> {
-        const { program, metadata } = options;
-        const programRulesIds = this.getProgramRulesIds(metadata, currentProgramStage);
-
-        // Built once per chunk: identical for every event, so it must not be rebuilt inside the loop
-        const staticContext = this.buildStaticRuleContext(program, programRulesIds, metadata, teis ?? []);
-
-        const eventEffects = this.computeEventEffects(teis, (event, teiEvents, tei) =>
-            this.getEffectsWithContext(staticContext, { event, program, metadata, events: teiEvents, tei })
         );
 
         return Future.success(eventEffects);

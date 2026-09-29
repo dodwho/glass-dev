@@ -3,10 +3,8 @@ import { Country } from "../../../entities/Country";
 import { CustomDataColumns } from "../../../entities/data-entry/amr-individual-fungal-external/RISIndividualFungalData";
 import { Future, FutureData } from "../../../entities/Future";
 import { getTEAValueFromOrganisationUnitCountryEntry } from "../utils/getTEAValueFromOrganisationUnitCountryEntry";
-import { BulkLoadMetadata, ValidationResult } from "../../../entities/program-rules/EventEffectTypes";
-import { ProgramRuleValidationForBLEventProgram } from "../../program-rules-processing/ProgramRuleValidationForBLEventProgram";
-import { ProgramRulesMetadataRepository } from "../../../repositories/program-rules/ProgramRulesMetadataRepository";
 import { ConsistencyError, ImportSummary } from "../../../entities/data-entry/ImportSummary";
+import { generateId, Id } from "../../../entities/Ref";
 import {
     TrackerEnrollment,
     TrackerEvent,
@@ -15,17 +13,18 @@ import {
 } from "../../../entities/TrackedEntityInstance";
 import {
     AMR_INDIVIDUAL_FUNGAL_DATE_COLUMNS,
+    MANDATORY_TEI_ATTRIBUTES,
     checkAdmissionDate,
     checkCountry,
+    checkMandatoryAttribute,
     checkPeriod,
     checkSpecimenDate,
+    checkSpecimenDateNotInFuture,
 } from "./RISIndividualFungalFileValidations";
 import { parseDateStrict, validateAllDateFieldsInRow } from "../utils/dateValidation";
 
 const AMR_GLASS_AMR_TET_PATIENT = "CcgnfemKr5U";
 
-const PATIENT_COUNTER_ID = "uSGcLbT5gJJ";
-const PATIENT_ID = "qKWPfeSgTnc";
 const AMR_GLASS_AMR_DET_SAMPLE_DATE = "Xtn5zEL9mGx";
 
 export function mapIndividualFungalDataItemsToEntities(
@@ -75,11 +74,12 @@ export function mapIndividualFungalDataItemsToEntities(
         const sampleDate = parseDateStrict(sampleDateStr) ?? period;
 
         const createdAt = new Date().toISOString().split("T")[0] ?? period;
+        const trackedEntityId = generateId();
 
         const events: TrackerEvent[] = [
             {
                 program: AMRIProgramIDl,
-                event: "",
+                event: generateId(),
                 programStage: AMRDataProgramStageIdl,
                 orgUnit,
                 dataValues: AMRDataStage,
@@ -91,8 +91,8 @@ export function mapIndividualFungalDataItemsToEntities(
             {
                 orgUnit,
                 program: AMRIProgramIDl,
-                trackedEntity: "",
-                enrollment: "",
+                trackedEntity: trackedEntityId,
+                enrollment: generateId(),
                 trackedEntityType: AMR_GLASS_AMR_TET_PATIENT,
                 attributes: attributes,
                 events: events,
@@ -112,134 +112,39 @@ export function mapIndividualFungalDataItemsToEntities(
 
         const entity: TrackerTrackedEntity = {
             orgUnit,
-            trackedEntity: "",
+            trackedEntity: trackedEntityId,
             trackedEntityType: AMR_GLASS_AMR_TET_PATIENT,
             enrollments: enrollments,
-            attributes: [
-                {
-                    attribute: PATIENT_COUNTER_ID,
-                    value: attributes.find(at => at.attribute === PATIENT_COUNTER_ID)?.value.toString() ?? "",
-                },
-                {
-                    attribute: PATIENT_ID,
-                    value: attributes.find(at => at.attribute === PATIENT_ID)?.value.toString() ?? "",
-                },
-            ],
+            // The tracked entity type requires these attributes at tracked entity level as well as on
+            // the enrollment; runCustomValidations has already guaranteed every row carries a value.
+            attributes: MANDATORY_TEI_ATTRIBUTES.map(({ id }) => ({
+                attribute: id,
+                value: attributes.find(at => at.attribute === id)?.value.toString() ?? "",
+            })),
         };
         return entity;
     });
     return Future.success(trackedEntities);
 }
 
-function addPositionalIdsToTeis(teis: TrackerTrackedEntity[]): TrackerTrackedEntity[] {
-    return teis.map((tei, teiIndex) => {
-        const enrollmentsWithId = tei.enrollments?.map((enrollment, enrollmentIndex) => {
-            const eventsWithIds = enrollment.events.map((ev, eventIndex) => {
-                return {
-                    ...ev,
-                    event: (eventIndex + 1 + teiIndex).toString(),
-                    enrollment: enrollmentIndex.toString(),
-                    trackedEntity: teiIndex.toString(),
-                };
-            });
-            return { ...enrollment, enrollment: enrollmentIndex.toString(), events: eventsWithIds };
-        });
-
-        return { ...tei, enrollments: enrollmentsWithId, trackedEntity: teiIndex.toString() };
-    });
-}
-
-function removePositionalIdsFromTeis(
-    teis: ReadonlyArray<TrackerTrackedEntity> | undefined
-): TrackerTrackedEntity[] | undefined {
-    return teis?.map(tei => {
-        const enrollementsWithoutId = tei.enrollments?.map(enrollment => {
-            const eventsWithoutIds = enrollment.events.map(ev => {
-                return {
-                    ...ev,
-                    event: "",
-                    enrollment: "",
-                    trackedEntity: "",
-                };
-            });
-
-            return { ...enrollment, enrollment: "", events: eventsWithoutIds };
-        });
-        return { ...tei, enrollments: enrollementsWithoutId, trackedEntity: "" };
-    });
-}
-
-export function runProgramRuleValidations(
-    programId: string,
-    teis: TrackerTrackedEntity[],
-    AMRDataProgramStageIdl: string,
-    programRulesMetadataRepository: ProgramRulesMetadataRepository,
-    programRulesMetadata?: BulkLoadMetadata
-): FutureData<ValidationResult> {
-    //1. Before running validations, add ids to tei, enrollement and event so thier relationships can be processed.
-    const teisWithId = addPositionalIdsToTeis(teis);
-
-    //2. Run Program Rule Validations
-    const programRuleValidations = new ProgramRuleValidationForBLEventProgram(programRulesMetadataRepository);
-
-    const $validation = programRulesMetadata
-        ? programRuleValidations.getValidatedTeisAndEventsFromMetadata(
-              programRulesMetadata,
-              [],
-              teisWithId,
-              AMRDataProgramStageIdl
-          )
-        : programRuleValidations.getValidatedTeisAndEvents(programId, [], teisWithId, AMRDataProgramStageIdl);
-
-    return $validation.flatMap(programRuleValidationResults => {
-        //3. After processing, remove ids to tei, enrollement and events so that they can be imported
-        return Future.success({
-            blockingErrors: programRuleValidationResults.blockingErrors,
-            nonBlockingErrors: programRuleValidationResults.nonBlockingErrors,
-            teis: removePositionalIdsFromTeis(programRuleValidationResults.teis),
-        });
-    });
-}
-
 /**
- * Async-upload-only variant of runProgramRuleValidations: same validation outcome, but the
- * metadata-derived rule structures are built once per chunk instead of once per event,
- * which makes validating large CSV chunks an order of magnitude faster.
+ * File line of every tracked entity, enrollment and event id of entities built from consecutive file rows,
+ * so errors DHIS2 reports against any of those objects can be traced back to the row.
  */
-export function runProgramRuleValidationsForAsyncUpload(
-    programId: string,
-    teis: TrackerTrackedEntity[],
-    AMRDataProgramStageIdl: string,
-    programRulesMetadataRepository: ProgramRulesMetadataRepository,
-    programRulesMetadata?: BulkLoadMetadata
-): FutureData<ValidationResult> {
-    //1. Before running validations, add ids to tei, enrollement and event so thier relationships can be processed.
-    const teisWithId = addPositionalIdsToTeis(teis);
-
-    //2. Run Program Rule Validations building the static rule context once per chunk
-    const programRuleValidations = new ProgramRuleValidationForBLEventProgram(programRulesMetadataRepository);
-
-    const $metadata: FutureData<BulkLoadMetadata> = programRulesMetadata
-        ? Future.success(programRulesMetadata)
-        : programRulesMetadataRepository.getMetadata(programId);
-
-    return $metadata
-        .flatMap(metadata =>
-            programRuleValidations.getValidatedTeisAndEventsFromMetadataForAsyncUpload(
-                metadata,
-                [],
-                teisWithId,
-                AMRDataProgramStageIdl
-            )
-        )
-        .flatMap(programRuleValidationResults => {
-            //3. After processing, remove ids to tei, enrollement and events so that they can be imported
-            return Future.success({
-                blockingErrors: programRuleValidationResults.blockingErrors,
-                nonBlockingErrors: programRuleValidationResults.nonBlockingErrors,
-                teis: removePositionalIdsFromTeis(programRuleValidationResults.teis),
-            });
-        });
+export function getLineNumbersByTrackerId(
+    trackedEntities: TrackerTrackedEntity[],
+    firstLine: number
+): { id: Id; lineNo: number }[] {
+    return trackedEntities.flatMap((trackedEntity, index) => {
+        const lineNo = firstLine + index;
+        return [
+            trackedEntity.trackedEntity,
+            ...trackedEntity.enrollments.flatMap(enrollment => [
+                enrollment.enrollment,
+                ...enrollment.events.map(event => event.event),
+            ]),
+        ].map(id => ({ id, lineNo }));
+    });
 }
 
 type CustomValidationFunction = (dataItem: CustomDataColumns) => string | null;
@@ -258,8 +163,13 @@ export function runCustomValidations(
                 .filter(item => item.value !== undefined && item.value !== null)
                 .map(item => [item.key, item.value?.toString() ?? ""])
         );
+        // Grouped per column and kind of problem, not per cell, so a file with a bad date on every row gives
+        // one error with its lines instead of one error per row. The lines identify each offending value.
         return validateAllDateFieldsInRow(row, AMR_INDIVIDUAL_FUNGAL_DATE_COLUMNS, line).map(err => ({
-            error: err.message,
+            error:
+                err.error === "date_format"
+                    ? `Invalid date format in column "${err.column}". Expected format: YYYY-MM-DD (e.g., 2024-09-23). Please update your file and re-upload.`
+                    : `Invalid date in column "${err.column}": the date does not exist on the calendar. Please correct it and re-upload.`,
             line: err.row,
         }));
     });
@@ -290,7 +200,14 @@ export function runCustomValidations(
         (dataItem: CustomDataColumns) => checkCountry(dataItem, orgUnit),
         (dataItem: CustomDataColumns) => checkPeriod(dataItem, period),
         (dataItem: CustomDataColumns) => checkSpecimenDate(dataItem, period),
+        (dataItem: CustomDataColumns) => checkSpecimenDateNotInFuture(dataItem),
         (dataItem: CustomDataColumns) => checkAdmissionDate(dataItem),
+        // One check per attribute so each one is reported with its own list of offending file lines.
+        ...MANDATORY_TEI_ATTRIBUTES.map(
+            ({ column }) =>
+                (dataItem: CustomDataColumns) =>
+                    checkMandatoryAttribute(dataItem, column)
+        ),
     ];
     const businessErrors = risIndividualFungalDataItems.flatMap((dataItem, index) => {
         const line = fileLineStart + index;

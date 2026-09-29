@@ -8,9 +8,19 @@ import { TrackerPostRequest } from "../entities/TrackedEntityInstance";
 export interface TrackerRepository {
     import(
         req: TrackerPostRequest,
-        options: { action: ImportStrategy; async?: boolean }
+        options: {
+            action: ImportStrategy;
+            async?: boolean;
+            skipSideEffects?: boolean;
+            /** Only for payloads whose objects all carry client-generated ids, so that a resend cannot duplicate. */
+            retryTransientErrors?: boolean;
+        }
     ): FutureData<TrackerPostResponse>;
     getProgramMetadata(programID: string, programStageId: string): FutureData<any>;
     getExistingTrackedEntitiesIdsByIds(trackEntitiesIds: Id[], programId: Id): FutureData<Id[]>;
+    getExistingTrackedEntities(
+        trackedEntityIds: Id[],
+        trackedEntityType: Id
+    ): FutureData<{ trackedEntity: Id; orgUnit: Id }[]>;
     getExistingEventsIdsByIds(eventIds: Id[], programId: Id): FutureData<Id[]>;
 }

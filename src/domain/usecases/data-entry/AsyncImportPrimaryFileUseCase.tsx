@@ -13,7 +13,7 @@ import { RISIndividualFungalDataRepository } from "../../repositories/data-entry
 import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepository";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
 import { MetadataRepository } from "../../repositories/MetadataRepository";
-import { ProgramRulesMetadataRepository } from "../../repositories/program-rules/ProgramRulesMetadataRepository";
+import { AsyncUploadProgressRepository } from "../../repositories/AsyncUploadProgressRepository";
 import { TrackerRepository } from "../../repositories/TrackerRepository";
 import { AsyncImportRISIndividualFungalFile } from "./amr-individual-fungal/AsyncImportRISIndividualFungalFile";
 
@@ -22,7 +22,7 @@ export class AsyncImportPrimaryFileUseCase {
         private repositories: {
             risIndividualFungalRepository: RISIndividualFungalDataRepository;
             trackerRepository: TrackerRepository;
-            programRulesMetadataRepository: ProgramRulesMetadataRepository;
+            asyncUploadProgressRepository: AsyncUploadProgressRepository;
             glassDocumentsRepository: GlassDocumentsRepository;
             glassUploadsRepository: GlassUploadsRepository;
             metadataRepository: MetadataRepository;

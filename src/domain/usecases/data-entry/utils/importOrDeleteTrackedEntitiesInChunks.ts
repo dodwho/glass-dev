@@ -108,6 +108,11 @@ export function importOrDeleteTrackedEntitiesInChunks(params: {
  * Async-upload-only variant of importOrDeleteTrackedEntitiesInChunks (import only): keeps
  * maxConcurrency tracker requests in flight with a rolling pool instead of waiting for each
  * wave of requests to finish before starting the next one.
+ *
+ * A request that fails for a transient reason (network, 5xx, 429) is retried; resending is safe because
+ * every tracked entity carries its client-generated id, so a chunk that did reach DHIS2 is only updated.
+ * If a request still fails, the whole import fails with that error instead of reporting it as a problem
+ * in the file: it is a technical failure the country cannot fix.
  */
 export function importTrackedEntitiesInChunksForAsyncUpload(params: {
     trackedEntities: TrackerTrackedEntity[];
@@ -117,6 +122,8 @@ export function importTrackedEntitiesInChunksForAsyncUpload(params: {
     metadataRepository: MetadataRepository;
     skipSideEffects?: boolean;
     maxConcurrency?: number;
+    /** File line of each tracked entity, enrollment and event id, to report DHIS2 errors against file lines. */
+    lineNumbers?: { id: Id; lineNo: number }[];
 }): FutureData<ImportChunksResult> {
     const {
         trackedEntities,
@@ -126,9 +133,11 @@ export function importTrackedEntitiesInChunksForAsyncUpload(params: {
         metadataRepository,
         skipSideEffects = false,
         maxConcurrency = 1,
+        lineNumbers,
     } = params;
 
     const action = "CREATE_AND_UPDATE";
+    let requestError: string | undefined;
 
     const $importTrackedEntities = buildImportChunkFutures({
         trackedEntities,
@@ -139,6 +148,17 @@ export function importTrackedEntitiesInChunksForAsyncUpload(params: {
         metadataRepository,
         async: false,
         skipSideEffects,
+        lineNumbers,
+        importChunk: chunk =>
+            trackerRepository
+                .import(
+                    { trackedEntities: chunk },
+                    { action, async: false, skipSideEffects, retryTransientErrors: true }
+                )
+                .mapError(error => {
+                    requestError = requestError ?? error;
+                    return error;
+                }),
     });
 
     return Future.parallelWithAccumulationRolling($importTrackedEntities, {
@@ -149,7 +169,12 @@ export function importTrackedEntitiesInChunksForAsyncUpload(params: {
         .mapError(() => {
             consoleLogger.error(`Unknown error while processing tracked entities in chunks.`);
             return `Unknown error while processing tracked entities in chunks.`;
-        });
+        })
+        .flatMap(result =>
+            requestError
+                ? Future.error<string, ImportChunksResult>(`DHIS2 could not be reached: ${requestError}`)
+                : Future.success<ImportChunksResult, string>(result)
+        );
 }
 
 type ImportChunksResult = {
@@ -167,6 +192,8 @@ function buildImportChunkFutures(params: {
     metadataRepository: MetadataRepository;
     async: boolean;
     skipSideEffects: boolean;
+    lineNumbers?: { id: Id; lineNo: number }[];
+    importChunk?: (trackedEntitiesChunk: TrackerTrackedEntity[]) => FutureData<TrackerPostResponse>;
 }): Array<Future<ImportSummaryWithEventIdList, ImportSummaryWithEventIdList>> {
     const {
         trackedEntities,
@@ -177,6 +204,8 @@ function buildImportChunkFutures(params: {
         metadataRepository,
         async,
         skipSideEffects,
+        lineNumbers,
+        importChunk = chunk => importTrackedEntities(chunk, { trackerRepository, action, async, skipSideEffects }),
     } = params;
 
     consoleLogger.debug(`Starting ${action} ${trackedEntities.length} tracked entities in chunks of ${chunkSize}.`);
@@ -189,12 +218,7 @@ function buildImportChunkFutures(params: {
             } of tracked entities to ${action} for module ${glassModuleName}.`
         );
 
-        return importTrackedEntities(trackedEntitiesChunk, {
-            trackerRepository,
-            action,
-            async,
-            skipSideEffects,
-        })
+        return importChunk(trackedEntitiesChunk)
             .mapError(error => {
                 consoleLogger.error(
                     `Error importing tracked entities from file in module ${glassModuleName} with action ${action}: ${error}`
@@ -213,7 +237,9 @@ function buildImportChunkFutures(params: {
                         chunkedTrackedEntities.length
                     } of tracked entities to ${action} for module ${glassModuleName}.`
                 );
-                return mapToImportSummary(response, TRACKED_ENTITY_IMPORT_SUMMARY_TYPE, metadataRepository)
+                return mapToImportSummary(response, TRACKED_ENTITY_IMPORT_SUMMARY_TYPE, metadataRepository, {
+                    eventIdLineNoMap: lineNumbers,
+                })
                     .mapError(error => {
                         consoleLogger.error(
                             `Error importing tracked entities from file in module ${glassModuleName} with action ${action}: ${error}`

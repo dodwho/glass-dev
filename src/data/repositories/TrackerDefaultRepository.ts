@@ -7,7 +7,7 @@ import { TrackerRepository } from "../../domain/repositories/TrackerRepository";
 import { ImportStrategy } from "../../domain/entities/data-entry/DataValuesSaveSummary";
 import { apiToFuture } from "../../utils/futures";
 import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
-import { importApiTracker } from "./utils/importApiTracker";
+import { importApiTracker, retryOnTransientError } from "./utils/importApiTracker";
 import { Id } from "../../domain/entities/Ref";
 import { TrackerPostRequest } from "../../domain/entities/TrackedEntityInstance";
 
@@ -21,7 +21,7 @@ export class TrackerDefaultRepository implements TrackerRepository {
 
     import(
         req: TrackerPostRequest,
-        options: { action: ImportStrategy; async?: boolean; skipSideEffects?: boolean }
+        options: { action: ImportStrategy; async?: boolean; skipSideEffects?: boolean; retryTransientErrors?: boolean }
     ): FutureData<TrackerPostResponse> {
         console.log("Importing tracker data with action:", options.action);
         return importApiTracker(this.api, req, options);
@@ -54,6 +54,37 @@ export class TrackerDefaultRepository implements TrackerRepository {
                 });
             })
         ).flatMap(trackedEntitiesIds => Future.success(_.flatten(trackedEntitiesIds)));
+    }
+
+    // Looked up by tracked entity type, not program, so a tracked entity is found even without an enrollment.
+    getExistingTrackedEntities(
+        trackedEntityIds: Id[],
+        trackedEntityType: Id
+    ): FutureData<{ trackedEntity: Id; orgUnit: Id }[]> {
+        type Found = { trackedEntity: Id; orgUnit: Id };
+        type Response = { instances?: Found[]; trackedEntities?: Found[] };
+
+        return Future.sequential(
+            _.chunk(trackedEntityIds, CHUNKED_SIZE).map(idsChunk =>
+                apiToFuture(
+                    retryOnTransientError(() =>
+                        this.api.get<Response>("/tracker/trackedEntities", {
+                            trackedEntity: idsChunk.join(";"),
+                            trackedEntityType,
+                            fields: "trackedEntity,orgUnit",
+                            pageSize: CHUNKED_SIZE,
+                            ouMode: "ALL",
+                        })
+                    )
+                ).flatMap(response => {
+                    // An unexpected answer must never be read as "none of these exist".
+                    const found = response.trackedEntities ?? response.instances;
+                    return Array.isArray(found)
+                        ? Future.success<Found[], string>(found)
+                        : Future.error<string, Found[]>("Unexpected response when looking up tracked entities");
+                })
+            )
+        ).map(_.flatten);
     }
 
     getExistingEventsIdsByIds(eventIds: Id[], programId: Id): FutureData<Id[]> {
@@ -102,6 +133,8 @@ export class TrackerDefaultRepository implements TrackerRepository {
                                 name: true,
                                 code: true,
                                 valueType: true,
+                                optionSetValue: true,
+                                optionSet: { options: { name: true, code: true } },
                             },
                         },
                     },

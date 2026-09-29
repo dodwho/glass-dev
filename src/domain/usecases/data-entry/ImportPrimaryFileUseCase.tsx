@@ -101,7 +101,6 @@ export class ImportPrimaryFileUseCase {
                     this.glassDocumentsRepository,
                     this.glassUploadsRepository,
                     this.metadataRepository,
-                    this.programRulesMetadataRepository,
                     this.glassModuleRepository
                 );
                 return this.glassModuleRepository.getByName(moduleName).flatMap(module => {

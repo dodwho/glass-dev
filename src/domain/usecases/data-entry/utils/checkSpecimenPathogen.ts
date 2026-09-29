@@ -29,15 +29,17 @@ function mapCustomDataColumnsToSpecimenPathogenAntibiotic(
 
 export function checkSpecimenPathogenFromDataColumns(
     dataColumns: CustomDataColumns[],
-    specimenPathogenValidations: Record<string, PATHOGEN_ANTIBIOTIC_MAP[]>
+    specimenPathogenValidations: Record<string, PATHOGEN_ANTIBIOTIC_MAP[]>,
+    firstLine: number
 ): ConsistencyError[] {
     const data = mapCustomDataColumnsToSpecimenPathogenAntibiotic(dataColumns);
-    return checkSpecimenPathogen(data, specimenPathogenValidations);
+    return checkSpecimenPathogen(data, specimenPathogenValidations, firstLine);
 }
 
 export function checkSpecimenPathogen(
     data: SpecimenPathogenChekable[],
-    specimenPathogenValidations: Record<string, PATHOGEN_ANTIBIOTIC_MAP[]>
+    specimenPathogenValidations: Record<string, PATHOGEN_ANTIBIOTIC_MAP[]>,
+    firstLine = 1
 ): ConsistencyError[] {
     const errors = _(
         data.map((item, index) => {
@@ -50,7 +52,7 @@ export function checkSpecimenPathogen(
                     error: i18n.t(
                         `The specimen, pathogen, antibiotic combination you have provided is not allowed. Specimen ${item.SPECIMEN}, Pathogen ${item.PATHOGEN}, Antibiotic ${item.ANTIBIOTIC}`
                     ),
-                    line: index + 1,
+                    line: index + firstLine,
                 };
             } else {
                 if (!pathogenAntibiotics?.[item.PATHOGEN]?.includes(item.ANTIBIOTIC)) {
@@ -58,7 +60,7 @@ export function checkSpecimenPathogen(
                         error: i18n.t(
                             `The specimen, pathogen, antibiotic combination you have provided is not allowed. Specimen ${item.SPECIMEN}, Pathogen ${item.PATHOGEN}, Antibiotic ${item.ANTIBIOTIC}`
                         ),
-                        line: index + 1,
+                        line: index + firstLine,
                     };
                 }
             }

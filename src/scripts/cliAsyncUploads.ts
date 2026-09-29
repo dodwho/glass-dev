@@ -42,9 +42,13 @@ import { AsyncImportSecondaryFileUseCase } from "../domain/usecases/data-entry/A
 import { SampleDataCSVDeafultRepository } from "../data/repositories/data-entry/SampleDataCSVDeafultRepository";
 import { MetadataRepository } from "../domain/repositories/MetadataRepository";
 import { TrackerRepository } from "../domain/repositories/TrackerRepository";
-import { ProgramRulesMetadataRepository } from "../domain/repositories/program-rules/ProgramRulesMetadataRepository";
+import { AsyncUploadProgressRepository } from "../domain/repositories/AsyncUploadProgressRepository";
 import { TrackerDefaultRepository } from "../data/repositories/TrackerDefaultRepository";
-import { ProgramRulesMetadataDefaultRepository } from "../data/repositories/program-rule/ProgramRulesMetadataDefaultRepository";
+import { AsyncUploadProgressDataStoreRepository } from "../data/repositories/AsyncUploadProgressDataStoreRepository";
+import {
+    recoverInterruptedAsyncUploads,
+    removeCompletedProgress,
+} from "../domain/usecases/data-entry/utils/AsyncUploadProgressTracker";
 import { MetadataDefaultRepository } from "../data/repositories/MetadataDefaultRepository";
 import { DataValuesDefaultRepository } from "../data/repositories/data-entry/DataValuesDefaultRepository";
 import { DataValuesRepository } from "../domain/repositories/data-entry/DataValuesRepository";
@@ -82,7 +86,7 @@ async function main() {
                 const risIndividualFungalRepository = new RISIndividualFungalDataCSVDefaultRepository();
                 const sampleDataRepository = new SampleDataCSVDeafultRepository();
                 const trackerRepository = new TrackerDefaultRepository(instance);
-                const programRulesMetadataRepository = new ProgramRulesMetadataDefaultRepository(instance);
+                const asyncUploadProgressRepository = new AsyncUploadProgressDataStoreRepository(api);
                 const metadataRepository = new MetadataDefaultRepository(instance);
                 const dataValuesRepository = new DataValuesDefaultRepository(instance);
 
@@ -92,94 +96,100 @@ async function main() {
                         const maxAttemptsForAsyncUploads =
                             generalInfo?.maxAttemptsForAsyncUploads ?? DEFAULT_MAX_ATTEMPS_FOR_ASYNC_UPLOADS;
 
-                        return getAsyncUploadsFromDatastore(glassAsyncUploadsRepository).run(
-                            asyncUploads => {
-                                if (asyncUploads && asyncUploads.length > 0) {
-                                    const uploadIdsToSetAsyncUploadErrorStatus: Id[] = asyncUploads
-                                        .filter(upload => upload.attempts >= maxAttemptsForAsyncUploads)
-                                        .flatMap(upload => [upload.uploadId]);
+                        return recoverInterruptedImports({
+                            asyncUploadProgressRepository,
+                            trackerRepository,
+                            glassAsyncUploadsRepository,
+                        })
+                            .flatMap(() => getAsyncUploadsFromDatastore(glassAsyncUploadsRepository))
+                            .run(
+                                asyncUploads => {
+                                    if (asyncUploads && asyncUploads.length > 0) {
+                                        const uploadIdsToSetAsyncUploadErrorStatus: Id[] = asyncUploads
+                                            .filter(upload => upload.attempts >= maxAttemptsForAsyncUploads)
+                                            .flatMap(upload => [upload.uploadId]);
 
-                                    const uploadsToContinueAsyncUpload = asyncUploads.filter(
-                                        upload => upload.attempts < maxAttemptsForAsyncUploads
-                                    );
+                                        const uploadsToContinueAsyncUpload = asyncUploads.filter(
+                                            upload => upload.attempts < maxAttemptsForAsyncUploads
+                                        );
 
-                                    consoleLogger.debug(
-                                        `There are ${asyncUploads.length} uploads marked for being imported. ${uploadIdsToSetAsyncUploadErrorStatus.length} of them have reached the maximum number of attempts and will be marked as error`
-                                    );
+                                        consoleLogger.debug(
+                                            `There are ${asyncUploads.length} uploads marked for being imported. ${uploadIdsToSetAsyncUploadErrorStatus.length} of them have reached the maximum number of attempts and will be marked as error`
+                                        );
 
-                                    return deleteAsyncUploadsAndSetAsyncUploadErrorStatusToUploads(
-                                        {
-                                            glassAsyncUploadsRepository,
-                                            glassUploadsRepository,
-                                        },
-                                        uploadIdsToSetAsyncUploadErrorStatus
-                                    ).run(
-                                        () => {
-                                            if (uploadsToContinueAsyncUpload.length > 0) {
-                                                return getGlassModulesFromDatastore(glassModuleRepository).run(
-                                                    glassModules => {
-                                                        return getAllCountries(countryRepository).run(
-                                                            allCountries => {
-                                                                return uploadDatasets(
-                                                                    {
-                                                                        glassUploadsRepository,
-                                                                        glassDocumentsRepository,
-                                                                        risIndividualFungalRepository,
-                                                                        sampleDataRepository,
-                                                                        trackerRepository,
-                                                                        programRulesMetadataRepository,
-                                                                        metadataRepository,
-                                                                        dataValuesRepository,
-                                                                        glassAsyncUploadsRepository,
-                                                                    },
-                                                                    maxAttemptsForAsyncUploads,
-                                                                    uploadsToContinueAsyncUpload,
-                                                                    glassModules,
-                                                                    allCountries
-                                                                ).run(
-                                                                    () => {
-                                                                        consoleLogger.debug(
-                                                                            `SUCCESS - Imported all datasets marked for async importing with status PENDING.`
-                                                                        );
-                                                                    },
-                                                                    error => {
-                                                                        consoleLogger.error(
-                                                                            `ERROR - An error occured while importing: ${error}`
-                                                                        );
-                                                                    }
-                                                                );
-                                                            },
-                                                            error =>
-                                                                consoleLogger.error(
-                                                                    `ERROR - Error while getting all countries: ${error}.`
-                                                                )
-                                                        );
-                                                    },
-                                                    error =>
-                                                        consoleLogger.error(
-                                                            `ERROR - Error while getting GLASS modules from Datastore: ${error}.`
-                                                        )
-                                                );
-                                            } else {
-                                                consoleLogger.debug(
-                                                    `There is nothing marked for async upload in Datastore.`
-                                                );
-                                            }
-                                        },
-                                        error =>
-                                            consoleLogger.error(
-                                                `ERROR - Error while setting errorAsyncUploading in Datastore: ${error}.`
-                                            )
-                                    );
-                                } else {
-                                    consoleLogger.debug(`There is nothing marked for async upload in Datastore.`);
-                                }
-                            },
-                            error =>
-                                consoleLogger.error(
-                                    `ERROR - Error while getting async uploads from Datastore: ${error}.`
-                                )
-                        );
+                                        return deleteAsyncUploadsAndSetAsyncUploadErrorStatusToUploads(
+                                            {
+                                                glassAsyncUploadsRepository,
+                                                glassUploadsRepository,
+                                            },
+                                            uploadIdsToSetAsyncUploadErrorStatus
+                                        ).run(
+                                            () => {
+                                                if (uploadsToContinueAsyncUpload.length > 0) {
+                                                    return getGlassModulesFromDatastore(glassModuleRepository).run(
+                                                        glassModules => {
+                                                            return getAllCountries(countryRepository).run(
+                                                                allCountries => {
+                                                                    return uploadDatasets(
+                                                                        {
+                                                                            glassUploadsRepository,
+                                                                            glassDocumentsRepository,
+                                                                            risIndividualFungalRepository,
+                                                                            sampleDataRepository,
+                                                                            trackerRepository,
+                                                                            asyncUploadProgressRepository,
+                                                                            metadataRepository,
+                                                                            dataValuesRepository,
+                                                                            glassAsyncUploadsRepository,
+                                                                        },
+                                                                        maxAttemptsForAsyncUploads,
+                                                                        uploadsToContinueAsyncUpload,
+                                                                        glassModules,
+                                                                        allCountries
+                                                                    ).run(
+                                                                        () => {
+                                                                            consoleLogger.debug(
+                                                                                `SUCCESS - Imported all datasets marked for async importing with status PENDING.`
+                                                                            );
+                                                                        },
+                                                                        error => {
+                                                                            consoleLogger.error(
+                                                                                `ERROR - An error occured while importing: ${error}`
+                                                                            );
+                                                                        }
+                                                                    );
+                                                                },
+                                                                error =>
+                                                                    consoleLogger.error(
+                                                                        `ERROR - Error while getting all countries: ${error}.`
+                                                                    )
+                                                            );
+                                                        },
+                                                        error =>
+                                                            consoleLogger.error(
+                                                                `ERROR - Error while getting GLASS modules from Datastore: ${error}.`
+                                                            )
+                                                    );
+                                                } else {
+                                                    consoleLogger.debug(
+                                                        `There is nothing marked for async upload in Datastore.`
+                                                    );
+                                                }
+                                            },
+                                            error =>
+                                                consoleLogger.error(
+                                                    `ERROR - Error while setting errorAsyncUploading in Datastore: ${error}.`
+                                                )
+                                        );
+                                    } else {
+                                        consoleLogger.debug(`There is nothing marked for async upload in Datastore.`);
+                                    }
+                                },
+                                error =>
+                                    consoleLogger.error(
+                                        `ERROR - Error while getting async uploads from Datastore: ${error}.`
+                                    )
+                            );
                     },
                     error => consoleLogger.error(`ERROR - Error while getting general info from Datastore: ${error}.`)
                 );
@@ -191,6 +201,39 @@ async function main() {
     });
 
     run(cmd, process.argv.slice(2));
+}
+
+/**
+ * Undoes imports left behind by a crashed or failed earlier run and puts their uploads back in the queue.
+ * Never stops the run: a failure is logged and retried by the next run.
+ */
+function recoverInterruptedImports(repositories: {
+    asyncUploadProgressRepository: AsyncUploadProgressRepository;
+    trackerRepository: TrackerRepository;
+    glassAsyncUploadsRepository: GlassAsyncUploadsRepository;
+}): FutureData<void> {
+    const { glassAsyncUploadsRepository } = repositories;
+
+    return recoverInterruptedAsyncUploads(repositories)
+        .flatMap(recoveredUploadIds =>
+            getAsyncUploadsFromDatastore(glassAsyncUploadsRepository).flatMap(asyncUploads =>
+                Future.sequential(
+                    asyncUploads
+                        .filter(upload => upload.status === "UPLOADING" && recoveredUploadIds.includes(upload.uploadId))
+                        .map(upload => {
+                            consoleLogger.debug(`Interrupted import of upload ${upload.uploadId} undone: queued again`);
+                            return new IncrementAsyncUploadAttemptsAndResetStatusUseCase(
+                                glassAsyncUploadsRepository
+                            ).execute(upload.uploadId);
+                        })
+                )
+            )
+        )
+        .toVoid()
+        .flatMapError(error => {
+            consoleLogger.error(`Recovery of interrupted imports failed, will retry on the next run: ${error}`);
+            return Future.success<void, string>(undefined);
+        });
 }
 
 function getMaxAttemptsForAsyncUploadsFromDatastore(
@@ -346,7 +389,7 @@ function asyncPrimaryFileSubmission(
     repositories: {
         risIndividualFungalRepository: RISIndividualFungalDataRepository;
         trackerRepository: TrackerRepository;
-        programRulesMetadataRepository: ProgramRulesMetadataRepository;
+        asyncUploadProgressRepository: AsyncUploadProgressRepository;
         glassDocumentsRepository: GlassDocumentsRepository;
         glassUploadsRepository: GlassUploadsRepository;
         metadataRepository: MetadataRepository;
@@ -403,7 +446,7 @@ function manageAsyncUploadPrimaryFile(
     repositories: {
         risIndividualFungalRepository: RISIndividualFungalDataRepository;
         trackerRepository: TrackerRepository;
-        programRulesMetadataRepository: ProgramRulesMetadataRepository;
+        asyncUploadProgressRepository: AsyncUploadProgressRepository;
         glassDocumentsRepository: GlassDocumentsRepository;
         glassUploadsRepository: GlassUploadsRepository;
         metadataRepository: MetadataRepository;
@@ -454,13 +497,24 @@ function manageAsyncUploadPrimaryFile(
                         primaryUpload.id,
                         hasBlockingErrors,
                         hasImportedValues
-                    ).flatMap(() => {
-                        return removeAsyncUploadByIdFromDatastore(
-                            repositories.glassAsyncUploadsRepository,
-                            repositories.glassUploadsRepository,
-                            asyncUpload.uploadId
+                    )
+                        .flatMap(() => {
+                            return removeAsyncUploadByIdFromDatastore(
+                                repositories.glassAsyncUploadsRepository,
+                                repositories.glassUploadsRepository,
+                                asyncUpload.uploadId
+                            );
+                        })
+                        .flatMap(() =>
+                            removeCompletedProgress(repositories.asyncUploadProgressRepository, primaryUpload.id)
+                                // Only housekeeping: a leftover COMPLETED record is never acted on.
+                                .flatMapError(error => {
+                                    consoleLogger.error(
+                                        `Could not remove progress of upload ${primaryUpload.id}: ${error}`
+                                    );
+                                    return Future.success<void, string>(undefined);
+                                })
                         );
-                    });
                 });
             });
         }
@@ -599,7 +653,7 @@ function uploadDatasets(
     repositories: {
         risIndividualFungalRepository: RISIndividualFungalDataRepository;
         trackerRepository: TrackerRepository;
-        programRulesMetadataRepository: ProgramRulesMetadataRepository;
+        asyncUploadProgressRepository: AsyncUploadProgressRepository;
         glassDocumentsRepository: GlassDocumentsRepository;
         glassUploadsRepository: GlassUploadsRepository;
         metadataRepository: MetadataRepository;
