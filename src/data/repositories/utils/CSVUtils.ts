@@ -14,6 +14,18 @@ export function getNumberValue(row: Row<string>, column: string): number {
     return +(row[column] || 0);
 }
 
+/**
+ * Parses a numeric cell, keeping "no value" distinct from zero: a blank or non-numeric cell yields
+ * `undefined`, never a fabricated 0 or a NaN. Both spreadsheet readers (the streaming CSV parser and
+ * the .xlsx reader) share this so the same file yields the same data in either format.
+ */
+export function toNumberOrUndefined(value: unknown): number | undefined {
+    const stringValue = String(value ?? "").trim();
+    if (stringValue === "") return undefined;
+    const numberValue = Number(stringValue);
+    return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
 // Reads a value from a date column. The spreadsheet reader keeps every cell as the literal text the
 // user typed, so CSV dates arrive as strings (e.g. "2024-10-09") and are passed through untouched —
 // letting date-format validation check exactly what was typed. A true .xlsx date cell instead arrives
@@ -198,7 +210,7 @@ export async function parseCsvBlobInChunks<T>(
                                 return {
                                     key: column.key,
                                     type: column.type,
-                                    value: toNumberOrNull(row[column.key]),
+                                    value: toNumberOrUndefined(row[column.key]),
                                 };
                             }
                         });
@@ -324,11 +336,4 @@ function stripUtf8Bom(buffer: Buffer): Buffer {
         return buffer.slice(3);
     }
     return buffer;
-}
-
-function toNumberOrNull(value: unknown): number | null {
-    const stringValue = String(value ?? "").trim();
-    if (stringValue === "") return null;
-    const numberValue = Number(stringValue);
-    return Number.isFinite(numberValue) ? numberValue : null;
 }

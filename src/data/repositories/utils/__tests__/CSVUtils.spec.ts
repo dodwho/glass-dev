@@ -1,4 +1,4 @@
-import { getDateValue } from "../CSVUtils";
+import { getDateValue, toNumberOrUndefined } from "../CSVUtils";
 import { Row } from "../../../../domain/repositories/SpreadsheetXlsxRepository";
 
 function row(value: unknown): Row<string> {
@@ -22,5 +22,25 @@ describe("getDateValue", () => {
 
     it("returns an empty string when the value is missing", () => {
         expect(getDateValue({} as Row<string>, "SAMPLE_DATE")).toBe("");
+    });
+});
+
+describe("toNumberOrUndefined", () => {
+    it("parses numeric cells, including zero and negative values", () => {
+        expect(toNumberOrUndefined("12")).toBe(12);
+        expect(toNumberOrUndefined(" 12.5 ")).toBe(12.5);
+        expect(toNumberOrUndefined(0)).toBe(0);
+        expect(toNumberOrUndefined("-3")).toBe(-3);
+    });
+
+    // A blank mandatory cell must stay blank so validation can block the file, rather than becoming
+    // a fabricated 0 that would silently import as real data.
+    it("returns undefined for blank, missing and non-numeric cells", () => {
+        expect(toNumberOrUndefined("")).toBeUndefined();
+        expect(toNumberOrUndefined("   ")).toBeUndefined();
+        expect(toNumberOrUndefined(undefined)).toBeUndefined();
+        expect(toNumberOrUndefined(null)).toBeUndefined();
+        expect(toNumberOrUndefined("N/A")).toBeUndefined();
+        expect(toNumberOrUndefined("1,234")).toBeUndefined();
     });
 });

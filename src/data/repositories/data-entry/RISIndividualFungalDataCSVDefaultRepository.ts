@@ -13,11 +13,11 @@ import { SpreadsheetXlsxDataSource } from "../SpreadsheetXlsxDefaultRepository";
 import {
     doesColumnExist,
     getDateValue,
-    getNumberValue,
     getRowCountAndSelectDistinctFromCsv,
     getTextValue,
     isCsvFile,
     parseCsvBlobInChunks,
+    toNumberOrUndefined,
     validateCsvHeaders,
 } from "../utils/CSVUtils";
 
@@ -40,11 +40,13 @@ export class RISIndividualFungalDataCSVDefaultRepository implements RISIndividua
                     type: column.type,
                     value: getTextValue(row, column.key),
                 } as CustomDataElementString;
+            // Same conversion as the streaming CSV parser, so a .xlsx and a .csv of the same file
+            // produce identical data: a blank or non-numeric cell stays empty instead of becoming 0.
             else
                 return {
                     key: column.key,
                     type: column.type,
-                    value: getNumberValue(row, column.key),
+                    value: toNumberOrUndefined(row[column.key]),
                 } as CustomDataElementNumber;
         });
     }
