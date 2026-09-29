@@ -26,16 +26,13 @@ import { UpdateSampleUploadWithRisIdUseCase } from "../domain/usecases/UpdateSam
 import { moduleProperties } from "../domain/utils/ModuleProperties";
 
 import { generateUid } from "../utils/uid";
-import { getInstance, warmUpSession } from "./common";
+import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
 import { DataValuesDefaultImportRepository } from "../data/repositories/data-entry/DataValuesDefaultImportRepository";
 import { GlassUploadsProgramRepository } from "../data/repositories/GlassUploadsProgramRepository";
 import { getUploadsFormDataBuilder } from "../utils/getUploadsFormDataBuilder";
 import { getD2APiFromInstance } from "../utils/d2-api";
 
 dotenv.config();
-console.log("Base URL:", process.env.REACT_APP_DHIS2_BASE_URL);
-console.log("Auth:", process.env.REACT_APP_DHIS2_AUTH);
-console.log("REACT_APP_DHIS2_BASE_URL:", process.env.REACT_APP_DHIS2_BASE_URL);
 
 //let instance: Instance;
 let dataStoreClient: DataStoreClient;
@@ -93,34 +90,10 @@ interface BatchMetaData {
     existingUploads: GlassUploads[];
 }
 
-function getEnvVars() {
-    if (!process.env.REACT_APP_DHIS2_BASE_URL)
-        throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-    const token = process.env.REACT_APP_DHIS2_TOKEN_PROD || process.env.REACT_APP_DHIS2_TOKEN;
-
-    if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-        throw new Error(
-            "Either REACT_APP_DHIS2_TOKEN_PROD, REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH must be set in the .env file"
-        );
-
-    const envVars = token
-        ? { url: process.env.REACT_APP_DHIS2_BASE_URL, token }
-        : (() => {
-              const auth = process.env.REACT_APP_DHIS2_AUTH!;
-              const username = auth.split(":")[0] ?? "";
-              const password = auth.split(":")[1] ?? "";
-              if (!username || !password)
-                  throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-              return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
-          })();
-
-    return envVars;
-}
-
 async function initializeGlobals() {
     const startTime = Date.now();
     const envVars = getEnvVars();
+    console.log(`Target instance: ${envVars.url} (auth: ${describeAuth(envVars)})`);
     const instance = getInstance(envVars);
     api = getD2APiFromInstance(instance);
     await warmUpSession(api);

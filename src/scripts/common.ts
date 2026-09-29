@@ -65,6 +65,45 @@ function patchWithApiToken(connection: any, token: string): void {
         original({ ...options, headers: { ...options.headers, Authorization: `ApiToken ${token}` } });
 }
 
+/**
+ * Connection details for a script that takes them from the environment rather than from --url/--auth.
+ *
+ * The token env vars are tried in order, so an instance-specific token wins over the generic one and
+ * unset names simply fall through. Basic auth is the fallback. This was copy-pasted into ~20 scripts,
+ * each with its own slightly different token list and error message; they should all use this.
+ */
+export function getEnvVars(): D2ApiArgs {
+    const url = process.env.REACT_APP_DHIS2_BASE_URL;
+    if (!url) throw new Error("REACT_APP_DHIS2_BASE_URL must be set in the .env file");
+
+    const token =
+        process.env.REACT_APP_DHIS2_TOKEN_PROD ||
+        process.env.REACT_APP_DHIS2_TOKEN_PREPROD ||
+        process.env.REACT_APP_DHIS2_TOKEN_TRAINING ||
+        process.env.REACT_APP_DHIS2_TOKEN;
+
+    if (token) return { url, token };
+
+    const auth = process.env.REACT_APP_DHIS2_AUTH;
+    if (!auth)
+        throw new Error(
+            "Set one of REACT_APP_DHIS2_TOKEN_PROD / REACT_APP_DHIS2_TOKEN_PREPROD / REACT_APP_DHIS2_TOKEN_TRAINING / REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH, in the .env file"
+        );
+
+    // Split on the FIRST colon only: passwords may legitimately contain colons.
+    const separatorIndex = auth.indexOf(":");
+    const username = separatorIndex > 0 ? auth.slice(0, separatorIndex) : "";
+    const password = separatorIndex > 0 ? auth.slice(separatorIndex + 1) : "";
+    if (!username || !password) throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
+
+    return { url, auth: { username, password } };
+}
+
+/** How the target instance was authenticated, for logging. */
+export function describeAuth(envVars: D2ApiArgs): string {
+    return envVars.token ? "Personal Access Token" : `basic auth as ${envVars.auth?.username}`;
+}
+
 export function getApiUrlOption(options?: { long: string }) {
     return option({
         type: string,
@@ -96,9 +135,16 @@ export const AuthString: Type<string, Auth> = {
     },
 };
 
+/**
+ * Splits on whitespace as well as commas. Yarn 1.x on Windows relays arguments through cmd.exe,
+ * which treats a comma as an argument separator and hands the script `--orgUnits "id1 id2 id3"` —
+ * one value, silently. The list then collapses to a single bogus id and the run reports a scope of
+ * 1 pair instead of failing. No org unit id or period contains a space, so accepting both separators
+ * costs nothing and removes the trap.
+ */
 export const StringsSeparatedByCommas: Type<string, string[]> = {
     async from(str) {
-        const values = str.split(",").filter(s => s);
+        const values = str.split(/[\s,]+/).filter(s => s);
         if (_.isEmpty(values)) throw new Error("Value cannot be empty");
         return values;
     },

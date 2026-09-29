@@ -4,14 +4,10 @@ import fs from "fs";
 
 import dotenv from "dotenv";
 
-import { getInstance, warmUpSession } from "./common";
+import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { DataValueSetsDataValue } from "@eyeseetea/d2-api/api";
 dotenv.config();
-
-console.log("Base URL:", process.env.REACT_APP_DHIS2_BASE_URL);
-console.log("Auth:", process.env.REACT_APP_DHIS2_AUTH);
-console.log("REACT_APP_DHIS2_BASE_URL:", process.env.REACT_APP_DHIS2_BASE_URL);
 
 function chunkArray(array: DataValueSetsDataValue[], chunkSize: number) {
     const result = [];
@@ -53,26 +49,8 @@ function main() {
             }),
         },
         handler: async args => {
-            if (!process.env.REACT_APP_DHIS2_BASE_URL)
-                throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-            const token = process.env.REACT_APP_DHIS2_TOKEN_PROD || process.env.REACT_APP_DHIS2_TOKEN;
-
-            if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-                throw new Error(
-                    "Either REACT_APP_DHIS2_TOKEN_PROD, REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH must be set in the .env file"
-                );
-
-            const envVars = token
-                ? { url: process.env.REACT_APP_DHIS2_BASE_URL, token }
-                : (() => {
-                      const auth = process.env.REACT_APP_DHIS2_AUTH!;
-                      const username = auth.split(":")[0] ?? "";
-                      const password = auth.split(":")[1] ?? "";
-                      if (!username || !password)
-                          throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-                      return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
-                  })();
+            const envVars = getEnvVars();
+            console.log(`Target instance: ${envVars.url} (auth: ${describeAuth(envVars)})`);
 
             const instance = getInstance(envVars);
             const api = getD2APiFromInstance(instance);
@@ -221,7 +199,7 @@ function main() {
                 //5.  Create a json object with data values for given country and period with empty values
                 //const updateJson = JSON.stringify(updatedDataValues, null, 2);
                 const regex = /[^/]+$/;
-                const environment = process.env.REACT_APP_DHIS2_BASE_URL.match(regex);
+                const environment = envVars.url.match(regex);
                 //fs.writeFileSync(`AMR_AGG_reset_${period}_${args.dataSet}_${environment}.json`, updateJson);
                 console.log("chunkedUpdatedDataValuesObjects.length: ", chunkedUpdatedDataValuesObjects.length);
                 console.log("chunkSize: ", chunkSize);

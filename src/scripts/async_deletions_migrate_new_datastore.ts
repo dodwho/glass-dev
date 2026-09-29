@@ -1,7 +1,7 @@
 import { command, run } from "cmd-ts";
 import "dotenv/config";
 
-import { getInstance } from "./common";
+import { getEnvVars, getInstance } from "./common";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { Id } from "../domain/entities/Ref";
 import { Future, FutureData } from "../domain/entities/Future";
@@ -16,25 +16,7 @@ async function main() {
         args: {},
         handler: async () => {
             try {
-                if (!process.env.REACT_APP_DHIS2_BASE_URL)
-                    throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-                if (!process.env.REACT_APP_DHIS2_AUTH)
-                    throw new Error("REACT_APP_DHIS2_AUTH  must be set in the .env file");
-
-                const username = process.env.REACT_APP_DHIS2_AUTH.split(":")[0] ?? "";
-                const password = process.env.REACT_APP_DHIS2_AUTH.split(":")[1] ?? "";
-
-                if (username === "" || password === "") {
-                    throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-                }
-                const envVars = {
-                    url: process.env.REACT_APP_DHIS2_BASE_URL,
-                    auth: {
-                        username: username,
-                        password: password,
-                    },
-                };
+                const envVars = getEnvVars();
 
                 const instance = getInstance(envVars);
                 const dataStoreClient = new DataStoreClient(instance);

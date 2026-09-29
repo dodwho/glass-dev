@@ -1,7 +1,7 @@
 import { command, run } from "cmd-ts";
 import "dotenv/config";
 
-import { getInstance, warmUpSession } from "./common";
+import { getEnvVars, getInstance, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { Id } from "../domain/entities/Ref";
@@ -92,30 +92,7 @@ async function main() {
         args: {},
         handler: async () => {
             try {
-                if (!process.env.REACT_APP_DHIS2_BASE_URL)
-                    throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-                const token =
-                    process.env.REACT_APP_DHIS2_TOKEN_PROD ||
-                    process.env.REACT_APP_DHIS2_TOKEN_PREPROD ||
-                    process.env.REACT_APP_DHIS2_TOKEN_TRAINING ||
-                    process.env.REACT_APP_DHIS2_TOKEN;
-
-                if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-                    throw new Error(
-                        "Either REACT_APP_DHIS2_TOKEN_PROD, REACT_APP_DHIS2_TOKEN_PREPROD, REACT_APP_DHIS2_TOKEN_TRAINING, or REACT_APP_DHIS2_AUTH must be set in the .env file"
-                    );
-
-                const envVars = token
-                    ? { url: process.env.REACT_APP_DHIS2_BASE_URL, token }
-                    : (() => {
-                          const auth = process.env.REACT_APP_DHIS2_AUTH!;
-                          const username = auth.split(":")[0] ?? "";
-                          const password = auth.split(":")[1] ?? "";
-                          if (!username || !password)
-                              throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-                          return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
-                      })();
+                const envVars = getEnvVars();
 
                 const instance = getInstance(envVars);
                 const api = getD2APiFromInstance(instance);
