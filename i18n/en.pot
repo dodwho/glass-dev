@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-08-19T13:03:48.520Z\n"
-"PO-Revision-Date: 2026-08-19T13:03:48.520Z\n"
+"POT-Creation-Date: 2026-09-29T14:50:16.515Z\n"
+"PO-Revision-Date: 2026-09-29T14:50:16.515Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -779,6 +779,16 @@ msgid "Data submission id not found. Please try again"
 msgstr ""
 
 msgid "Incorrect File Format. Please retry with a valid file"
+msgstr ""
+
+msgid ""
+"This file was already uploaded for {{period}} on {{date}} "
+"(\"{{fileName}}\", {{rows}} rows) and its data is already in GLASS or "
+"waiting to be imported. Uploading it again would count the same data twice. "
+"To replace it, delete the earlier upload first."
+msgstr ""
+
+msgid "Could not check whether this file was already uploaded. Please try again."
 msgstr ""
 
 msgid "Error in file upload"

@@ -81,18 +81,27 @@ export const UploadPrimaryFile: React.FC<UploadPrimaryFileProps> = ({
                                 return;
                             }
 
-                            if (primaryFileData.isValid) {
+                            if (!primaryFileData.isValid) {
+                                snackbar.error(i18n.t("Incorrect File Format. Please retry with a valid file"));
+                                setIsLoading(false);
+                                return;
+                            }
+
+                            const primaryFileType = moduleProperties.get(moduleName)?.primaryFileType;
+                            const fileType = primaryFileType !== undefined ? primaryFileType : moduleName;
+                            const period = currentPeriod.toString();
+
+                            const storeFile = () => {
                                 setPrimaryFile(uploadedPrimaryFile);
                                 setPrimaryFileTotalRows(primaryFileData.rows);
 
-                                const primaryFileType = moduleProperties.get(moduleName)?.primaryFileType;
                                 const data = {
                                     batchId,
-                                    fileType: primaryFileType !== undefined ? primaryFileType : moduleName,
+                                    fileType,
                                     dataSubmission: dataSubmissionId,
                                     moduleId,
                                     moduleName,
-                                    period: currentPeriod.toString(),
+                                    period,
                                     orgUnitId: orgUnitId,
                                     orgUnitCode: orgUnitCode,
                                     rows: primaryFileData.rows,
@@ -109,10 +118,40 @@ export const UploadPrimaryFile: React.FC<UploadPrimaryFileProps> = ({
                                         setIsLoading(false);
                                     }
                                 );
-                            } else {
-                                snackbar.error(i18n.t("Incorrect File Format. Please retry with a valid file"));
-                                setIsLoading(false);
-                            }
+                            };
+
+                            if (!moduleProperties.get(moduleName)?.blockDuplicateUploads) return storeFile();
+
+                            const file = { fileName: uploadedPrimaryFile.name, fileType, rows: primaryFileData.rows };
+                            return compositionRoot.glassUploads
+                                .getAlreadyImported({ moduleId, orgUnit: orgUnitId, period, file })
+                                .run(
+                                    existingUpload => {
+                                        if (!existingUpload) return storeFile();
+                                        snackbar.error(
+                                            i18n.t(
+                                                'This file was already uploaded for {{period}} on {{date}} ("{{fileName}}", {{rows}} rows) and its data is already in GLASS or waiting to be imported. Uploading it again would count the same data twice. To replace it, delete the earlier upload first.',
+                                                {
+                                                    period,
+                                                    date: existingUpload.uploadDate.slice(0, 10),
+                                                    fileName: existingUpload.fileName,
+                                                    rows: existingUpload.rows,
+                                                    nsSeparator: false,
+                                                }
+                                            )
+                                        );
+                                        setIsLoading(false);
+                                    },
+                                    error => {
+                                        console.error(`Error checking earlier uploads: ${error}`);
+                                        snackbar.error(
+                                            i18n.t(
+                                                "Could not check whether this file was already uploaded. Please try again."
+                                            )
+                                        );
+                                        setIsLoading(false);
+                                    }
+                                );
                         },
                         error => {
                             console.error(error);
@@ -127,6 +166,7 @@ export const UploadPrimaryFile: React.FC<UploadPrimaryFileProps> = ({
             batchId,
             compositionRoot.fileSubmission,
             compositionRoot.glassDocuments,
+            compositionRoot.glassUploads,
             currentPeriod,
             dataSubmissionId,
             moduleId,

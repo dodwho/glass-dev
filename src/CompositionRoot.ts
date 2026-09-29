@@ -102,6 +102,7 @@ import { GetGlassUploadByIdUseCase } from "./domain/usecases/GetGlassUploadByIdU
 import { GlassAsyncDeletionsDefaultRepository } from "./data/repositories/GlassAsyncDeletionsDefaultRepository";
 import { EncryptionDefaultRepository } from "./data/repositories/EncryptionDefaultRepository";
 import { GetAsyncUploadsUseCase } from "./domain/usecases/GetAsyncUploadsUseCase";
+import { GetAlreadyImportedUploadUseCase } from "./domain/usecases/GetAlreadyImportedUploadUseCase";
 import { GlassAsyncUploadsDefaultRepository } from "./data/repositories/GlassAsyncUploadsDefaultRepository";
 import { SetAsyncUploadsUseCase } from "./domain/usecases/SetAsyncUploadsUseCase";
 import { RemoveAsyncUploadByIdUseCase } from "./domain/usecases/RemoveAsyncUploadByIdUseCase";
@@ -241,6 +242,10 @@ export function getCompositionRoot(instance: Instance) {
             }),
             getAsyncDeletions: new GetAsyncDeletionsUseCase(glassAsyncDeletionsRepository),
             getAsyncUploads: new GetAsyncUploadsUseCase(glassAsyncUploadsRepository),
+            getAlreadyImported: new GetAlreadyImportedUploadUseCase({
+                glassUploadsRepository,
+                glassAsyncUploadsRepository,
+            }),
             setToAsyncUploads: new SetAsyncUploadsUseCase({ glassAsyncUploadsRepository, glassUploadsRepository }),
             removeAsyncUploadById: new RemoveAsyncUploadByIdUseCase({
                 glassAsyncUploadsRepository,

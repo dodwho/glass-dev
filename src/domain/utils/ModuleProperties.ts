@@ -43,6 +43,8 @@ export type ModuleDetails = {
     calculatedSubstanceFileDownloadLabel?: string;
     hasAsyncDeletion?: boolean;
     hasAsyncUploads?: boolean;
+    /** Refuse a primary file already imported (or queued) for the same period: re-importing it would duplicate records. */
+    blockDuplicateUploads?: boolean;
 };
 
 export const moduleProperties = new Map<string, ModuleDetails>([
@@ -137,6 +139,7 @@ export const moduleProperties = new Map<string, ModuleDetails>([
             isExternalSecondaryFile: true,
             hasAsyncDeletion: true,
             hasAsyncUploads: true,
+            blockDuplicateUploads: true,
         },
     ],
     [
@@ -204,6 +207,7 @@ export const moduleProperties = new Map<string, ModuleDetails>([
             downloadAllDataButtonReq: true,
             hasAsyncDeletion: true,
             hasAsyncUploads: true,
+            blockDuplicateUploads: true,
         },
     ],
 ]);
