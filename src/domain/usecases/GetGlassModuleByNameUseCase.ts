@@ -21,6 +21,7 @@ export class GetGlassModuleByNameUseCase implements UseCase {
                 });
             })
             .flatMap(({ module, countryInformation }) => {
+                // Set only for an ACTIVE enrolment — see GetGlassModulesUseCase for the access rule.
                 if (countryInformation.nationalFocalPointId === undefined) {
                     return Future.error(
                         `You haven't permissions to access to the module ${name} in the country ${countryInformation.country}`

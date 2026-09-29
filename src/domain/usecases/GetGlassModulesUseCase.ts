@@ -28,6 +28,11 @@ export class GetGlassModulesUseCase implements UseCase {
             );
     }
 
+    /**
+     * The access rule for the whole app: a country sees a module only while it has an ACTIVE
+     * enrolment in it. `nationalFocalPointId` is set by CountryInformationDefaultRepository only for
+     * an ACTIVE enrolment, so a cancelled one leaves the module hidden while keeping its history.
+     */
     private filterByExistedCountryInformation(
         modules: GlassModule[],
         countryInformations: CountryInformation[]

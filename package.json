@@ -147,7 +147,8 @@
         "update-tons-to-kilograms": "npx ts-node -r dotenv/config src/scripts/update_autocalculated_and_manual_tons_to_kilograms.ts",
         "migrate-async-deletions-datastore": "npx ts-node -r dotenv/config src/scripts/async_deletions_migrate_new_datastore.ts",
         "amc-recalculate-local": "npx ts-node -P src/scripts/tsconfig.json src/scripts/cliAMCEnv.ts",
-        "amc-delete-data": "npx ts-node -r dotenv/config src/scripts/amc_delete_data_for_period_ou.ts"
+        "amc-delete-data": "npx ts-node -r dotenv/config src/scripts/amc_delete_data_for_period_ou.ts",
+        "enrol-countries": "npx ts-node -r dotenv/config src/scripts/enrol_countries_in_modules.ts"
     },
     "manifest.webapp": {
         "name": "glass",
