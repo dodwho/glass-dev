@@ -1,6 +1,6 @@
 module.exports = {
     collectCoverageFrom: ["src/**/*.js"],
-    testPathIgnorePatterns: ["/node_modules/", "/cypress", "/.claude/"],
+    testPathIgnorePatterns: ["/node_modules/", "/cypress"],
     // @eyeseetea/d2-api pulls in a *nested* axios 1.x (node_modules/@eyeseetea/d2-api/node_modules/axios)
     // that ships ESM-only, so it must be transformed too. The `.*axios` alternative is what makes the
     // nested copy match: this pattern is unanchored, so without it the outer `node_modules/` position

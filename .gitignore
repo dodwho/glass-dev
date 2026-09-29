@@ -14,6 +14,7 @@ manifest.webapp
 .DS_Store
 .env
 .env.local
+.env.preprod
 .env.development.local
 .env.test.local
 .env.production.local
@@ -54,10 +55,16 @@ src/scripts/d2_tracker_events_updated.json
 /glass-async-deletions-server
 /glass-async-uploads-server
 
-# editor / tooling scratch
-.claude/
+# editor scratch
 .vs/
 
 # security scan output
 snyk-report.html
 snyk-results.json
+
+# local run outputs of the CLI scripts (reports, logs, checkpoints)
+/AMC_*
+/AMR-AGG_*
+/AMU_upload_*
+*.checkpoint
+*.checkpoint.*
