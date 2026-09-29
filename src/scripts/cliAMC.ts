@@ -1,114 +1,79 @@
-import { boolean, command, flag, run } from "cmd-ts";
+import { boolean, command, flag, number, option, run } from "cmd-ts";
+
 import { setupLogger, logger } from "../utils/logger";
 import { getApiUrlOptions, getInstance, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
-import { RecalculateConsumptionDataProductLevelForAllUseCase } from "../domain/usecases/data-entry/amc/RecalculateConsumptionDataProductLevelForAllUseCase";
-import { RecalculateConsumptionDataSubstanceLevelForAllUseCase } from "../domain/usecases/data-entry/amc/RecalculateConsumptionDataSubstanceLevelForAllUseCase";
 import { AMCProductDataDefaultRepository } from "../data/repositories/data-entry/AMCProductDataDefaultRepository";
 import { GlassATCDefaultRepository } from "../data/repositories/GlassATCDefaultRepository";
 import { AMCSubstanceDataDefaultRepository } from "../data/repositories/data-entry/AMCSubstanceDataDefaultRepository";
-import { AMCProductDataRepository } from "../domain/repositories/data-entry/AMCProductDataRepository";
-import { AMCSubstanceDataRepository } from "../domain/repositories/data-entry/AMCSubstanceDataRepository";
-import { GlassATCRepository } from "../domain/repositories/GlassATCRepository";
-import { GlassATCRecalculateDataInfo } from "../domain/entities/GlassAtcVersionData";
-import { DisableAMCRecalculationsUseCase } from "../domain/usecases/data-entry/amc/DisableAMCRecalculationsUseCase";
-import { GetRecalculateDataInfoUseCase } from "../domain/usecases/data-entry/amc/GetRecalculateDataInfoUseCase";
-import { GetCurrentATCVersionData } from "../domain/usecases/data-entry/amc/GetCurrentATCVersionData";
 import { GlassModuleDefaultRepository } from "../data/repositories/GlassModuleDefaultRepository";
-import { GlassModuleRepository } from "../domain/repositories/GlassModuleRepository";
-import { GetGlassModuleByIdUseCase } from "../domain/usecases/GetGlassModuleByIdUseCase";
-import { Id } from "../domain/entities/Ref";
-import { GlassModule } from "../domain/entities/GlassModule";
-import { Maybe } from "../types/utils";
+import { disableRecalculations, runAmcRecalculation } from "./commands/amcRecalculate";
 import consoleLogger from "../utils/consoleLogger";
 
-const AMC_MODULE_ID = "BVnik5xiXGJ";
-
+/**
+ * Scheduled entry point: bundled by `yarn build-amc-recalculate` and run periodically by cron.
+ * It only does work when the DataStore key glass/amc-recalculation has recalculate=true, and clears
+ * that flag when it finishes. For ad-hoc local runs use cliAMCEnv.ts, which takes its connection
+ * details from the environment and supports --force.
+ */
 async function main() {
     const cmd = command({
-        name: "Recalculate consumption in product level data and substance level data for all orgnaisation units and all periods",
+        name: "cliAMC",
         description:
-            "Recalculate for all registered products the raw substance consumption from raw product consumption and recalculate from raw substances consumption data the consumption data",
+            "Recalculate AMC consumption (product level and substance level) for the org units and periods armed in the DataStore.",
         args: {
             ...getApiUrlOptions(),
-            debug: flag({
-                type: boolean,
-                long: "debug",
-                description: "Option to print also logs in console",
-            }),
+            debug: flag({ type: boolean, long: "debug", description: "Print debug logs to the console" }),
             calculate: flag({
                 type: boolean,
                 long: "calculate",
-                description:
-                    "Option to enabling not only recalculate but also calculate producing the events if they do not exist",
+                description: "Create calculated events that do not exist yet, not just update existing ones",
+            }),
+            delay: option({
+                type: number,
+                long: "delay",
+                defaultValue: () => 0,
+                description: "Milliseconds to pause between org unit/period pairs (default 0)",
             }),
         },
         handler: async args => {
+            const instance = getInstance(args);
+            const api = getD2APiFromInstance(instance);
+            await setupLogger(instance, { isDebug: args.debug });
+            await warmUpSession(api);
+
+            const dataStoreClient = new DataStoreClient(instance);
+            const atcRepository = new GlassATCDefaultRepository(dataStoreClient);
+            const repositories = {
+                amcProductDataRepository: new AMCProductDataDefaultRepository(api),
+                amcSubstanceDataRepository: new AMCSubstanceDataDefaultRepository(api),
+                atcRepository,
+                glassModuleRepository: new GlassModuleDefaultRepository(dataStoreClient),
+            };
+
             try {
-                const instance = getInstance(args);
-                const api = getD2APiFromInstance(instance);
-                await warmUpSession(api);
-                const dataStoreClient = new DataStoreClient(instance);
-                const amcProductDataRepository = new AMCProductDataDefaultRepository(api);
-                const amcSubstanceDataRepository = new AMCSubstanceDataDefaultRepository(api);
-                const atcRepository = new GlassATCDefaultRepository(dataStoreClient);
-                const glassModuleRepository = new GlassModuleDefaultRepository(dataStoreClient);
+                logger.info(`[${new Date().toISOString()}] Starting AMC recalculations...`);
 
-                try {
-                    await setupLogger(instance, { isDebug: args.debug });
-                    logger.info(`[${new Date().toISOString()}] Starting AMC recalculations...`);
-                    const recalculateDataInfo = await getRecalculateDataInfo(atcRepository);
-                    const glassModule = await getGetAMCModuleById(glassModuleRepository, AMC_MODULE_ID);
+                const summary = await runAmcRecalculation(repositories, {
+                    allowCreationIfNotExist: args.calculate,
+                    force: false,
+                    delayMs: args.delay,
+                    dryRun: false,
+                });
 
-                    logger.debug(
-                        `[${new Date().toISOString()}] Recalculate data info: date=${
-                            recalculateDataInfo?.date
-                        }, recalculate=${recalculateDataInfo?.recalculate}, periods=${recalculateDataInfo?.periods.join(
-                            ","
-                        )} and orgUnitsIds=${recalculateDataInfo?.orgUnitsIds.join(",")}`
-                    );
+                summary.failures.forEach(({ orgUnitId, period, error }) =>
+                    logger.error(`[${new Date().toISOString()}] FAILED orgUnit=${orgUnitId} period=${period}: ${error}`)
+                );
 
-                    if (recalculateDataInfo && recalculateDataInfo.recalculate) {
-                        logger.info(
-                            `[${new Date().toISOString()}] Disabling AMC recalculations before start with calculations`
-                        );
-                        await disableRecalculations(atcRepository);
-                        if (args.calculate) {
-                            logger.info(
-                                `[${new Date().toISOString()}] Calculate flag enabled. Events will be created if they do not exist`
-                            );
-                        }
-                        await recalculateData({
-                            periods: Array.from(new Set(recalculateDataInfo.periods)),
-                            orgUnitsIds: Array.from(new Set(recalculateDataInfo.orgUnitsIds)),
-                            amcProductDataRepository,
-                            amcSubstanceDataRepository,
-                            atcRepository,
-                            allowCreationIfNotExist: args.calculate,
-                            importCalculationChunkSize: glassModule.chunkSizes?.importCalculations,
-                        });
-                    } else {
-                        logger.info(`[${new Date().toISOString()}] AMC recalculations are disabled`);
-                    }
-                    logger.info(`[${new Date().toISOString()}] Waiting for next AMC recalculations...`);
-                } catch (err) {
-                    logger.info(`[${new Date().toISOString()}] Disabling AMC recalculations`);
-                    await disableRecalculations(atcRepository);
-                    await logger.error(
-                        `[${new Date().toISOString()}] ERROR - AMC recalculations has not been properly executed because of the following error: ${err}. Recalculations will be rerun again on the next iteration if it's enabled.`
-                    );
-                    consoleLogger.error(
-                        `[${new Date().toISOString()}] ERROR - AMC recalculations has not been properly executed because of the following error: ${err}. Recalculations will be rerun again on the next iteration if it's enabled.`
-                    );
-                    logger.info(`[${new Date().toISOString()}] Waiting for next AMC recalculations...`);
-                }
+                logger.info(`[${new Date().toISOString()}] Waiting for next AMC recalculations...`);
             } catch (err) {
+                await disableRecalculations(atcRepository).catch(() => undefined);
                 await logger.error(
-                    `[${new Date().toISOString()}] STOPPING AMC RECALCULATIONS SCRIPT: AMC recalculations have stopped with error ${err}. Please, restart again.`
+                    `[${new Date().toISOString()}] ERROR - AMC recalculations were not properly executed: ${err}. They will run again on the next iteration if re-enabled.`
                 );
                 consoleLogger.error(
-                    `[${new Date().toISOString()}] AMC recalculations have stopped with error: ${err}. Please, restart again.`
+                    `[${new Date().toISOString()}] AMC recalculations stopped with error: ${err}. Please restart.`
                 );
                 process.exit(1);
             }
@@ -116,79 +81,6 @@ async function main() {
     });
 
     run(cmd, process.argv.slice(2));
-}
-
-export async function getRecalculateDataInfo(
-    atcRepository: GlassATCRepository
-): Promise<GlassATCRecalculateDataInfo | undefined> {
-    const recalculateDataInfo = await new GetRecalculateDataInfoUseCase(atcRepository).execute().toPromise();
-    return recalculateDataInfo;
-}
-
-export async function getGetAMCModuleById(glassModuleRepository: GlassModuleRepository, id: Id): Promise<GlassModule> {
-    const glassModule = await new GetGlassModuleByIdUseCase(glassModuleRepository).execute(id).toPromise();
-    return glassModule;
-}
-
-export async function disableRecalculations(atcRepository: GlassATCRepository): Promise<void> {
-    await new DisableAMCRecalculationsUseCase(atcRepository).execute().toPromise();
-}
-
-export async function recalculateData(params: {
-    orgUnitsIds: string[];
-    periods: string[];
-    amcProductDataRepository: AMCProductDataRepository;
-    amcSubstanceDataRepository: AMCSubstanceDataRepository;
-    atcRepository: GlassATCRepository;
-    allowCreationIfNotExist: boolean;
-    importCalculationChunkSize: Maybe<number>;
-}): Promise<void> {
-    const {
-        orgUnitsIds,
-        periods,
-        amcProductDataRepository,
-        amcSubstanceDataRepository,
-        atcRepository,
-        allowCreationIfNotExist,
-        importCalculationChunkSize,
-    } = params;
-    logger.info(
-        `[${new Date().toISOString()}] START - Recalculating AMC data for orgnanisations ${orgUnitsIds.join(
-            ","
-        )} and periods ${periods.join(",")} with new ATC version`
-    );
-
-    const { currentATCVersion, currentATCData } = await new GetCurrentATCVersionData(atcRepository)
-        .execute()
-        .toPromise();
-
-    await new RecalculateConsumptionDataProductLevelForAllUseCase(amcProductDataRepository, amcSubstanceDataRepository)
-        .execute(
-            orgUnitsIds,
-            periods,
-            currentATCVersion,
-            currentATCData,
-            allowCreationIfNotExist,
-            importCalculationChunkSize
-        )
-        .toPromise();
-
-    await new RecalculateConsumptionDataSubstanceLevelForAllUseCase(amcSubstanceDataRepository, atcRepository)
-        .execute(
-            orgUnitsIds,
-            periods,
-            currentATCVersion,
-            currentATCData,
-            allowCreationIfNotExist,
-            importCalculationChunkSize
-        )
-        .toPromise();
-
-    logger.success(
-        `[${new Date().toISOString()}] END - End of AMC recalculations for orgnanisations ${orgUnitsIds.join(
-            ","
-        )} and periods ${periods.join(",")}`
-    );
 }
 
 main();

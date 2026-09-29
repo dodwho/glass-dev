@@ -3,22 +3,24 @@ import path from "path";
 import fs from "fs";
 import { D2TrackerEventSchema, TrackerEventsResponse } from "@eyeseetea/d2-api/api/trackerEvents";
 
-import { getInstance, warmUpSession } from "./common";
+import { getEnvVars, getInstance, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { Future, FutureData } from "../domain/entities/Future";
 import { D2Api, SelectedPick } from "../types/d2-api";
 import { Id } from "../domain/entities/Ref";
 import { apiToFuture } from "../utils/futures";
+import {
+    AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID,
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID,
+} from "../domain/entities/data-entry/amc/amcProgramIds";
 
 const KOSOVO_ORG_UNIT_ID = "I8AMbKhxlj9";
 const OLD_AMR_GLASS_AMC_DET_TONS_AUTOCALCULATED = "Ow8jz1uWB1V";
 
 // PRODUCT LEVEL:
-const AMC_PRODUCT_REGISTER_PROGRAM_ID = "G6ChA5zMW9n";
-const AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID = "q8cl5qllyjd";
 
 // SUBSTANCE LEVEL:
-const AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID = "eUmWZeKZNrg";
 
 function main() {
     const cmd = command({
@@ -37,32 +39,13 @@ function main() {
             }),
         },
         handler: async args => {
-            if (!process.env.REACT_APP_DHIS2_BASE_URL)
-                throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-            const token = process.env.REACT_APP_DHIS2_TOKEN_PROD || process.env.REACT_APP_DHIS2_TOKEN;
-
-            if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-                throw new Error(
-                    "Either REACT_APP_DHIS2_TOKEN_PROD, REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH must be set in the .env file"
-                );
-
             if (!args.products && !args.substances) throw new Error("products or substances flag is required");
             const programId = args.products
                 ? AMC_PRODUCT_REGISTER_PROGRAM_ID
                 : AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID;
             const programStageId = args.products ? AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID : undefined;
 
-            const envVars = token
-                ? { url: process.env.REACT_APP_DHIS2_BASE_URL, token }
-                : (() => {
-                      const auth = process.env.REACT_APP_DHIS2_AUTH!;
-                      const username = auth.split(":")[0] ?? "";
-                      const password = auth.split(":")[1] ?? "";
-                      if (!username || !password)
-                          throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-                      return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
-                  })();
+            const envVars = getEnvVars();
             const instance = getInstance(envVars);
             const api = getD2APiFromInstance(instance);
             await warmUpSession(api);

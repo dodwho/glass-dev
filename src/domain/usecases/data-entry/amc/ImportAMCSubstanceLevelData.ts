@@ -10,9 +10,13 @@ import { ImportBLTemplateEventProgram } from "../ImportBLTemplateEventProgram";
 import { ProgramRulesMetadataRepository } from "../../../repositories/program-rules/ProgramRulesMetadataRepository";
 import { GlassATCRepository } from "../../../repositories/GlassATCRepository";
 import { InstanceRepository } from "../../../repositories/InstanceRepository";
+import {
+    AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID as AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID,
+} from "../../../entities/data-entry/amc/amcProgramIds";
 
-export const AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID = "q8aSKr17J5S";
-export const AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID = "eUmWZeKZNrg";
+// Re-exported for existing importers; the values live in amcProgramIds.
+export { AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID, AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID };
 
 export class ImportAMCSubstanceLevelData {
     constructor(

@@ -34,13 +34,20 @@ import moment from "moment";
 import { ConsistencyError, ImportStrategy } from "../../../domain/entities/data-entry/ImportSummary";
 import consoleLogger from "../../../utils/consoleLogger";
 import { TrackerEvent } from "../../../domain/entities/TrackedEntityInstance";
+import {
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID,
+    AMR_GLASS_AMC_TEA_PRODUCT_ID,
+} from "../../../domain/entities/data-entry/amc/amcProgramIds";
 
-export const AMC_PRODUCT_REGISTER_PROGRAM_ID = "G6ChA5zMW9n";
-
-export const AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID = "GmElQHKXLIE";
-export const AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID = "q8cl5qllyjd";
-
-export const AMR_GLASS_AMC_TEA_PRODUCT_ID = "iasfoeU8veF";
+// Re-exported for existing importers; the values live in amcProgramIds.
+export {
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID,
+    AMR_GLASS_AMC_TEA_PRODUCT_ID,
+};
 
 const DEFAULT_IMPORT_DELETE_CALCULATIONS_CHUNK_SIZE = 300;
 
@@ -523,35 +530,34 @@ export class AMCProductDataDefaultRepository implements AMCProductDataRepository
         period: string
     ): Promise<D2TrackerEntity[]> {
         const trackedEntities: D2TrackerEntity[] = [];
-        const enrollmentEnrolledAfter = `${period}-1-1`;
+        const enrollmentEnrolledAfter = `${period}-01-01`;
         const enrollmentEnrolledBefore = `${period}-12-31`;
         const totalPages = true;
         const pageSize = 250;
         let page = 1;
         let result;
 
-        try {
-            do {
-                result = await this.getTrackedEntitiesOfPage({
-                    orgUnit,
-                    page,
-                    pageSize,
-                    totalPages,
-                    enrollmentEnrolledBefore,
-                    enrollmentEnrolledAfter,
-                });
-                if (!result.total) {
-                    throw new Error(
-                        `Error getting paginated tracked entities of period ${period} and organisation ${orgUnit}`
-                    );
-                }
-                trackedEntities.push(...result.instances);
-                page++;
-            } while (result.page < Math.ceil((result.total as number) / pageSize));
-            return trackedEntities;
-        } catch {
-            return [];
-        }
+        // Errors must propagate — see the note in AMCSubstanceDataDefaultRepository. Returning [] on
+        // failure silently reports "no product data" for a country that has plenty.
+        do {
+            result = await this.getTrackedEntitiesOfPage({
+                orgUnit,
+                page,
+                pageSize,
+                totalPages,
+                enrollmentEnrolledBefore,
+                enrollmentEnrolledAfter,
+            });
+            if (result.total === undefined || result.total === null) {
+                throw new Error(
+                    `Paginated tracked entities response for period ${period} and organisation ${orgUnit} is missing "total" (requested with totalPages=true)`
+                );
+            }
+            trackedEntities.push(...result.instances);
+            page++;
+        } while (result.page < Math.ceil(result.total / pageSize));
+
+        return trackedEntities;
     }
 
     private getTrackedEntitiesOfPage(params: {

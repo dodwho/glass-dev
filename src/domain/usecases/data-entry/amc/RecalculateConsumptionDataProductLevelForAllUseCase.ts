@@ -5,7 +5,6 @@ import { Future, FutureData } from "../../../entities/Future";
 import {
     CODE_PRODUCT_NOT_HAVE_ATC,
     COMB_CODE_PRODUCT_NOT_HAVE_ATC,
-    DEFAULT_SALT_CODE,
     GlassAtcVersionData,
 } from "../../../entities/GlassAtcVersionData";
 import {
@@ -32,74 +31,36 @@ import { AMCSubstanceDataRepository } from "../../../repositories/data-entry/AMC
 import { mapRawSubstanceCalculatedToSubstanceCalculated } from "./utils/mapRawSubstanceCalculatedToSubstanceCalculated";
 import { updateRecalculatedConsumptionData } from "./utils/updateRecalculatedConsumptionData";
 import { Maybe } from "../../../../utils/ts-utils";
-import consoleLogger from "../../../../utils/consoleLogger";
+import { AtcRemapper, matchCalculatedEvents } from "./utils/matchCalculatedEvents";
+import { RecalculationResult, recalculationResult } from "./utils/recalculationResult";
+import { AMR_GLASS_AMC_TEA_ATC, AMR_GLASS_AMC_TEA_COMBINATION } from "../../../entities/data-entry/amc/amcProgramIds";
 
 const IMPORT_STRATEGY_UPDATE = "UPDATE";
 const IMPORT_STRATEGY_CREATE_AND_UPDATE = "CREATE_AND_UPDATE";
-const AMR_GLASS_AMC_TEA_ATC = "aK1JpD14imM";
-const AMR_GLASS_AMC_TEA_COMBINATION = "mG49egdYK3G";
 
 export class RecalculateConsumptionDataProductLevelForAllUseCase {
     constructor(
         private amcProductDataRepository: AMCProductDataRepository,
         private amcSubstanceDataRepository: AMCSubstanceDataRepository
     ) {}
-    public execute(
-        orgUnitsIds: Id[],
-        periods: string[],
-        currentATCVersion: string,
-        currentATCData: GlassAtcVersionData,
-        allowCreationIfNotExist: boolean,
-        importCalculationChunkSize: Maybe<number>
-    ): FutureData<void> {
-        logger.info(
-            `[${new Date().toISOString()}] Calculate consumption data of product level for orgUnitsIds=${orgUnitsIds.join(
-                ","
-            )} and periods=${periods.join(",")}. Current ATC version ${currentATCVersion}`
-        );
-
-        return this.amcProductDataRepository
-            .getProductRegisterProgramMetadata()
-            .flatMap(productRegisterProgramMetadata => {
-                if (!productRegisterProgramMetadata) {
-                    logger.error(`[${new Date().toISOString()}] Product register program metadata not found`);
-                    return Future.error("Product register program metadata not found");
-                }
-
-                const allCombinations = orgUnitsIds.flatMap(orgUnitId =>
-                    periods.map(period => ({ orgUnitId, period }))
-                );
-
-                return Future.sequential(
-                    allCombinations.map(({ orgUnitId, period }) => {
-                        return Future.fromPromise(new Promise(resolve => setTimeout(resolve, 500))).flatMap(() => {
-                            consoleLogger.debug(
-                                `[${new Date().toISOString()}] Waiting 500 milliseconds... Processing orgUnit: ${orgUnitId}, period: ${period}`
-                            );
-                            return this.calculateByOrgUnitAndPeriod(
-                                productRegisterProgramMetadata,
-                                orgUnitId,
-                                period,
-                                currentATCData,
-                                currentATCVersion,
-                                allowCreationIfNotExist,
-                                importCalculationChunkSize
-                            ).toVoid();
-                        });
-                    })
-                ).toVoid();
-            });
-    }
-
-    private calculateByOrgUnitAndPeriod(
+    /**
+     * Recalculates a single org unit/period. Public so a caller that owns the loop (the CLI, which
+     * needs per-pair error isolation and checkpointing) can drive it without re-fetching the program
+     * metadata for every pair.
+     *
+     * Reports `hadSourceData` so the caller can tell whether this org unit/period actually holds
+     * product-level registrations.
+     */
+    public calculateByOrgUnitAndPeriod(
         productRegisterProgramMetadata: ProductRegisterProgramMetadata,
         orgUnitId: Id,
         period: string,
         atcCurrentVersionData: GlassAtcVersionData,
         atcVersionKey: string,
         allowCreationIfNotExist: boolean,
-        importCalculationChunkSize: Maybe<number>
-    ): FutureData<void> {
+        importCalculationChunkSize: Maybe<number>,
+        remapAtc: AtcRemapper
+    ): FutureData<RecalculationResult> {
         logger.info(
             `[${new Date().toISOString()}] Calculating consumption data of product level for orgUnitsId ${orgUnitId} and period ${period}`
         );
@@ -114,7 +75,7 @@ export class RecalculateConsumptionDataProductLevelForAllUseCase {
                 logger.info(
                     `[${new Date().toISOString()}] Product level: there are no product data for orgUnitId ${orgUnitId} and period ${period}`
                 );
-                return Future.success(undefined);
+                return recalculationResult(false);
             }
 
             if (
@@ -127,7 +88,7 @@ export class RecalculateConsumptionDataProductLevelForAllUseCase {
                 logger.info(
                     `[${new Date().toISOString()}] Product level: there are no current calculated data to update for orgUnitId ${orgUnitId} and period ${period}`
                 );
-                return Future.success(undefined);
+                return recalculationResult(true);
             }
 
             return getConsumptionDataProductLevel({
@@ -137,142 +98,170 @@ export class RecalculateConsumptionDataProductLevelForAllUseCase {
                 productDataTrackedEntities,
                 atcCurrentVersionData,
                 atcVersionKey,
-            }).flatMap(newRawSubstanceConsumptionCalculatedData => {
-                if (_.isEmpty(newRawSubstanceConsumptionCalculatedData)) {
-                    logger.error(
-                        `[${new Date().toISOString()}] Product level: there are no new calculated data to update current data for orgUnitId ${orgUnitId} and period ${period}`
+            })
+                .flatMap(newRawSubstanceConsumptionCalculatedData => {
+                    if (_.isEmpty(newRawSubstanceConsumptionCalculatedData)) {
+                        logger.error(
+                            `[${new Date().toISOString()}] Product level: there are no new calculated data to update current data for orgUnitId ${orgUnitId} and period ${period}`
+                        );
+                        return Future.success(undefined);
+                    }
+
+                    const rawSubstanceConsumptionCalculatedStageMetadata =
+                        productRegisterProgramMetadata?.programStages.find(
+                            ({ id }) => id === AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID
+                        );
+                    if (!rawSubstanceConsumptionCalculatedStageMetadata) {
+                        logger.error(
+                            `[${new Date().toISOString()}] Cannot find Raw Substance Consumption Calculated program stage metadata with id ${AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID}`
+                        );
+                        return Future.error("Cannot find Raw Substance Consumption Calculated program stage metadata");
+                    }
+
+                    const {
+                        withEventId: rawSubstanceConsumptionCalculatedDataToUpdate,
+                        withoutEventId: rawSubstanceConsumptionCalculatedDataToCreate,
+                        remapMatches,
+                    } = matchCalculatedEvents({
+                        currentRows: Object.values(currentRawSubstanceConsumptionCalculatedByProductId).flat(),
+                        nextRows: newRawSubstanceConsumptionCalculatedData,
+                        remapAtc,
+                    });
+
+                    if (remapMatches) {
+                        logger.info(
+                            `[${new Date().toISOString()}] Product level: ${remapMatches} row(s) for orgUnitId ${orgUnitId} and period ${period} matched their stored event only after applying the ATC change table (their ATC code was superseded in this version)`
+                        );
+                    }
+
+                    const eventIdsToUpdate = rawSubstanceConsumptionCalculatedDataToUpdate.map(
+                        ({ eventId }) => eventId
                     );
-                    return Future.success(undefined);
-                }
 
-                const rawSubstanceConsumptionCalculatedStageMetadata =
-                    productRegisterProgramMetadata?.programStages.find(
-                        ({ id }) => id === AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID
-                    );
-                if (!rawSubstanceConsumptionCalculatedStageMetadata) {
-                    logger.error(
-                        `[${new Date().toISOString()}] Cannot find Raw Substance Consumption Calculated program stage metadata with id ${AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID}`
-                    );
-                    return Future.error("Cannot find Raw Substance Consumption Calculated program stage metadata");
-                }
-
-                const newRawSubstanceConsumptionCalculatedDataWithIds =
-                    linkEventIdToNewRawSubstanceConsumptionCalculated(
-                        currentRawSubstanceConsumptionCalculatedByProductId,
-                        newRawSubstanceConsumptionCalculatedData
-                    );
-
-                const rawSubstanceConsumptionCalculatedDataToUpdate =
-                    newRawSubstanceConsumptionCalculatedDataWithIds.filter(({ eventId }) => eventId !== undefined);
-                const eventIdsToUpdate = rawSubstanceConsumptionCalculatedDataToUpdate.map(({ eventId }) => eventId);
-
-                logger.info(
-                    `[${new Date().toISOString()}] Updating calculations of product level events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: events=${eventIdsToUpdate.join(
-                        ","
-                    )}`
-                );
-
-                const rawSubstanceConsumptionCalculatedDataToCreate =
-                    newRawSubstanceConsumptionCalculatedDataWithIds.filter(({ eventId }) => eventId === undefined);
-
-                if (allowCreationIfNotExist && rawSubstanceConsumptionCalculatedDataToCreate.length) {
+                    // Counts only. Spelling out every UID added ~17 KB per org unit/period here and
+                    // again at substance level — hundreds of MB across a full run — and the ids are
+                    // recoverable from DHIS2 at any time. Deletions are still logged in full below:
+                    // those are destructive and need an audit trail.
                     logger.info(
-                        `[${new Date().toISOString()}] Creating Raw Substance Consumption Calculated data events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: events=${JSON.stringify(
-                            rawSubstanceConsumptionCalculatedDataToCreate
-                        )}`
+                        `[${new Date().toISOString()}] Updating calculations of product level events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: ${
+                            eventIdsToUpdate.length
+                        } events`
                     );
-                }
 
-                const rawSubstanceConsumptionCalculatedDataToImport = allowCreationIfNotExist
-                    ? [
-                          ...rawSubstanceConsumptionCalculatedDataToUpdate,
-                          ...rawSubstanceConsumptionCalculatedDataToCreate,
-                      ]
-                    : rawSubstanceConsumptionCalculatedDataToUpdate;
+                    if (allowCreationIfNotExist && rawSubstanceConsumptionCalculatedDataToCreate.length) {
+                        logger.info(
+                            `[${new Date().toISOString()}] Creating Raw Substance Consumption Calculated data events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: ${
+                                rawSubstanceConsumptionCalculatedDataToCreate.length
+                            } events`
+                        );
+                    }
 
-                return this.amcProductDataRepository
-                    .importCalculations({
-                        importStrategy: allowCreationIfNotExist
-                            ? IMPORT_STRATEGY_CREATE_AND_UPDATE
-                            : IMPORT_STRATEGY_UPDATE,
-                        productDataTrackedEntities: productDataTrackedEntities,
-                        rawSubstanceConsumptionCalculatedStageMetadata: rawSubstanceConsumptionCalculatedStageMetadata,
-                        rawSubstanceConsumptionCalculatedData: rawSubstanceConsumptionCalculatedDataToImport,
-                        orgUnitId: orgUnitId,
-                        period: period,
-                        chunkSize: importCalculationChunkSize,
-                    })
-                    .flatMap(response => {
-                        const eventIdsNoRecalculated: Id[] = Object.keys(
-                            currentRawSubstanceConsumptionCalculatedByProductId
-                        ).reduce((acc: Id[], productId) => {
-                            const rawSubstanceConsumptionCalculatedNotToUpdate =
-                                currentRawSubstanceConsumptionCalculatedByProductId[productId]?.filter(
-                                    ({ eventId }) => !eventIdsToUpdate.includes(eventId)
-                                );
-                            return rawSubstanceConsumptionCalculatedNotToUpdate
-                                ? [
-                                      ...acc,
-                                      ...(rawSubstanceConsumptionCalculatedNotToUpdate.map(
-                                          ({ eventId }) => eventId
-                                      ) as Id[]),
-                                  ]
-                                : acc;
-                        }, []);
+                    const rawSubstanceConsumptionCalculatedDataToImport = allowCreationIfNotExist
+                        ? [
+                              ...rawSubstanceConsumptionCalculatedDataToUpdate,
+                              ...rawSubstanceConsumptionCalculatedDataToCreate,
+                          ]
+                        : rawSubstanceConsumptionCalculatedDataToUpdate;
 
-                        return this.deleteNoRecalculatedEvents(
-                            eventIdsNoRecalculated,
-                            importCalculationChunkSize
-                        ).flatMap(() => {
-                            if (response.status === "OK") {
-                                logger.success(
-                                    `[${new Date().toISOString()}] Calculations of product level updated for orgUnitId ${orgUnitId} and period ${period}: ${
-                                        response.stats.updated
-                                    } of ${response.stats.total} events updated${
-                                        allowCreationIfNotExist
-                                            ? ` and ${response.stats.created} of ${response.stats.total} events created`
-                                            : ""
-                                    }`
-                                );
+                    return this.amcProductDataRepository
+                        .importCalculations({
+                            importStrategy: allowCreationIfNotExist
+                                ? IMPORT_STRATEGY_CREATE_AND_UPDATE
+                                : IMPORT_STRATEGY_UPDATE,
+                            productDataTrackedEntities: productDataTrackedEntities,
+                            rawSubstanceConsumptionCalculatedStageMetadata:
+                                rawSubstanceConsumptionCalculatedStageMetadata,
+                            rawSubstanceConsumptionCalculatedData: rawSubstanceConsumptionCalculatedDataToImport,
+                            orgUnitId: orgUnitId,
+                            period: period,
+                            chunkSize: importCalculationChunkSize,
+                        })
+                        .flatMap(response => {
+                            const updatedEventIds = new Set(eventIdsToUpdate);
+                            const eventIdsNoRecalculated: Id[] = Object.values(
+                                currentRawSubstanceConsumptionCalculatedByProductId
+                            )
+                                .flat()
+                                .map(({ eventId }) => eventId)
+                                .filter((id): id is Id => id !== undefined && !updatedEventIds.has(id));
 
-                                return this.importSubstanceConsumptionCalculated(
-                                    rawSubstanceConsumptionCalculatedDataToImport,
-                                    orgUnitId,
-                                    period,
-                                    allowCreationIfNotExist,
-                                    importCalculationChunkSize
-                                );
-                            }
-                            if (response.status === "ERROR") {
-                                logger.error(
-                                    `[${new Date().toISOString()}] Error updating calculations of product level updated for orgUnitId ${orgUnitId} and period ${period}: ${JSON.stringify(
-                                        response.validationReport.errorReports
+                            // Deleting is only safe when nothing needed creating. Rows dropped because
+                            // creation is disabled would otherwise leave their stored events deleted with
+                            // no replacement written — silent data loss on exactly the rows a new ATC
+                            // version remapped.
+                            const wouldDeleteWithoutReplacement =
+                                !allowCreationIfNotExist && rawSubstanceConsumptionCalculatedDataToCreate.length > 0;
+
+                            if (wouldDeleteWithoutReplacement && eventIdsNoRecalculated.length) {
+                                logger.warn(
+                                    `[${new Date().toISOString()}] Product level: NOT deleting ${
+                                        eventIdsNoRecalculated.length
+                                    } unmatched events for orgUnitId ${orgUnitId} and period ${period} because ${
+                                        rawSubstanceConsumptionCalculatedDataToCreate.length
+                                    } recalculated rows could not be created (run with --calculate to write them): events=${eventIdsNoRecalculated.join(
+                                        ","
                                     )}`
                                 );
                             }
 
-                            if (response.status === "WARNING") {
-                                logger.warn(
-                                    `[${new Date().toISOString()}] Warning updating calculations of product level updated for orgUnitId ${orgUnitId} and period ${period}: updated=${
-                                        response.stats.updated
-                                    }, ${allowCreationIfNotExist ? `created=${response.stats.created}, ` : ""} total=${
-                                        response.stats.total
-                                    } and warning=${JSON.stringify(response.validationReport.warningReports)}`
-                                );
+                            return this.deleteNoRecalculatedEvents(
+                                wouldDeleteWithoutReplacement ? [] : eventIdsNoRecalculated,
+                                importCalculationChunkSize
+                            ).flatMap(() => {
+                                if (response.status === "OK") {
+                                    logger.success(
+                                        `[${new Date().toISOString()}] Calculations of product level updated for orgUnitId ${orgUnitId} and period ${period}: ${
+                                            response.stats.updated
+                                        } of ${response.stats.total} events updated${
+                                            allowCreationIfNotExist
+                                                ? ` and ${response.stats.created} of ${response.stats.total} events created`
+                                                : ""
+                                        }`
+                                    );
 
-                                return this.importSubstanceConsumptionCalculated(
-                                    rawSubstanceConsumptionCalculatedDataToImport,
-                                    orgUnitId,
-                                    period,
-                                    allowCreationIfNotExist,
-                                    importCalculationChunkSize
-                                );
-                            }
+                                    return this.importSubstanceConsumptionCalculated(
+                                        rawSubstanceConsumptionCalculatedDataToImport,
+                                        orgUnitId,
+                                        period,
+                                        allowCreationIfNotExist,
+                                        importCalculationChunkSize,
+                                        remapAtc
+                                    );
+                                }
+                                if (response.status === "ERROR") {
+                                    logger.error(
+                                        `[${new Date().toISOString()}] Error updating calculations of product level updated for orgUnitId ${orgUnitId} and period ${period}: ${JSON.stringify(
+                                            response.validationReport.errorReports
+                                        )}`
+                                    );
+                                }
 
-                            return Future.success(undefined);
+                                if (response.status === "WARNING") {
+                                    logger.warn(
+                                        `[${new Date().toISOString()}] Warning updating calculations of product level updated for orgUnitId ${orgUnitId} and period ${period}: updated=${
+                                            response.stats.updated
+                                        }, ${
+                                            allowCreationIfNotExist ? `created=${response.stats.created}, ` : ""
+                                        } total=${response.stats.total} and warning=${JSON.stringify(
+                                            response.validationReport.warningReports
+                                        )}`
+                                    );
+
+                                    return this.importSubstanceConsumptionCalculated(
+                                        rawSubstanceConsumptionCalculatedDataToImport,
+                                        orgUnitId,
+                                        period,
+                                        allowCreationIfNotExist,
+                                        importCalculationChunkSize,
+                                        remapAtc
+                                    );
+                                }
+
+                                return Future.success(undefined);
+                            });
                         });
-                    });
-            });
+                })
+                .map((): RecalculationResult => ({ hadSourceData: true }));
         });
     }
 
@@ -389,7 +378,8 @@ export class RecalculateConsumptionDataProductLevelForAllUseCase {
         orgUnitId: string,
         period: string,
         allowCreationIfNotExist: boolean,
-        importCalculationChunkSize: Maybe<number>
+        importCalculationChunkSize: Maybe<number>,
+        remapAtc: AtcRemapper
     ): FutureData<void> {
         const recalculatedSubstanceConsumptionData = mapRawSubstanceCalculatedToSubstanceCalculated(
             rawSubstanceConsumptionCalculatedData,
@@ -406,38 +396,11 @@ export class RecalculateConsumptionDataProductLevelForAllUseCase {
                     currentCalculatedConsumptionData,
                     this.amcSubstanceDataRepository,
                     allowCreationIfNotExist,
-                    importCalculationChunkSize
+                    importCalculationChunkSize,
+                    remapAtc
                 );
             });
     }
-}
-
-function linkEventIdToNewRawSubstanceConsumptionCalculated(
-    currentRawSubstanceConsumptionCalculatedByProductId: Record<string, RawSubstanceConsumptionCalculated[]>,
-    newRawSubstanceConsumptionCalculatedData: RawSubstanceConsumptionCalculated[]
-): RawSubstanceConsumptionCalculated[] {
-    return newRawSubstanceConsumptionCalculatedData.map(newCalulatedData => {
-        const eventIdFound = currentRawSubstanceConsumptionCalculatedByProductId[
-            newCalulatedData.AMR_GLASS_AMC_TEA_PRODUCT_ID
-        ]?.find(currentCalculatedData => {
-            return (
-                currentCalculatedData.atc_autocalculated === newCalulatedData.atc_autocalculated &&
-                currentCalculatedData.route_admin_autocalculated === newCalulatedData.route_admin_autocalculated &&
-                (currentCalculatedData.salt_autocalculated === newCalulatedData.salt_autocalculated ||
-                    DEFAULT_SALT_CODE === newCalulatedData.salt_autocalculated) &&
-                currentCalculatedData.combination_code_autocalculated ===
-                    newCalulatedData.combination_code_autocalculated &&
-                currentCalculatedData.health_sector_autocalculated === newCalulatedData.health_sector_autocalculated &&
-                currentCalculatedData.health_level_autocalculated === newCalulatedData.health_level_autocalculated &&
-                currentCalculatedData.data_status_autocalculated === newCalulatedData.data_status_autocalculated
-            );
-        })?.eventId;
-
-        return {
-            ...newCalulatedData,
-            eventId: eventIdFound ?? undefined,
-        };
-    });
 }
 
 function getCurrentRawSubstanceConsumptionCalculated(

@@ -98,37 +98,26 @@ function getProductRegistryAttributesAndRawProductConsumption(
     productRegisterProgramAttributes: ProgramTrackedEntityAttribute[],
     rawProductConsumptionStage: ProgramStage
 ) {
-    return productDataTrackedEntities.reduce(
-        (
-            acc: {
-                productRegistryAttributes: ProductRegistryAttributes[];
-                rawProductConsumption: RawProductConsumption[];
-            },
-            productDataTrackedEntity
-        ) => {
-            const productId = productDataTrackedEntity.attributes.find(
-                ({ id }) => id === AMR_GLASS_AMC_TEA_PRODUCT_ID
-            )?.value;
-            if (!productId) {
-                return acc;
-            }
+    // Accumulated by push rather than by spreading into fresh arrays: a large country/period holds
+    // several thousand products, and rebuilding both arrays per product is quadratic.
+    const productRegistryAttributes: ProductRegistryAttributes[] = [];
+    const rawProductConsumption: RawProductConsumption[] = [];
 
-            return {
-                productRegistryAttributes: [
-                    ...acc.productRegistryAttributes,
-                    getProductRegistryAttributes(productDataTrackedEntity.attributes, productRegisterProgramAttributes),
-                ],
-                rawProductConsumption: [
-                    ...acc.rawProductConsumption,
-                    ...getRawProductConsumption(productId, productDataTrackedEntity.events, rawProductConsumptionStage),
-                ],
-            };
-        },
-        {
-            productRegistryAttributes: [],
-            rawProductConsumption: [],
-        }
-    );
+    productDataTrackedEntities.forEach(productDataTrackedEntity => {
+        const productId = productDataTrackedEntity.attributes.find(
+            ({ id }) => id === AMR_GLASS_AMC_TEA_PRODUCT_ID
+        )?.value;
+        if (!productId) return;
+
+        productRegistryAttributes.push(
+            getProductRegistryAttributes(productDataTrackedEntity.attributes, productRegisterProgramAttributes)
+        );
+        rawProductConsumption.push(
+            ...getRawProductConsumption(productId, productDataTrackedEntity.events, rawProductConsumptionStage)
+        );
+    });
+
+    return { productRegistryAttributes, rawProductConsumption };
 }
 
 function getProductRegistryAttributes(

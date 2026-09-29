@@ -1,8 +1,15 @@
+import { boolean, command, flag, option, run } from "cmd-ts";
 import dotenv from "dotenv";
 import _ from "lodash";
 import { D2Api } from "@eyeseetea/d2-api/2.34";
-import { getInstance, warmUpSession } from "./common";
+import { describeAuth, getEnvVars, getInstance, StringsSeparatedByCommas, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
+import { Id } from "../domain/entities/Ref";
+import {
+    AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID as AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID,
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID,
+} from "../domain/entities/data-entry/amc/amcProgramIds";
 
 dotenv.config();
 
@@ -13,51 +20,76 @@ AMC: delete all Tracker data for a given org unit + period.
 Use this to clean up partially-imported / orphaned AMC data so a
 country+year can be re-uploaded cleanly.
 
-It removes, for each (orgUnit, period):
-  1. AMC Product Register tracked entities (deleting a TEI cascades to its
-     enrollment + raw-product-consumption events + calculated stage events).
-  2. Calculated substance consumption events (separate program).
-  3. Raw substance consumption events (separate program; for substance uploads).
+For each (orgUnit, period) it clears every program in TARGET_PROGRAM_IDS below:
+the product register (a tracker program — deleting a TEI cascades to its enrollment,
+raw-product-consumption events and calculated stage events), the raw and calculated
+substance consumption event programs, and the APVD copies of those programs.
+
+Whether a program is deleted as tracked entities or as events is read from the
+instance's own metadata (programType), not assumed here — so adding a program id to
+the list is all that is needed, and a wrong assumption cannot silently delete nothing.
+Program ids that do not exist on the target instance are reported and skipped.
 
 SAFETY: dry-run by default — it only reports what it *would* delete.
 Pass --commit to actually delete.
 
-Run (dry run):   npx ts-node -r dotenv/config src/scripts/amc_delete_data_for_period_ou.ts
-Run (delete):    npx ts-node -r dotenv/config src/scripts/amc_delete_data_for_period_ou.ts --commit
+Run (dry run):   yarn amc-delete-data --orgUnits ARM --periods 2014
+Run (delete):    yarn amc-delete-data --orgUnits ARM --periods 2014 --commit
+
+Several countries / years at once (cross product of the two lists):
+                 yarn amc-delete-data --orgUnits ARM,ESP --periods 2014,2015
+
 (set DOTENV_CONFIG_PATH=.env.local the same way you run the bulk upload script)
 ================================================================
 */
 
-// ---- CONFIG: edit the targets you want to clean up ----
-const TARGETS: { orgUnitCode: string; periods: string[] }[] = [{ orgUnitCode: "ARM", periods: ["2014", "2014"] }];
-
-const DRY_RUN = !process.argv.includes("--commit");
-
-// AMC program ids (from ImportAMCProductLevelData / ImportAMCSubstanceLevelData)
-const AMC_PRODUCT_REGISTER_PROGRAM_ID = "G6ChA5zMW9n";
-const AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID = "q8aSKr17J5S";
-const AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID = "eUmWZeKZNrg";
+/**
+ * Every AMC program a country+year's data can live in.
+ *
+ * The three APVD copies are cleaned as a precaution: a country+year is only truly re-uploadable
+ * if no stale rows survive in them either. They are expected to be empty on most instances, and
+ * are skipped with a warning wherever they do not exist.
+ */
+const TARGET_PROGRAM_IDS: Id[] = [
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID,
+    // APVD copies of the above.
+    "zMD4VltVy3v",
+    "x6AC7eEnOHS",
+    "s6WqZFyx88P",
+];
 
 const PAGE_SIZE = 250;
 const DELETE_CHUNK = 100;
 
-function getEnvVars() {
-    if (!process.env.REACT_APP_DHIS2_BASE_URL) throw new Error("REACT_APP_DHIS2_BASE_URL must be set in the .env file");
+type TargetProgram = { id: Id; name: string; kind: "trackedEntities" | "events" };
 
-    const token =
-        process.env.REACT_APP_DHIS2_TOKEN_PROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_PREPROD ||
-        process.env.REACT_APP_DHIS2_TOKEN;
+/**
+ * Resolve name and type for each target program. A tracker program (WITH_REGISTRATION) is cleared by
+ * deleting its tracked entities; an event program by deleting its events.
+ */
+async function resolveTargetPrograms(api: D2Api, programIds: Id[]): Promise<TargetProgram[]> {
+    const response = await api.models.programs
+        .get({ fields: { id: true, name: true, programType: true }, filter: { id: { in: programIds } }, paging: false })
+        .getData();
 
-    if (!token && !process.env.REACT_APP_DHIS2_AUTH)
-        throw new Error("A DHIS2 token or REACT_APP_DHIS2_AUTH must be set in the .env file");
+    const programsById = _.keyBy(response.objects, program => program.id);
 
-    if (token) return { url: process.env.REACT_APP_DHIS2_BASE_URL, token };
-
-    const auth = process.env.REACT_APP_DHIS2_AUTH!;
-    const [username, password] = auth.split(":");
-    if (!username || !password) throw new Error("REACT_APP_DHIS2_AUTH must be 'username:password'");
-    return { url: process.env.REACT_APP_DHIS2_BASE_URL, auth: { username, password } };
+    return _.compact(
+        programIds.map(id => {
+            const program = programsById[id];
+            if (!program) {
+                console.warn(`  [skip] program ${id} does not exist on this instance`);
+                return undefined;
+            }
+            return {
+                id,
+                name: program.name,
+                kind: program.programType === "WITH_REGISTRATION" ? ("trackedEntities" as const) : ("events" as const),
+            };
+        })
+    );
 }
 
 async function resolveOrgUnitsByCode(api: D2Api): Promise<{ [code: string]: string }> {
@@ -74,12 +106,12 @@ async function resolveOrgUnitsByCode(api: D2Api): Promise<{ [code: string]: stri
     return map;
 }
 
-async function getProductTrackedEntityIds(api: D2Api, orgUnitId: string, period: string): Promise<string[]> {
+async function getTrackedEntityIds(api: D2Api, orgUnitId: string, period: string, programId: Id): Promise<string[]> {
     const ids: string[] = [];
     for (let page = 1; ; page++) {
         const response = await api.tracker.trackedEntities
             .get({
-                program: AMC_PRODUCT_REGISTER_PROGRAM_ID,
+                program: programId,
                 orgUnit: orgUnitId,
                 ouMode: "SELECTED",
                 enrollmentEnrolledAfter: `${period}-01-01`,
@@ -97,7 +129,7 @@ async function getProductTrackedEntityIds(api: D2Api, orgUnitId: string, period:
     return ids;
 }
 
-async function getEventIds(api: D2Api, orgUnitId: string, period: string, programId: string): Promise<string[]> {
+async function getEventIds(api: D2Api, orgUnitId: string, period: string, programId: Id): Promise<string[]> {
     const ids: string[] = [];
     for (let page = 1; ; page++) {
         const response = await api.tracker.events
@@ -153,65 +185,105 @@ async function deleteEvents(api: D2Api, eventIds: string[]): Promise<number> {
     return deleted;
 }
 
-async function main() {
-    const api = getD2APiFromInstance(getInstance(getEnvVars()));
-    await warmUpSession(api);
+async function deleteForOrgUnitAndPeriod(
+    api: D2Api,
+    programs: TargetProgram[],
+    orgUnitId: string,
+    period: string,
+    dryRun: boolean
+): Promise<void> {
+    const teiIds: string[] = [];
+    const eventIds: string[] = [];
 
-    console.log(
-        DRY_RUN
-            ? "=== DRY RUN — reporting only, nothing will be deleted. Re-run with --commit to delete. ==="
-            : "=== COMMIT MODE — data WILL be permanently deleted. ==="
-    );
+    for (const program of programs) {
+        const ids =
+            program.kind === "trackedEntities"
+                ? await getTrackedEntityIds(api, orgUnitId, period, program.id)
+                : await getEventIds(api, orgUnitId, period, program.id);
 
-    const orgUnitsByCode = await resolveOrgUnitsByCode(api);
-
-    for (const target of TARGETS) {
-        const orgUnitId = orgUnitsByCode[target.orgUnitCode];
-        if (!orgUnitId) {
-            console.error(`Unknown org unit code "${target.orgUnitCode}" — skipping.`);
-            continue;
-        }
-
-        for (const period of target.periods) {
-            console.log(`\n--- ${target.orgUnitCode} (${orgUnitId}) — period ${period} ---`);
-
-            const productTeiIds = await getProductTrackedEntityIds(api, orgUnitId, period);
-            const calculatedSubstanceEventIds = await getEventIds(
-                api,
-                orgUnitId,
-                period,
-                AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID
-            );
-            const rawSubstanceEventIds = await getEventIds(
-                api,
-                orgUnitId,
-                period,
-                AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID
-            );
-
-            console.log(`  Product register tracked entities: ${productTeiIds.length}`);
-            console.log(`  Calculated substance consumption events: ${calculatedSubstanceEventIds.length}`);
-            console.log(`  Raw substance consumption events: ${rawSubstanceEventIds.length}`);
-
-            if (!DRY_RUN) {
-                if (productTeiIds.length)
-                    console.log(
-                        `  Deleted tracked entities: ${await deleteTrackedEntities(api, orgUnitId, productTeiIds)}`
-                    );
-                if (calculatedSubstanceEventIds.length)
-                    console.log(
-                        `  Deleted calculated substance events: ${await deleteEvents(api, calculatedSubstanceEventIds)}`
-                    );
-                if (rawSubstanceEventIds.length)
-                    console.log(`  Deleted raw substance events: ${await deleteEvents(api, rawSubstanceEventIds)}`);
-            }
-        }
+        console.log(`  ${program.name} (${program.id}) — ${program.kind}: ${ids.length}`);
+        (program.kind === "trackedEntities" ? teiIds : eventIds).push(...ids);
     }
 
-    console.log(`\nDone.${DRY_RUN ? " (dry run — nothing was deleted)" : ""}`);
+    // A tracked entity can be enrolled in more than one of these programs, and deleting it removes it
+    // outright — so the same id can come back from two queries. Deduplicate to avoid a second DELETE
+    // that would only report an error for an id that is already gone.
+    const uniqueTeiIds = _.uniq(teiIds);
+    const uniqueEventIds = _.uniq(eventIds);
+
+    if (dryRun) return;
+
+    if (uniqueTeiIds.length)
+        console.log(`  Deleted tracked entities: ${await deleteTrackedEntities(api, orgUnitId, uniqueTeiIds)}`);
+    if (uniqueEventIds.length) console.log(`  Deleted events: ${await deleteEvents(api, uniqueEventIds)}`);
 }
 
-main().catch(err => {
-    console.error("Fatal error:", err);
-    process.exit(1);
-});
+function main() {
+    const cmd = command({
+        name: "amc_delete_data_for_period_ou",
+        description:
+            "Delete all AMC tracker data (product register, raw/calculated substance consumption, and their APVD copies) for the given org units and periods. Dry-run unless --commit is passed.",
+        args: {
+            orgUnits: option({
+                type: StringsSeparatedByCommas,
+                long: "orgUnits",
+                description: "Comma-separated org unit CODES, e.g. ARM,ESP (601624 for Kosovo)",
+            }),
+            periods: option({
+                type: StringsSeparatedByCommas,
+                long: "periods",
+                description: "Comma-separated periods (years), e.g. 2014,2015",
+            }),
+            commit: flag({
+                type: boolean,
+                long: "commit",
+                description: "Actually delete. Without it the script only reports what it would delete.",
+            }),
+        },
+        handler: async args => {
+            const dryRun = !args.commit;
+
+            const invalidPeriods = args.periods.filter(period => !/^\d{4}$/.test(period));
+            if (invalidPeriods.length)
+                throw new Error(`Periods must be 4-digit years, got: ${invalidPeriods.join(", ")}`);
+
+            const envVars = getEnvVars();
+            console.log(`Target instance: ${envVars.url} (auth: ${describeAuth(envVars)})`);
+
+            const api = getD2APiFromInstance(getInstance(envVars));
+            await warmUpSession(api);
+
+            console.log(
+                dryRun
+                    ? "=== DRY RUN — reporting only, nothing will be deleted. Re-run with --commit to delete. ==="
+                    : "=== COMMIT MODE — data WILL be permanently deleted. ==="
+            );
+
+            const programs = await resolveTargetPrograms(api, TARGET_PROGRAM_IDS);
+            console.log(`Programs to clear: ${programs.length} of ${TARGET_PROGRAM_IDS.length}`);
+
+            const orgUnitsByCode = await resolveOrgUnitsByCode(api);
+
+            const unknownCodes = args.orgUnits.filter(code => !orgUnitsByCode[code]);
+            if (unknownCodes.length) throw new Error(`Unknown org unit code(s): ${unknownCodes.join(", ")}`);
+
+            for (const orgUnitCode of _.uniq(args.orgUnits)) {
+                const orgUnitId = orgUnitsByCode[orgUnitCode] as string;
+
+                for (const period of _.uniq(args.periods)) {
+                    console.log(`\n--- ${orgUnitCode} (${orgUnitId}) — period ${period} ---`);
+                    await deleteForOrgUnitAndPeriod(api, programs, orgUnitId, period, dryRun);
+                }
+            }
+
+            console.log(`\nDone.${dryRun ? " (dry run — nothing was deleted)" : ""}`);
+        },
+    });
+
+    run(cmd, process.argv.slice(2)).catch(err => {
+        console.error("Fatal error:", err);
+        process.exit(1);
+    });
+}
+
+main();

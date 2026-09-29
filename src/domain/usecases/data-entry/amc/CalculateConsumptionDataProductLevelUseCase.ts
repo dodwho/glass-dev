@@ -25,11 +25,10 @@ import { GlassUploadsRepository } from "../../../repositories/GlassUploadsReposi
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
 import { getStringFromFileBlob } from "../utils/fileToString";
 import { Maybe } from "../../../../utils/ts-utils";
+import { AMR_GLASS_AMC_TEA_ATC, AMR_GLASS_AMC_TEA_COMBINATION } from "../../../entities/data-entry/amc/amcProgramIds";
 
 const IMPORT_SUMMARY_EVENT_TYPE = "event";
 const IMPORT_STRATEGY_CREATE_AND_UPDATE = "CREATE_AND_UPDATE";
-const AMR_GLASS_AMC_TEA_ATC = "aK1JpD14imM";
-const AMR_GLASS_AMC_TEA_COMBINATION = "mG49egdYK3G";
 
 export class CalculateConsumptionDataProductLevelUseCase {
     constructor(

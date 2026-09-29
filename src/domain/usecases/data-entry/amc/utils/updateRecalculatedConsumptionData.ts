@@ -1,10 +1,10 @@
 import { logger } from "../../../../../utils/logger";
 import { Future, FutureData } from "../../../../entities/Future";
-import { DEFAULT_SALT_CODE } from "../../../../entities/GlassAtcVersionData";
 import { Id } from "../../../../entities/Ref";
 import { SubstanceConsumptionCalculated } from "../../../../entities/data-entry/amc/SubstanceConsumptionCalculated";
 import { AMCSubstanceDataRepository } from "../../../../repositories/data-entry/AMCSubstanceDataRepository";
 import { Maybe } from "../../../../../types/utils";
+import { AtcRemapper, matchCalculatedEvents } from "./matchCalculatedEvents";
 
 const IMPORT_STRATEGY_UPDATE = "UPDATE";
 const IMPORT_STRATEGY_CREATE_AND_UPDATE = "CREATE_AND_UPDATE";
@@ -16,24 +16,45 @@ export function updateRecalculatedConsumptionData(
     currentCalculatedConsumptionData: Maybe<SubstanceConsumptionCalculated[]>,
     amcSubstanceDataRepository: AMCSubstanceDataRepository,
     allowCreationIfNotExist: boolean,
-    importCalculationChunkSize: Maybe<number>
+    importCalculationChunkSize: Maybe<number>,
+    remapAtc: AtcRemapper,
+    /**
+     * Suppresses deletion of stored events this recalculation did not match. Set when another
+     * pipeline has already written calculated consumption for this org unit and period, so the
+     * unmatched events are not stale rows but the other pipeline's output.
+     */
+    preserveUnmatchedEvents = false
 ): FutureData<void> {
-    const { withEventId: newCalculatedConsumptionDataWithIds, withoutEventId: newCalculatedConsumptionDataWithoutIds } =
-        linkEventIdToNewCalculatedConsumptionData(currentCalculatedConsumptionData || [], newCalculatedConsumptionData);
+    const {
+        withEventId: newCalculatedConsumptionDataWithIds,
+        withoutEventId: newCalculatedConsumptionDataWithoutIds,
+        remapMatches,
+    } = matchCalculatedEvents({
+        currentRows: currentCalculatedConsumptionData || [],
+        nextRows: newCalculatedConsumptionData,
+        remapAtc,
+    });
+
+    if (remapMatches) {
+        logger.info(
+            `[${new Date().toISOString()}] Substance level: ${remapMatches} row(s) for orgUnitId ${orgUnitId} and period ${period} matched their stored event only after applying the ATC change table (their ATC code was superseded in this version)`
+        );
+    }
 
     const eventIdsToUpdate = newCalculatedConsumptionDataWithIds.map(({ eventId }) => eventId);
 
+    // Counts only — see the note at the product-level call site.
     logger.info(
-        `[${new Date().toISOString()}] Updating calculations of substance level events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: events=${eventIdsToUpdate.join(
-            ","
-        )}`
+        `[${new Date().toISOString()}] Updating calculations of substance level events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: ${
+            eventIdsToUpdate.length
+        } events`
     );
 
     if (allowCreationIfNotExist && newCalculatedConsumptionDataWithoutIds.length) {
         logger.info(
-            `[${new Date().toISOString()}] Creating calculated consumption data events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: events=${JSON.stringify(
-                newCalculatedConsumptionDataWithoutIds
-            )}`
+            `[${new Date().toISOString()}] Creating calculated consumption data events in DHIS2 for orgUnitId ${orgUnitId} and period ${period}: ${
+                newCalculatedConsumptionDataWithoutIds.length
+            } events`
         );
     }
 
@@ -75,12 +96,36 @@ export function updateRecalculatedConsumptionData(
                 );
             }
 
+            const updatedEventIds = new Set(eventIdsToUpdate);
             const eventIdsNoRecalculated = (currentCalculatedConsumptionData || [])
-                .filter(({ eventId }) => eventId && !eventIdsToUpdate.includes(eventId))
                 .map(({ eventId }) => eventId)
-                .filter((id): id is Id => id !== undefined);
+                .filter((id): id is Id => id !== undefined && !updatedEventIds.has(id));
 
             if (eventIdsNoRecalculated.length) {
+                if (preserveUnmatchedEvents) {
+                    logger.warn(
+                        `[${new Date().toISOString()}] Substance level: NOT deleting ${
+                            eventIdsNoRecalculated.length
+                        } unmatched events for orgUnitId ${orgUnitId} and period ${period} because product level data was also calculated for this org unit and period — they are that pipeline's output, not stale rows`
+                    );
+                    return Future.success(undefined);
+                }
+
+                // Deleting is only safe when the recalculation produced nothing that needed creating.
+                // If rows were dropped because creation is disabled, deleting the events they would
+                // have replaced destroys data with no replacement written.
+                if (!allowCreationIfNotExist && newCalculatedConsumptionDataWithoutIds.length) {
+                    logger.warn(
+                        `[${new Date().toISOString()}] Substance level: NOT deleting ${
+                            eventIdsNoRecalculated.length
+                        } unmatched events for orgUnitId ${orgUnitId} and period ${period} because ${
+                            newCalculatedConsumptionDataWithoutIds.length
+                        } recalculated rows could not be created (run with --calculate to write them): events=${eventIdsNoRecalculated.join(
+                            ","
+                        )}`
+                    );
+                    return Future.success(undefined);
+                }
                 return deleteNoRecalculatedEvents(
                     amcSubstanceDataRepository,
                     eventIdsNoRecalculated,
@@ -131,71 +176,4 @@ function deleteNoRecalculatedEvents(
             }
             return Future.success(undefined);
         });
-}
-
-function linkEventIdToNewCalculatedConsumptionData(
-    currentCalculatedConsumptionData: SubstanceConsumptionCalculated[],
-    newCalculatedConsumptionData: SubstanceConsumptionCalculated[]
-): {
-    withEventId: SubstanceConsumptionCalculated[];
-    withoutEventId: SubstanceConsumptionCalculated[];
-} {
-    return newCalculatedConsumptionData.reduce(
-        (
-            acc: {
-                withEventId: SubstanceConsumptionCalculated[];
-                withoutEventId: SubstanceConsumptionCalculated[];
-            },
-            newCalulatedData: SubstanceConsumptionCalculated
-        ): {
-            withEventId: SubstanceConsumptionCalculated[];
-            withoutEventId: SubstanceConsumptionCalculated[];
-        } => {
-            const idsAlreadyUsed = acc.withEventId.map(({ eventId }) => eventId);
-            const eventIdFound = currentCalculatedConsumptionData?.find(currentCalculatedData => {
-                // Match on identity dimensions only — the fields that identify which substance row this is.
-                // Recalculated OUTPUTS (kilograms, packages, ddds) must NOT be part of the match: they change
-                // when the DDD/ATC version changes, so including them would make every updated row fail to
-                // match and either lose data (UPDATE-only mode) or be deleted+recreated instead of updated.
-                // data_status is a passthrough of the reported data_status_manual (not recalculated), so it is
-                // a genuine identity dimension and is kept — this set mirrors the aggregation key in
-                // mapRawSubstanceCalculatedToSubstanceCalculated.
-                return (
-                    currentCalculatedData?.eventId &&
-                    !idsAlreadyUsed.includes(currentCalculatedData.eventId) &&
-                    currentCalculatedData.atc_autocalculated === newCalulatedData.atc_autocalculated &&
-                    currentCalculatedData.route_admin_autocalculated === newCalulatedData.route_admin_autocalculated &&
-                    (currentCalculatedData.salt_autocalculated === newCalulatedData.salt_autocalculated ||
-                        DEFAULT_SALT_CODE === newCalulatedData.salt_autocalculated) &&
-                    currentCalculatedData.combination_code_autocalculated ===
-                        newCalulatedData.combination_code_autocalculated &&
-                    currentCalculatedData.health_sector_autocalculated ===
-                        newCalulatedData.health_sector_autocalculated &&
-                    currentCalculatedData.health_level_autocalculated ===
-                        newCalulatedData.health_level_autocalculated &&
-                    currentCalculatedData.data_status_autocalculated === newCalulatedData.data_status_autocalculated
-                );
-            })?.eventId;
-
-            return eventIdFound
-                ? {
-                      ...acc,
-                      withEventId: [
-                          ...acc.withEventId,
-                          {
-                              ...newCalulatedData,
-                              eventId: eventIdFound,
-                          },
-                      ],
-                  }
-                : {
-                      ...acc,
-                      withoutEventId: [...acc.withoutEventId, newCalulatedData],
-                  };
-        },
-        {
-            withEventId: [],
-            withoutEventId: [],
-        }
-    );
 }

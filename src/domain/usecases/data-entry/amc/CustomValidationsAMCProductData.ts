@@ -15,12 +15,15 @@ import { Country } from "../../../entities/Country";
 import { GlassATCRepository } from "../../../repositories/GlassATCRepository";
 import i18n from "../../../../locales";
 import { TrackerTrackedEntity } from "../../../entities/TrackedEntityInstance";
+import {
+    AMR_GLASS_AMC_TEA_ATC,
+    AMR_GLASS_AMC_TEA_COMBINATION,
+    AMR_GLASS_AMC_TEA_MANUFACTURER_COUNTRY,
+    AMR_GLASS_AMC_TEA_PRODUCT_ID,
+    AMR_GLASS_AMC_TEA_ROUTE_ADMIN,
+    AMR_GLASS_AMC_TEA_SALT,
+} from "../../../entities/data-entry/amc/amcProgramIds";
 
-const AMR_GLASS_AMC_TEA_ATC = "aK1JpD14imM";
-const AMR_GLASS_AMC_TEA_COMBINATION = "mG49egdYK3G";
-const AMR_GLASS_AMC_TEA_ROUTE_ADMIN = "m4eyu3tO5IV";
-const AMR_GLASS_AMC_TEA_SALT = "K8wjLXjYFzf";
-const AMR_GLASS_AMC_TEA_PRODUCT_ID = "iasfoeU8veF";
 /*const atcLevel4WithOralROA1 = "A07AA";
 const atcLevel4WithOralOrRectalROA2 = "P01AB";
 const atcLevel4WithParenteralROA3 = "J01XD";
@@ -29,7 +32,6 @@ const atcCodeWithSaltHippAndMand = "J01XX05";
 const atcCodeWithRoaOAndSaltDefault = "J01FA01";*/
 const CODE_PRODUCT_NOT_HAVE_ATC = "Z99ZZ99";
 const COMB_CODE_PRODUCT_NOT_HAVE_ATC = "Z99ZZ99_99";
-const AMR_GLASS_AMC_TEA_MANUFACTURER_COUNTRY = "OCSAMKIi1BD";
 
 export class CustomValidationsAMCProductData {
     constructor(private atcRepository: GlassATCRepository, private amcProductRepository: AMCProductDataRepository) {}

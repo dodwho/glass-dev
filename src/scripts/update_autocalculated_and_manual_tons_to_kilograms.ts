@@ -4,21 +4,23 @@ import fs from "fs";
 import { D2TrackerEventSchema, TrackerEventsResponse } from "@eyeseetea/d2-api/api/trackerEvents";
 import _ from "lodash";
 
-import { getD2ApiFromArgs } from "./common";
+import { getD2ApiFromArgs, getEnvVars } from "./common";
 import { Future, FutureData } from "../domain/entities/Future";
 import { D2Api, SelectedPick } from "../types/d2-api";
 import { Id } from "../domain/entities/Ref";
 import { importApiTracker } from "../data/repositories/utils/importApiTracker";
 import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import {
+    AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID,
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID,
+} from "../domain/entities/data-entry/amc/amcProgramIds";
 
 const OLD_AMR_GLASS_AMC_DET_TONS_AUTOCALCULATED = "Ow8jz1uWB1V";
 
 // PRODUCT LEVEL:
-const AMC_PRODUCT_REGISTER_PROGRAM_ID = "G6ChA5zMW9n";
-const AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID = "q8cl5qllyjd";
 
 // SUBSTANCE LEVEL:
-const AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID = "eUmWZeKZNrg";
 
 function main() {
     const cmd = command({
@@ -32,29 +34,7 @@ function main() {
             }),
         },
         handler: async ({ importUpdates }) => {
-            if (!process.env.REACT_APP_DHIS2_BASE_URL)
-                throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-            if (!process.env.REACT_APP_DHIS2_AUTH)
-                throw new Error("REACT_APP_DHIS2_BASE_URL  must be set in the .env file");
-
-            const username = process.env.REACT_APP_DHIS2_AUTH.split(":")[0] ?? "";
-            const password = process.env.REACT_APP_DHIS2_AUTH.split(":")[1] ?? "";
-
-            if (username === "" || password === "") {
-                throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
-            }
-            console.debug(
-                `Update in AMC tonnes autocalculated from tonnes to kilograms in ${process.env.REACT_APP_DHIS2_BASE_URL}`
-            );
-
-            const envVars = {
-                url: process.env.REACT_APP_DHIS2_BASE_URL,
-                auth: {
-                    username: username,
-                    password: password,
-                },
-            };
+            const envVars = getEnvVars();
 
             try {
                 const api = getD2ApiFromArgs(envVars);

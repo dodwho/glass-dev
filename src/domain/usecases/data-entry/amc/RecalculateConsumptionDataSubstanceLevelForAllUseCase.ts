@@ -3,63 +3,35 @@ import { logger } from "../../../../utils/logger";
 import { Id } from "../../../entities/Ref";
 import { Future, FutureData } from "../../../entities/Future";
 import { CODE_PRODUCT_NOT_HAVE_ATC, GlassAtcVersionData } from "../../../entities/GlassAtcVersionData";
+import { AtcRemapper } from "./utils/matchCalculatedEvents";
+import { RecalculationResult, recalculationResult } from "./utils/recalculationResult";
 import { RawSubstanceConsumptionData } from "../../../entities/data-entry/amc/RawSubstanceConsumptionData";
 import { SubstanceConsumptionCalculated } from "../../../entities/data-entry/amc/SubstanceConsumptionCalculated";
-import { GlassATCRepository } from "../../../repositories/GlassATCRepository";
 import { AMCSubstanceDataRepository } from "../../../repositories/data-entry/AMCSubstanceDataRepository";
 import { getConsumptionDataSubstanceLevel } from "./utils/getConsumptionDataSubstanceLevel";
 import { updateRecalculatedConsumptionData } from "./utils/updateRecalculatedConsumptionData";
 import { Maybe } from "../../../../utils/ts-utils";
-import consoleLogger from "../../../../utils/consoleLogger";
 
 export class RecalculateConsumptionDataSubstanceLevelForAllUseCase {
-    constructor(
-        private amcSubstanceDataRepository: AMCSubstanceDataRepository,
-        private atcRepository: GlassATCRepository
-    ) {}
-    public execute(
-        orgUnitsIds: Id[],
-        periods: string[],
-        currentATCVersion: string,
-        currentATCData: GlassAtcVersionData,
-        allowCreationIfNotExist: boolean,
-        importCalculationChunkSize: Maybe<number>
-    ): FutureData<void> {
-        logger.info(
-            `[${new Date().toISOString()}] Calculate consumption data of substance level for orgUnitsIds=${orgUnitsIds.join(
-                ","
-            )} and periods=${periods.join(",")}. Current ATC version ${currentATCVersion}`
-        );
-
-        const allCombinations = orgUnitsIds.flatMap(orgUnitId => periods.map(period => ({ orgUnitId, period })));
-
-        return Future.sequential(
-            allCombinations.map(({ orgUnitId, period }) => {
-                return Future.fromPromise(new Promise(resolve => setTimeout(resolve, 500))).flatMap(() => {
-                    consoleLogger.debug(
-                        `[${new Date().toISOString()}] Waiting 500 milliseconds... orgUnit: ${orgUnitId}, period: ${period}`
-                    );
-                    return this.calculateByOrgUnitAndPeriod(
-                        orgUnitId,
-                        period,
-                        currentATCVersion,
-                        currentATCData,
-                        allowCreationIfNotExist,
-                        importCalculationChunkSize
-                    ).toVoid();
-                });
-            })
-        ).toVoid();
-    }
-
-    private calculateByOrgUnitAndPeriod(
+    constructor(private amcSubstanceDataRepository: AMCSubstanceDataRepository) {}
+    /**
+     * Recalculates a single org unit/period. The caller owns the loop so that a failure on one pair
+     * does not abandon the rest of the run, and so the ATC version and change table are resolved
+     * once rather than per pair.
+     *
+     * Reports `hadSourceData` so the caller can tell whether this org unit/period actually holds
+     * substance-level submissions.
+     */
+    public calculateByOrgUnitAndPeriod(
         orgUnitId: Id,
         period: string,
         currentATCVersion: string,
         currentATCData: GlassAtcVersionData,
         allowCreationIfNotExist: boolean,
-        importCalculationChunkSize: Maybe<number>
-    ): FutureData<void> {
+        importCalculationChunkSize: Maybe<number>,
+        remapAtc: AtcRemapper,
+        preserveUnmatchedEvents = false
+    ): FutureData<RecalculationResult> {
         logger.info(
             `[${new Date().toISOString()}] Calculating consumption data of substance level for orgUnitsId ${orgUnitId} and period ${period}`
         );
@@ -69,7 +41,7 @@ export class RecalculateConsumptionDataSubstanceLevelForAllUseCase {
                     logger.info(
                         `[${new Date().toISOString()}] Substance level: there are no raw substance consumption data for orgUnitId ${orgUnitId} and period ${period}`
                     );
-                    return Future.success(undefined);
+                    return recalculationResult(false);
                 }
 
                 if (
@@ -79,7 +51,7 @@ export class RecalculateConsumptionDataSubstanceLevelForAllUseCase {
                     logger.info(
                         `[${new Date().toISOString()}] Substance level: there are no current calculated data to update for orgUnitId ${orgUnitId} and period ${period}`
                     );
-                    return Future.success(undefined);
+                    return recalculationResult(true);
                 }
 
                 return getConsumptionDataSubstanceLevel({
@@ -94,7 +66,7 @@ export class RecalculateConsumptionDataSubstanceLevelForAllUseCase {
                         logger.error(
                             `[${new Date().toISOString()}] Substance level: there are no new calculated data to update current data for orgUnitId ${orgUnitId} and period ${period}`
                         );
-                        return Future.success(undefined);
+                        return recalculationResult(true);
                     }
 
                     return updateRecalculatedConsumptionData(
@@ -104,8 +76,10 @@ export class RecalculateConsumptionDataSubstanceLevelForAllUseCase {
                         currentCalculatedConsumptionData,
                         this.amcSubstanceDataRepository,
                         allowCreationIfNotExist,
-                        importCalculationChunkSize
-                    );
+                        importCalculationChunkSize,
+                        remapAtc,
+                        preserveUnmatchedEvents
+                    ).map(() => ({ hadSourceData: true }));
                 });
             }
         );

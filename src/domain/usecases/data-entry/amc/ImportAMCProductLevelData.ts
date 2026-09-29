@@ -30,18 +30,27 @@ import { Country } from "../../../entities/Country";
 import { InstanceRepository } from "../../../repositories/InstanceRepository";
 import { GlassATCRepository } from "../../../repositories/GlassATCRepository";
 import {
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID as AMC_RAW_PRODUCT_CONSUMPTION_CALCULATED_STAGE_ID,
+    AMR_GLASS_AMC_TEA_ATC,
+    AMR_GLASS_AMC_TEA_COMBINATION,
+} from "../../../entities/data-entry/amc/amcProgramIds";
+import {
     TrackerEnrollment,
     TrackerEnrollmentAttribute,
     TrackerEvent,
     TrackerTrackedEntity,
 } from "../../../entities/TrackedEntityInstance";
 
-export const AMC_PRODUCT_REGISTER_PROGRAM_ID = "G6ChA5zMW9n";
-export const AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID = "GmElQHKXLIE";
-export const AMC_RAW_PRODUCT_CONSUMPTION_CALCULATED_STAGE_ID = "q8cl5qllyjd";
+// Re-exported for existing importers; the values live in amcProgramIds.
+export {
+    AMC_PRODUCT_REGISTER_PROGRAM_ID,
+    AMC_RAW_PRODUCT_CONSUMPTION_CALCULATED_STAGE_ID,
+    AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID,
+};
+
 export const AMR_GLASS_AMC_TET_PRODUCT_REGISTER = "uE6bIKLsGYW";
-const AMR_GLASS_AMC_TEA_ATC = "aK1JpD14imM";
-const AMR_GLASS_AMC_TEA_COMBINATION = "mG49egdYK3G";
 
 export class ImportAMCProductLevelData {
     constructor(

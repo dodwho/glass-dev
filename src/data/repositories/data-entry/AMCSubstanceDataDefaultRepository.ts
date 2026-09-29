@@ -29,11 +29,15 @@ import {
 } from "../utils/importApiTracker";
 import { ImportStrategy } from "../../../domain/entities/data-entry/ImportSummary";
 import consoleLogger from "../../../utils/consoleLogger";
+import {
+    AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID,
+    AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_STAGE_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_DATA_PROGRAM_STAGE_ID,
+    AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID,
+} from "../../../domain/entities/data-entry/amc/amcProgramIds";
 
-export const AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID = "q8aSKr17J5S";
-const AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_ID = "eUmWZeKZNrg";
-export const AMC_RAW_SUBSTANCE_CONSUMPTION_DATA_PROGRAM_STAGE_ID = "GuGDhDZUSBX";
-const AMC_CALCULATED_CONSUMPTION_DATA_PROGRAM_STAGE_ID = "ekEXxadjL0e";
+// Re-exported for existing importers; the values live in amcProgramIds.
+export { AMC_RAW_SUBSTANCE_CONSUMPTION_DATA_PROGRAM_STAGE_ID, AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID };
 
 const DEFAULT_IMPORT_DELETE_CALCULATIONS_CHUNK_SIZE = 300;
 
@@ -345,7 +349,7 @@ export class AMCSubstanceDataDefaultRepository implements AMCSubstanceDataReposi
                     if (result.type === "error") {
                         const errorTrackerPostResponse = result.error;
                         const messageError = errorTrackerPostResponse.message;
-                        logger.error(
+                        consoleLogger.error(
                             `[${new Date().toISOString()}] Error deleting some Calculated Consumption Data: ${messageError}`
                         );
                         const accumulatedTrackerPostResponses = result.data;
@@ -355,7 +359,7 @@ export class AMCSubstanceDataDefaultRepository implements AMCSubstanceDataReposi
                         ]);
                         return Future.success(trackerPostResponse);
                     } else {
-                        logger.debug(
+                        consoleLogger.debug(
                             `[${new Date().toISOString()}] All chunks of Calculated Consumption Data deleted.`
                         );
                         const trackerPostResponse = joinAllTrackerPostResponses(result.data);
@@ -363,7 +367,7 @@ export class AMCSubstanceDataDefaultRepository implements AMCSubstanceDataReposi
                     }
                 })
                 .mapError(() => {
-                    logger.error(
+                    consoleLogger.error(
                         `[${new Date().toISOString()}] Unknown error while deleting Calculated Consumption Data in chunks.`
                     );
                     return `[${new Date().toISOString()}] Unknown error while deleting Calculated Consumption Data in chunks.`;
@@ -646,29 +650,30 @@ export class AMCSubstanceDataDefaultRepository implements AMCSubstanceDataReposi
         const pageSize = 250;
         let page = 1;
         let result;
-        try {
-            do {
-                result = await this.getEventsFromProgramByPeriodOfPage({
-                    orgUnit,
-                    program: programId,
-                    totalPages,
-                    occurredAfter,
-                    occurredBefore,
-                    page,
-                    pageSize,
-                });
-                if (!result.total) {
-                    throw new Error(
-                        `Error getting paginated events of program ${programId} in period ${period} and organisation ${orgUnit}`
-                    );
-                }
-                d2TrackerEvents.push(...result.instances);
-                page++;
-            } while (result.page < Math.ceil((result.total as number) / pageSize));
-            return d2TrackerEvents;
-        } catch {
-            return [];
-        }
+
+        // Errors must propagate. Swallowing them and returning [] is indistinguishable from "this
+        // org unit/period has no data", which makes the caller skip the pair (reporting success) or,
+        // worse, treat existing calculated events as absent and create duplicates alongside them.
+        do {
+            result = await this.getEventsFromProgramByPeriodOfPage({
+                orgUnit,
+                program: programId,
+                totalPages,
+                occurredAfter,
+                occurredBefore,
+                page,
+                pageSize,
+            });
+            if (result.total === undefined || result.total === null) {
+                throw new Error(
+                    `Paginated events response for program ${programId}, period ${period} and organisation ${orgUnit} is missing "total" (requested with totalPages=true)`
+                );
+            }
+            d2TrackerEvents.push(...result.instances);
+            page++;
+        } while (result.page < Math.ceil(result.total / pageSize));
+
+        return d2TrackerEvents;
     }
 
     private getEventsFromProgramByPeriodOfPage(params: {
