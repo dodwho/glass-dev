@@ -11,7 +11,7 @@ import { MetadataRepository } from "../../repositories/MetadataRepository";
 import * as templates from "../../entities/data-entry/program-templates";
 import { DataForm } from "../../entities/DataForm";
 import { ValidationResult } from "../../entities/program-rules/EventEffectTypes";
-import { generateId, Id } from "../../entities/Ref";
+import { generateId, Id, NamedRef } from "../../entities/Ref";
 import { DataPackage, DataPackageDataValue } from "../../entities/data-entry/DataPackage";
 import { getStringFromFile } from "./utils/fileToString";
 import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
@@ -500,6 +500,16 @@ export const uploadIdListFileAndSave = (
     }
 };
 
+// E5000: "<object> cannot be persisted because <referenced object> cannot be persisted". It only repeats a
+// failure already reported for the referenced object, and each one has a unique message, so they would
+// flood the summary with one-count rows. Kept when nothing else is reported, so a failure is never hidden.
+const CASCADE_ERROR_CODE = "E5000";
+
+function withoutCascadeErrors<Report extends { errorCode?: string }>(errorReports: Report[]): Report[] {
+    const rootErrors = errorReports.filter(report => report.errorCode !== CASCADE_ERROR_CODE);
+    return rootErrors.length > 0 ? rootErrors : errorReports;
+}
+
 export const mapToImportSummary = (
     result: TrackerPostResponse,
     type: "event" | "trackedEntity",
@@ -510,11 +520,11 @@ export const mapToImportSummary = (
     }
 ): FutureData<ImportSummaryWithEventIdList> => {
     const nonBlockingErrors = params?.nonBlockingErrors;
-    const eventIdLineNoMap = params?.eventIdLineNoMap;
+    const lineNoById = new Map((params?.eventIdLineNoMap ?? []).map(({ id, lineNo }) => [id, lineNo]));
 
     if (result && result.validationReport && result.stats) {
         const blockingErrorList = _.compact(
-            (result.validationReport.errorReports ?? []).map(summary => {
+            withoutCascadeErrors(result.validationReport.errorReports ?? []).map(summary => {
                 if (summary.message) return { error: summary.message, eventId: summary.uid };
             })
         );
@@ -543,8 +553,7 @@ export const mapToImportSummary = (
             .value();
 
         //Get list of DataElement Names in error messages.
-        return metadataRepository
-            .getD2Ids(_.uniq(d2Ids))
+        return (d2Ids.length > 0 ? metadataRepository.getD2Ids(_.uniq(d2Ids)) : Future.success<NamedRef[], string>([]))
             .flatMap(d2IdsMap => {
                 const importSummary: ImportSummary = {
                     status: result.status === "OK" ? "SUCCESS" : result.status,
@@ -567,7 +576,7 @@ export const mapToImportSummary = (
                                 : currentMessage;
                         }, errMsg);
 
-                        const lines = err[1].flatMap(a => eventIdLineNoMap?.find(e => e.id === a.eventId)?.lineNo);
+                        const lines = err[1].map(a => lineNoById.get(a.eventId));
                         return {
                             error: parsedErrMsg,
                             count: err[1].length,

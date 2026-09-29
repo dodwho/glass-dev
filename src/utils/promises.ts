@@ -72,12 +72,36 @@ export interface RetryAsyncOptions {
 /** HTTP status codes that a retry cannot change: the request itself is the problem, not the moment. */
 const NON_RETRYABLE_STATUS_CODES = new Set([400, 401, 403, 404, 405, 409, 410, 422]);
 
+/**
+ * Recovers a status code from the message text when the structured error is gone. `Future.fromPromise`
+ * rejects with `err.message` alone, so by the time an axios failure reaches a retry it can be nothing
+ * but the string "400" or "Request failed with status code 400" — and an unrecognised status counts as
+ * retryable, which would send deterministic 4xx failures round the backoff loop for nothing.
+ *
+ * Both patterns are anchored (start of string, or axios' fixed phrasing) so that an id or a quantity
+ * elsewhere in a message cannot be mistaken for a status.
+ */
+function parseStatusFromMessage(message: string): number | undefined {
+    const match = /^(\d{3})\b/.exec(message.trim()) ?? /status code (\d{3})\b/i.exec(message);
+    const status = match?.[1] ? Number(match[1]) : undefined;
+    return status !== undefined && status >= 100 && status <= 599 ? status : undefined;
+}
+
 function extractStatusCode(error: unknown): number | undefined {
+    if (typeof error === "string") return parseStatusFromMessage(error);
     if (typeof error !== "object" || error === null) return undefined;
+
     // Axios-shaped (`error.response.status`, used by d2-api) or a plain `status`/`statusCode`.
-    const candidate = error as { response?: { status?: unknown }; status?: unknown; statusCode?: unknown };
+    const candidate = error as {
+        response?: { status?: unknown };
+        status?: unknown;
+        statusCode?: unknown;
+        message?: unknown;
+    };
     const raw = candidate.response?.status ?? candidate.status ?? candidate.statusCode;
-    return typeof raw === "number" ? raw : undefined;
+    if (typeof raw === "number") return raw;
+
+    return typeof candidate.message === "string" ? parseStatusFromMessage(candidate.message) : undefined;
 }
 
 /**

@@ -62,7 +62,8 @@ export class Future<E, D> {
 
     static fromPromise<Data>(promise: Promise<Data>): FutureData<Data> {
         return Future.fromComputation((resolve, reject) => {
-            promise.then(resolve).catch(err => reject(err ? err.message : "Unknown error"));
+            // Errors in this codebase are usually plain strings, which have no .message to read.
+            promise.then(resolve).catch(err => reject(typeof err === "string" ? err : err?.message ?? "Unknown error"));
             return () => {};
         });
     }

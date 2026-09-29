@@ -104,6 +104,21 @@ export function mergeImportSummaries(
     return importSummariesWithMergedEventIdList;
 }
 
+/** Combines error lists that may repeat the same message, e.g. the errors of consecutive file chunks. */
+export function mergeConsistencyErrors(...errorLists: ConsistencyError[][]): ConsistencyError[] {
+    const merged = new Map<string, ConsistencyError>();
+    errorLists.flat().forEach(({ error, count, lines }) => {
+        const existing = merged.get(error);
+        if (!existing) {
+            merged.set(error, { error, count, lines: lines ? [...lines] : undefined });
+        } else {
+            existing.count += count;
+            if (lines) existing.lines = [...(existing.lines ?? []), ...lines];
+        }
+    });
+    return Array.from(merged.values());
+}
+
 export function joinAllImportSummaries(importSummaries: ImportSummary[]): ImportSummary {
     const finalImportSummary: ImportSummary = importSummaries.reduce(
         (acc: ImportSummary, data: ImportSummary) => {

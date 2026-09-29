@@ -28,6 +28,7 @@ type MetadataIdReponse = {
     };
     trackedEntityAttributes?: CodeRef[];
     programs?: CodeRef[];
+    optionSets?: { id: Id; name: string }[];
     dataElements?: CodeRef[];
 };
 export class MetadataDefaultRepository implements MetadataRepository {
@@ -52,7 +53,7 @@ export class MetadataDefaultRepository implements MetadataRepository {
     getD2Ids(ids: string[]): FutureData<NamedRef[]> {
         return apiToFuture(
             this.api
-                .get<MetadataIdReponse>(`/metadata?filter=id:in:[${ids.join(",")}]&fields=id,code,shortName`)
+                .get<MetadataIdReponse>(`/metadata?filter=id:in:[${ids.join(",")}]&fields=id,code,shortName,name`)
                 .map(response => {
                     if (response?.data) {
                         const deIds =
@@ -79,7 +80,11 @@ export class MetadataDefaultRepository implements MetadataRepository {
                                 };
                             }) || [];
 
-                        const parsedIds = deIds.concat(programIds).concat(teaIds);
+                        // Option sets have no short name or code; option code errors (E1125) cite them by id.
+                        const optionSetIds =
+                            response.data.optionSets?.map(idRef => ({ id: idRef.id, name: idRef.name })) || [];
+
+                        const parsedIds = deIds.concat(programIds).concat(teaIds).concat(optionSetIds);
 
                         return parsedIds;
                     } else {

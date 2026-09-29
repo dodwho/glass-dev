@@ -1,4 +1,5 @@
 import { apiToFuture } from "../../../utils/futures";
+import { CancelableResponse } from "@eyeseetea/d2-api/repositories/CancelableResponse";
 import { TrackerPostRequest as D2TrackerPostRequest, TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
 import { ImportStrategy } from "../../../domain/entities/data-entry/DataValuesSaveSummary";
 import { D2Api } from "@eyeseetea/d2-api/2.34";
@@ -14,13 +15,14 @@ import { D2TrackerEventToPost } from "@eyeseetea/d2-api/api/trackerEvents";
 import { D2TrackerEnrollmentToPost } from "@eyeseetea/d2-api/api/trackerEnrollments";
 import { D2TrackedEntityInstanceToPost } from "@eyeseetea/d2-api/api/trackerTrackedEntities";
 import consoleLogger from "../../../utils/consoleLogger";
+import { isRetryableError, retryAsync } from "../../../utils/promises";
 
 export function importApiTracker(
     api: D2Api,
     request: D2TrackerPostRequest,
-    options: { action: ImportStrategy; async?: boolean; skipSideEffects?: boolean }
+    options: { action: ImportStrategy; async?: boolean; skipSideEffects?: boolean; retryTransientErrors?: boolean }
 ): FutureData<TrackerPostResponse> {
-    const { action, async = false, skipSideEffects = false } = options;
+    const { action, async = false, skipSideEffects = false, retryTransientErrors = false } = options;
 
     if (async) {
         return apiToFuture(
@@ -41,12 +43,15 @@ export function importApiTracker(
             });
         });
     } else {
-        return apiToFuture(
-            api.tracker.post(
-                { importStrategy: action, skipRuleEngine: true, skipSideEffects: skipSideEffects },
-                request
-            )
-        )
+        const post = () =>
+            acceptImportReportOnConflict(
+                api.tracker.post(
+                    { importStrategy: action, skipRuleEngine: true, skipSideEffects: skipSideEffects },
+                    request
+                )
+            );
+
+        return apiToFuture(retryTransientErrors ? retryOnTransientError(post) : post())
             .map(response => {
                 consoleLogger.debug(`Successfully imported tracker data.`);
                 return response;
@@ -56,6 +61,51 @@ export function importApiTracker(
                 return error;
             });
     }
+}
+
+// A synchronous tracker import whose report has status ERROR is answered by DHIS2 with HTTP 409 and the
+// full import report as the body. That report is the import result, so it is resolved like a 200 response
+// instead of being turned into an opaque request failure.
+export function acceptImportReportOnConflict(
+    response: CancelableResponse<TrackerPostResponse>
+): CancelableResponse<TrackerPostResponse> {
+    return CancelableResponse.build({
+        cancel: response.cancel,
+        response: () =>
+            response.response().catch(error => {
+                const errorResponse = error?.response;
+                if (errorResponse?.status === 409 && isTrackerPostResponse(errorResponse.data)) return errorResponse;
+                throw error;
+            }),
+    });
+}
+
+/**
+ * Sends the request again, with backoff, when it fails for a transient reason: no response (network),
+ * 5xx or 429. Decided on the raw HTTP error, before it is reduced to a message.
+ */
+export function retryOnTransientError<Data>(request: () => CancelableResponse<Data>): CancelableResponse<Data> {
+    return CancelableResponse.build({
+        response: () =>
+            retryAsync(() => request().response(), {
+                attempts: 4,
+                baseDelayMs: 5000,
+                shouldRetry: error => {
+                    const retryable = isRetryableError(error);
+                    if (retryable) consoleLogger.error(`Tracker request failed, retrying: ${String(error)}`);
+                    return retryable;
+                },
+            }),
+    });
+}
+
+function isTrackerPostResponse(data: unknown): data is TrackerPostResponse {
+    const report = data as Partial<TrackerPostResponse> | undefined;
+    return (
+        typeof report?.status === "string" &&
+        Array.isArray(report.validationReport?.errorReports) &&
+        typeof report.stats === "object"
+    );
 }
 
 export function mapTrackerPostRequestToD2TrackerPostRequest(
