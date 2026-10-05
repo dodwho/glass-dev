@@ -8,9 +8,10 @@ import { TrackerRepository } from "../../../repositories/TrackerRepository";
 import consoleLogger from "../../../../utils/consoleLogger";
 
 // DHIS2 deletes tracked entities slowly (measured on UAT: about 1.7 per second in one request) but handles
-// several delete requests at once: five parallel requests of 20 were four times faster than one of 100.
-const DELETE_CHUNK_SIZE = 50;
-const DELETE_MAX_CONCURRENCY = 5;
+// several delete requests at once. Sustained over 1,500 records: 5 requests of 50 at a time gave 8.3 per second,
+// 10 requests of 20 gave 18 per second, and 20 requests of 10 gave 19, so more than about 10 at once adds nothing.
+const DELETE_CHUNK_SIZE = 20;
+const DELETE_MAX_CONCURRENCY = 10;
 
 /**
  * Removes every tracked entity a failed or interrupted async upload may have created, then its progress
