@@ -45,6 +45,34 @@ describe("checkValuesAgainstProgramMetadata", () => {
         ]);
     });
 
+    it("tells the country that SDD is not accepted, whatever its letter case", () => {
+        const sirFields: ProgramFieldMetadata[] = [
+            {
+                code: "RESULTMICSIR",
+                valueType: "TEXT",
+                optionSetValue: true,
+                optionSet: { options: [{ code: "S" }, { code: "I" }, { code: "R" }] },
+            },
+        ];
+        const errors = checkValuesAgainstProgramMetadata(
+            [row({ RESULTMICSIR: "SDD" }), row({ RESULTMICSIR: "sdd" }), row({ RESULTMICSIR: "X" })],
+            sirFields,
+            2
+        );
+
+        expect(errors.map(({ error, lines }) => [error, lines])).toEqual([
+            [
+                'RESULTMICSIR: "SDD" is not an allowed code (codes are case-sensitive). Allowed codes: S, I, R. SDD (susceptible, dose-dependent) is not accepted by GLASS: report these results with one of the allowed codes, following the GLASS protocol, before uploading the file again',
+                [2],
+            ],
+            [
+                'RESULTMICSIR: "sdd" is not an allowed code (codes are case-sensitive). Allowed codes: S, I, R. SDD (susceptible, dose-dependent) is not accepted by GLASS: report these results with one of the allowed codes, following the GLASS protocol, before uploading the file again',
+                [3],
+            ],
+            ['RESULTMICSIR: "X" is not an allowed code (codes are case-sensitive). Allowed codes: S, I, R', [4]],
+        ]);
+    });
+
     it("rejects decimal and negative values for zero-or-positive integers", () => {
         const errors = checkValuesAgainstProgramMetadata(
             [row({ RESULTZONEVALUE: 5.5 }), row({ RESULTZONEVALUE: -1 }), row({ RESULTZONEVALUE: 12 })],

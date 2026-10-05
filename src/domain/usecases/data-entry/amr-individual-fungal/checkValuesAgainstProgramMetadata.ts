@@ -12,6 +12,11 @@ export type ProgramFieldMetadata = {
 
 type ValueCheck = (value: string) => string | undefined;
 
+// Laboratory software can export SDD (susceptible, dose-dependent), which is not part of the GLASS protocol.
+// Said explicitly, so the country knows to recode the results rather than look for a typing mistake.
+const SDD_NOT_ACCEPTED_HINT =
+    "SDD (susceptible, dose-dependent) is not accepted by GLASS: report these results with one of the allowed codes, following the GLASS protocol, before uploading the file again";
+
 /*
  * Mirrors the per-value checks DHIS2 applies when importing these rows, so bad values are reported up
  * front with their file lines instead of making DHIS2 reject a whole chunk. Measured against DHIS2 2.41
@@ -26,10 +31,11 @@ function buildValueCheck(field: ProgramFieldMetadata): ValueCheck | undefined {
         const optionCodes = field.optionSet.options.map(option => option.code);
         const allowed = new Set(optionCodes);
         const allowedList = optionCodes.join(", ");
-        return value =>
-            allowed.has(value)
-                ? undefined
-                : `${code}: "${value}" is not an allowed code (codes are case-sensitive). Allowed codes: ${allowedList}`;
+        return value => {
+            if (allowed.has(value)) return undefined;
+            const error = `${code}: "${value}" is not an allowed code (codes are case-sensitive). Allowed codes: ${allowedList}`;
+            return value.trim().toUpperCase() === "SDD" ? `${error}. ${SDD_NOT_ACCEPTED_HINT}` : error;
+        };
     }
     if (valueType === "INTEGER_ZERO_OR_POSITIVE") {
         return value =>
