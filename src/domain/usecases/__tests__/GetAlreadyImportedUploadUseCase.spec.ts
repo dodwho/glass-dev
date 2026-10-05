@@ -48,6 +48,26 @@ describe("findAlreadyImportedUpload", () => {
         expect(findAlreadyImportedUpload(uploads, new Set(["upload1"]), file)).toBeUndefined();
     });
 
+    it("treats a browser copy suffix as the same file, in either direction", () => {
+        const original = upload({});
+        const copy = upload({ id: "upload2", fileName: "ris_2024 (1).csv" });
+        expect(findAlreadyImportedUpload([original], noneQueued, { ...file, fileName: "ris_2024 (1).csv" })).toBe(
+            original
+        );
+        expect(findAlreadyImportedUpload([copy], noneQueued, file)).toBe(copy);
+        expect(findAlreadyImportedUpload([copy], noneQueued, { ...file, fileName: "ris_2024 (12).csv" })).toBe(copy);
+    });
+
+    it("does not treat a year in brackets or other name changes as a copy suffix", () => {
+        const uploads = [
+            upload({ fileName: "ris (2023).csv" }),
+            upload({ fileName: "ris_2024 (copy).csv" }),
+            upload({ fileName: "ris_2024(1).csv" }),
+        ];
+        expect(findAlreadyImportedUpload(uploads, noneQueued, { ...file, fileName: "ris (2024).csv" })).toBeUndefined();
+        expect(findAlreadyImportedUpload(uploads, noneQueued, file)).toBeUndefined();
+    });
+
     it("ignores a file with a different name, type or number of rows", () => {
         const uploads = [
             upload({ fileName: "ris_2024_v2.csv" }),

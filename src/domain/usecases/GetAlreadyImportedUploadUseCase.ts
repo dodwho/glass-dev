@@ -10,9 +10,15 @@ export type FileToUpload = { fileName: string; fileType: string; rows: number };
 
 const STATUSES_WITH_DATA_IN_DHIS2: GlassUploadsStatus[] = ["IMPORTED", "VALIDATED", "COMPLETED"];
 
+// Browsers add " (1)", " (2)"... to a file saved or downloaded again. Only 1-2 digits, so "(2024)" stays part of the name.
+function withoutCopySuffix(fileName: string): string {
+    return fileName.replace(/ \(\d{1,2}\)(?=\.[^.]*$|$)/, "");
+}
+
 /**
  * An earlier upload of the same file (same name, type and row count) for the same module, org unit and period
  * whose data is in DHIS2 or is queued to be imported. Uploading it again would import the same records twice.
+ * A browser copy suffix such as "file (1).csv" is ignored in the name.
  * Deleted uploads and failed uploads that are not queued do not count, so a file can still be replaced or retried.
  */
 export function findAlreadyImportedUpload(
@@ -20,9 +26,10 @@ export function findAlreadyImportedUpload(
     queuedUploadIds: Set<Id>,
     file: FileToUpload
 ): Maybe<GlassUploads> {
+    const fileName = withoutCopySuffix(file.fileName);
     return uploads.find(
         upload =>
-            upload.fileName === file.fileName &&
+            withoutCopySuffix(upload.fileName) === fileName &&
             upload.fileType === file.fileType &&
             upload.rows === file.rows &&
             ((STATUSES_WITH_DATA_IN_DHIS2.includes(upload.status) && !upload.eventListDataDeleted) ||
