@@ -39,7 +39,7 @@ export const executeExpression = (dhisFunctions, expression, logError) => {
     ) => {
         // Select the function call, with any number of parameters inside single quotations, or number parameters without quotations
         const regularExFunctionCall = new RegExp(
-            `${name}\\( *(([\\d/\\*\\+\\-%. ]+)|( *'[^']*'))*( *, *(([\\d/\\*\\+\\-%. ]+)|'[^']*'))* *\\)`,
+            `${name}\\( *(([\\d/\\*\\+\\-%. ]+)|( *'(?:[^'\\\\]|\\\\.)*'))*( *, *(([\\d/\\*\\+\\-%. ]+)|'(?:[^'\\\\]|\\\\.)*'))* *\\)`,
             "g"
         );
         const callsToThisFunction = evaluatedExpression.match(regularExFunctionCall);
@@ -52,7 +52,7 @@ export const executeExpression = (dhisFunctions, expression, logError) => {
                     // Remove white spaces before and after parameters:
                     .trim()
                     // Then split into single parameters:
-                    .match(/(('[^']+')|([^,]+))/g)
+                    .match(/(('(?:[^'\\]|\\.)*')|([^,]+))/g)
                     // In case the function call is nested, the parameter itself contains an expression, run the expression.
                     .map(param => executeExpression(dhisFunctions, param, logError));
 
@@ -62,7 +62,7 @@ export const executeExpression = (dhisFunctions, expression, logError) => {
                     evaluatedExpression = evaluatedExpression.replace(callToThisFunction, "false");
                 } else {
                     const dhisFunctionEvaluation = dhisFunction(evaluatedParameters);
-                    evaluatedExpression = evaluatedExpression.replace(callToThisFunction, dhisFunctionEvaluation);
+                    evaluatedExpression = evaluatedExpression.replace(callToThisFunction, () => dhisFunctionEvaluation);
                 }
 
                 isUpdated = true;

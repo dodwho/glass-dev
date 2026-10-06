@@ -4,8 +4,23 @@ import { isElementOfUnion } from "../utils/ts-utils";
 import { D2Api } from "../types/d2-api";
 import { Instance } from "../data/entities/Instance";
 
+/**
+ * Secrets must not start with REACT_APP_: Create React App copies every REACT_APP_* variable into the built app.
+ * The old names are still read, with a warning, so an existing .env keeps working until it is renamed.
+ */
+function getSecretEnv(name: string): string | undefined {
+    const legacyName = `REACT_APP_${name}`;
+    if (!process.env[name] && process.env[legacyName] && !warnedLegacyNames.has(legacyName)) {
+        warnedLegacyNames.add(legacyName);
+        console.warn(`${legacyName} is deprecated: rename it to ${name} in the .env file.`);
+    }
+    return process.env[name] || process.env[legacyName];
+}
+
+const warnedLegacyNames = new Set<string>();
+
 export function getD2Api(url: string): D2Api {
-    const token = process.env.REACT_APP_DHIS2_TOKEN;
+    const token = getSecretEnv("DHIS2_TOKEN");
     if (token) {
         const { baseUrl } = getApiOptionsFromUrl(url);
         return createD2ApiWithToken(baseUrl, token);
@@ -33,7 +48,7 @@ type D2ApiArgs = {
 };
 
 export function getD2ApiFromArgs(args: D2ApiArgs): D2Api {
-    const token = args.token || process.env.REACT_APP_DHIS2_TOKEN;
+    const token = args.token || getSecretEnv("DHIS2_TOKEN");
     if (token) {
         return createD2ApiWithToken(args.url, token);
     }
@@ -42,7 +57,7 @@ export function getD2ApiFromArgs(args: D2ApiArgs): D2Api {
 }
 
 export function getInstance(args: D2ApiArgs): Instance {
-    const token = args.token || process.env.REACT_APP_DHIS2_TOKEN;
+    const token = args.token || getSecretEnv("DHIS2_TOKEN");
     if (token) {
         return new Instance({ url: args.url, token });
     }
@@ -57,10 +72,8 @@ function createD2ApiWithToken(baseUrl: string, token: string): D2Api {
     return api;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function patchWithApiToken(connection: any, token: string): void {
     const original = connection.request.bind(connection);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connection.request = (options: any) =>
         original({ ...options, headers: { ...options.headers, Authorization: `ApiToken ${token}` } });
 }
@@ -68,35 +81,67 @@ function patchWithApiToken(connection: any, token: string): void {
 /**
  * Connection details for a script that takes them from the environment rather than from --url/--auth.
  *
- * The token env vars are tried in order, so an instance-specific token wins over the generic one and
- * unset names simply fall through. Basic auth is the fallback. This was copy-pasted into ~20 scripts,
- * each with its own slightly different token list and error message; they should all use this.
+ * The token env vars are tried in order, so an instance-specific token wins over the generic one and unset names
+ * simply fall through. Basic auth is the fallback. A warning is logged when the token does not look like it belongs
+ * to the instance in the URL (the choice itself is unchanged, so servers with an internal URL keep working).
  */
 export function getEnvVars(): D2ApiArgs {
     const url = process.env.REACT_APP_DHIS2_BASE_URL;
     if (!url) throw new Error("REACT_APP_DHIS2_BASE_URL must be set in the .env file");
 
-    const token =
-        process.env.REACT_APP_DHIS2_TOKEN_PROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_PREPROD ||
-        process.env.REACT_APP_DHIS2_TOKEN_TRAINING ||
-        process.env.REACT_APP_DHIS2_TOKEN;
+    const tokens: [TokenKind, string | undefined][] = [
+        ["prod", getSecretEnv("DHIS2_TOKEN_PROD")],
+        ["preprod", getSecretEnv("DHIS2_TOKEN_PREPROD")],
+        ["training", getSecretEnv("DHIS2_TOKEN_TRAINING")],
+        ["generic", getSecretEnv("DHIS2_TOKEN")],
+    ];
+    const [kind, token] = tokens.find(([, value]) => value) ?? [];
 
-    if (token) return { url, token };
+    if (kind && token) {
+        const warning = getTokenMismatchWarning(url, kind);
+        if (warning) console.warn(warning);
+        return { url, token };
+    }
 
-    const auth = process.env.REACT_APP_DHIS2_AUTH;
+    const auth = getSecretEnv("DHIS2_AUTH");
     if (!auth)
         throw new Error(
-            "Set one of REACT_APP_DHIS2_TOKEN_PROD / REACT_APP_DHIS2_TOKEN_PREPROD / REACT_APP_DHIS2_TOKEN_TRAINING / REACT_APP_DHIS2_TOKEN, or REACT_APP_DHIS2_AUTH, in the .env file"
+            "Set one of DHIS2_TOKEN_PROD / DHIS2_TOKEN_PREPROD / DHIS2_TOKEN_TRAINING / DHIS2_TOKEN, or DHIS2_AUTH, in the .env file"
         );
 
     // Split on the FIRST colon only: passwords may legitimately contain colons.
     const separatorIndex = auth.indexOf(":");
     const username = separatorIndex > 0 ? auth.slice(0, separatorIndex) : "";
     const password = separatorIndex > 0 ? auth.slice(separatorIndex + 1) : "";
-    if (!username || !password) throw new Error("REACT_APP_DHIS2_AUTH must be in the format 'username:password'");
+    if (!username || !password) throw new Error("DHIS2_AUTH must be in the format 'username:password'");
 
     return { url, auth: { username, password } };
+}
+
+// Host plus first path segment: other instances (e.g. extranet.who.int/dhis2-demo-indiv) share the prod host.
+const PROD_INSTANCE = "extranet.who.int/dhis2-indiv";
+const PREPROD_INSTANCE = "portal-uat.who.int/dhis2-indiv";
+
+type TokenKind = "prod" | "preprod" | "training" | "generic";
+
+/** A warning when a prod or preprod token is about to be sent to a different instance. */
+export function getTokenMismatchWarning(url: string, kind: TokenKind): string | undefined {
+    const instance = getInstanceKey(url) ?? url;
+    if (kind === "prod" && instance !== PROD_INSTANCE)
+        return `Warning: using DHIS2_TOKEN_PROD for ${instance}, which is not the prod instance (${PROD_INSTANCE}).`;
+    if (kind === "preprod" && instance !== PREPROD_INSTANCE)
+        return `Warning: using DHIS2_TOKEN_PREPROD for ${instance}, which is not the preprod instance (${PREPROD_INSTANCE}).`;
+    return undefined;
+}
+
+function getInstanceKey(url: string): string | undefined {
+    try {
+        const { host, pathname } = new URL(url);
+        const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
+        return `${host}/${firstSegment}`.toLowerCase();
+    } catch {
+        return undefined;
+    }
 }
 
 /** How the target instance was authenticated, for logging. */

@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 /* react-script automatically executes src/setupProxy.js on init. Tasks:
@@ -13,14 +12,24 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const redirectPaths = ["/dhis-web-pivot", "/dhis-web-data-visualizer"];
 
 const dhis2UrlVar = "REACT_APP_DHIS2_BASE_URL";
-const dhis2AuthVar = "REACT_APP_DHIS2_AUTH";
-const dhis2TokenVar = "REACT_APP_DHIS2_TOKEN";
+const dhis2AuthVar = "DHIS2_AUTH";
+const dhis2TokenVar = "DHIS2_TOKEN";
 const proxyLogLevel = "REACT_APP_PROXY_LOG_LEVEL";
+
+// Secrets must not start with REACT_APP_: Create React App copies every REACT_APP_* variable into the built app.
+// The old names are still read, with a warning, so an existing .env keeps working until it is renamed.
+function getSecret(name) {
+    const legacyName = `REACT_APP_${name}`;
+    if (!process.env[name] && process.env[legacyName]) {
+        console.warn(`${legacyName} is deprecated: rename it to ${name} in the .env file.`);
+    }
+    return process.env[name] || process.env[legacyName];
+}
 
 module.exports = function (app) {
     const targetUrl = process.env[dhis2UrlVar];
-    const auth = process.env[dhis2AuthVar];
-    const token = process.env[dhis2TokenVar];
+    const auth = getSecret(dhis2AuthVar);
+    const token = getSecret(dhis2TokenVar);
     const logLevel = process.env[proxyLogLevel] || "warn";
 
     if (!targetUrl) {

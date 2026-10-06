@@ -1,3 +1,13 @@
+import { isPlainLiteral, toStringLiteral } from "./ValueProcessor";
+
+// Some functions put their result back into the expression unquoted, as DHIS2 does. A plain number or literal is
+// kept as it is; anything else would be run as code, so it fails the rule instead, which is also what happened
+// before for any text that is not valid JavaScript.
+const toUnquotedValue = value => {
+    if (isPlainLiteral(value)) return value;
+    throw new Error("Value is not a number");
+};
+
 export const d2Functions = (dateUtils, variableService, variablesHash, selectedOrgUnit, selectedUserRoles) => ({
     "d2:ceil": {
         name: "d2:ceil",
@@ -32,7 +42,7 @@ export const d2Functions = (dateUtils, variableService, variablesHash, selectedO
             if (number < 0) {
                 number = 0;
             }
-            return number;
+            return toUnquotedValue(number);
         },
     },
     "d2:oizp": {
@@ -49,14 +59,7 @@ export const d2Functions = (dateUtils, variableService, variablesHash, selectedO
     },
     "d2:concatenate": {
         name: "d2:concatenate",
-        dhisFunction: params => {
-            let returnString = "'";
-            for (let i = 0; i < params.length; i++) {
-                returnString += params[i];
-            }
-            returnString += "'";
-            return returnString;
-        },
+        dhisFunction: params => toStringLiteral(params.join("")),
     },
     "d2:daysBetween": {
         name: "d2:daysBetween",
@@ -330,10 +333,10 @@ export const d2Functions = (dateUtils, variableService, variablesHash, selectedO
 
             if (!error) {
                 // Replace the end evaluation of the dhis function:
-                return baseNumber + firstDigit + secondDigit;
+                return toUnquotedValue(baseNumber + firstDigit + secondDigit);
             }
             // Replace the end evaluation of the dhis function:
-            return baseNumber;
+            return toUnquotedValue(baseNumber);
         },
     },
     "d2:checkControlDigits": {
@@ -341,7 +344,7 @@ export const d2Functions = (dateUtils, variableService, variablesHash, selectedO
         parameters: 1,
         dhisFunction: params => {
             console.warn("checkControlDigits not implemented yet");
-            return params[0];
+            return toUnquotedValue(params[0]);
         },
     },
 });

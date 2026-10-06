@@ -32,6 +32,28 @@ export const typeKeys = {
     IMAGE: "IMAGE",
 };
 
+/**
+ * Wraps a value in single quotes so it can be put inside an expression that is later run as JavaScript
+ * (executionService). Backslashes, quotes and line breaks are escaped, so a value coming from an uploaded file
+ * can never end the string and add code of its own.
+ */
+export function toStringLiteral(value) {
+    const escaped = String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r")
+        .replace(/\u2028/g, "\\u2028")
+        .replace(/\u2029/g, "\\u2029");
+    return `'${escaped}'`;
+}
+
+/** True for text made only of numbers and arithmetic operators, or a plain literal: it cannot form a call. */
+export function isPlainLiteral(value) {
+    const text = String(value);
+    return /^[\d\s+\-*/%.()eE]*$/.test(text) || /^(true|false|null|undefined|NaN|Infinity)$/.test(text);
+}
+
 export function trimQuotes(input) {
     if (input && isString(input)) {
         let trimmingComplete = false;
@@ -82,7 +104,7 @@ export class ValueProcessor {
     };
 
     static addQuotesToValueIfString(value) {
-        return isString(value) ? `'${value}'` : value;
+        return isString(value) ? toStringLiteral(value) : value;
     }
 
     constructor(converterObject) {
@@ -99,7 +121,7 @@ export class ValueProcessor {
         const convertFnName = mapTypeToInterfaceFnName[type];
         if (!convertFnName) {
             console.warn(errorCreator(ValueProcessor.errorMessages.CONVERTER_NOT_FOUND)({ type }));
-            return value;
+            return isString(value) && !isPlainLiteral(value) ? toStringLiteral(value) : value;
         }
 
         // $FlowFixMe[incompatible-use] automated comment

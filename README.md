@@ -22,7 +22,7 @@ Notes:
 
 -   Requests to DHIS2 will be transparently proxied (see `src/setupProxy.js`) from `http://localhost:8081/dhis2/path` to `http://localhost:8080/path` to avoid CORS and cross-domain problems.
 
--   The optional environment variable `REACT_APP_DHIS2_AUTH=USERNAME:PASSWORD` forces some credentials to be used by the proxy. This variable is usually not set, so the app has the same user logged in at `REACT_APP_DHIS2_BASE_URL`.
+-   The optional environment variable `DHIS2_AUTH=USERNAME:PASSWORD` (or a token in `DHIS2_TOKEN`) forces some credentials to be used by the proxy. This variable is usually not set, so the app has the same user logged in at `REACT_APP_DHIS2_BASE_URL`. Secrets must not start with `REACT_APP_`, because Create React App copies every `REACT_APP_*` variable into the built app, where anyone can read it. The old `REACT_APP_DHIS2_AUTH` / `REACT_APP_DHIS2_TOKEN*` names are deprecated: they are still read, with a warning, so rename them in your `.env.local` (git-ignored; `.env` is tracked, never put secrets in it).
 
 -   The optional environment variable `REACT_APP_PROXY_LOG_LEVEL` can be helpful to debug the proxyfied requests (accepts: "warn" | "debug" | "info" | "error" | "silent")
 
@@ -61,7 +61,7 @@ $ yarn build
 
 ## AMC data consumption recalculations
 
-The app provides a server-side AMC recalculations script that runs in the background. The script requires Node v10+.
+The app provides a server-side AMC recalculations script that runs in the background. The script requires the Node version in `.nvmrc` (v16).
 
 1. Build and generates glass-dev-amc-recalculate-server.zip file:
 
@@ -88,8 +88,8 @@ $ yarn start-amc-recalculate --url "http[s]://HOST:PORT" --auth USERNAME:PASSWOR
 ### Running a recalculation from a local machine
 
 `cliAMCEnv.ts` runs the same pipeline but reads the connection from the environment
-(`REACT_APP_DHIS2_BASE_URL` plus `REACT_APP_DHIS2_TOKEN_PROD` / `REACT_APP_DHIS2_TOKEN` /
-`REACT_APP_DHIS2_AUTH`) and logs to the console instead of the DHIS2 logs program.
+(`REACT_APP_DHIS2_BASE_URL` plus `DHIS2_TOKEN_PROD` / `DHIS2_TOKEN_PREPROD` /
+`DHIS2_TOKEN_TRAINING` / `DHIS2_TOKEN` / `DHIS2_AUTH`) and logs to the console instead of the DHIS2 logs program.
 
 ```
 # PowerShell
@@ -190,16 +190,16 @@ each carrying several different names.
 
 Due to 'Import Ignore' errors, there could be data corruption AMR Aggregate module.
 
-1. Run the following script, to detect if there are any errors. Ensure you have the URL and Auth credentails in your .env file and change the .env value based on your environment.
+1. Run the following script, to detect if there are any errors. Ensure you have `REACT_APP_DHIS2_BASE_URL` and a matching token (`DHIS2_TOKEN_PROD`, `DHIS2_TOKEN_PREPROD`, ...) or `DHIS2_AUTH` in your .env file, and change the .env values based on your environment. The period is optional.
 
 ```
-$ source .env && ts-node src/scripts/amr_agg_data_validation.ts --url $REACT_APP_DHIS2_BASE_URL --auth $REACT_APP_DHIS2_AUTH
+$ yarn amr-agg-data-validation-ris --period 2023
 ```
 
 2. Run the following script (with the period and org unit as parameters), to create a json with all valaues to be deleted. Import the json created using Import/Export app with "Delete" option selected.
 
 ```
-$ source .env && ts-node src/scripts/amr_agg_data_reset.ts  --url $REACT_APP_DHIS2_BASE_URL --auth $REACT_APP_DHIS2_AUTH
+$ yarn amr-agg-data-reset-ris --orgUnit ORG_UNIT_ID --period 2023 --batchId BATCH_ID
 ```
 
 ## Some development tips
@@ -208,10 +208,10 @@ $ source .env && ts-node src/scripts/amr_agg_data_reset.ts  --url $REACT_APP_DHI
 
 -   `i18n/`: Contains literal translations (gettext format)
 -   `public/`: Main app folder with a `index.html`, exposes the APP, contains the feedback-tool.
--   `src/pages`: Main React components.
+-   `src/webapp/pages`: Main React components.
 -   `src/domain`: Domain layer of the app (clean architecture)
 -   `src/data`: Data of the app (clean architecture)
--   `src/components`: Reusable React components.
+-   `src/webapp/components`: Reusable React components.
 -   `src/types`: `.d.ts` file types for modules without TS definitions.
 -   `src/utils`: Misc utilities.
 -   `src/locales`: Auto-generated, do not update or add to the version control.
@@ -225,8 +225,8 @@ $ yarn localize
 
 ### App context
 
-The file `src/contexts/app-context.ts` holds some general context so typical infrastructure objects (`api`, `d2`, ...) are readily available. Add your own global objects if necessary.
+The file `src/webapp/contexts/app-context.ts` holds some general context so typical infrastructure objects (`api`, `d2`, ...) are readily available. Add your own global objects if necessary.
 
 ### Scripts
 
-Check the example script, entry `"script-example"`in `package.json`->scripts and `src/scripts/example.ts`.
+Check the example script, entry `"script-example"`in `package.json`->scripts and `src/scripts/commands/example.ts`.

@@ -10,10 +10,6 @@
             href="%PUBLIC_URL%/includes/material-design-icons/material-icons.css"
         />
         <link type="text/css" rel="stylesheet" href="%PUBLIC_URL%/includes/roboto-font.css" />
-        <link
-            href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css"
-            rel="stylesheet"
-        />
 
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="theme-color" content="#000000" />
@@ -28,6 +24,8 @@
     -->
         <title>Glass</title>
 
+        <!-- The feedback tool (and the jQuery it needs) is only used in development, see initFeedbackTool in App.tsx -->
+        <% if (process.env.NODE_ENV !== "production") { %>
         <script src="//code.jquery.com/jquery-latest.min.js"></script>
         <script src="%PUBLIC_URL%/feedback-tool/feedback.min.js"></script>
         <script src="%PUBLIC_URL%/feedback-tool/feedback-github.min.js"></script>
@@ -35,6 +33,8 @@
         <script src="%PUBLIC_URL%/feedback-tool/feedback-clickup.min.js"></script>
 
         <link rel="stylesheet" href="%PUBLIC_URL%/feedback-tool/feedback.min.css" />
+        <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet" />
+        <% } %>
     </head>
     <body>
         <noscript>

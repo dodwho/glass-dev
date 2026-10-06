@@ -1,5 +1,5 @@
 import { isString } from "lodash";
-import { ValueProcessor, trimQuotes, typeKeys } from "./ValueProcessor";
+import { ValueProcessor, toStringLiteral, trimQuotes, typeKeys } from "./ValueProcessor";
 import { VariableService } from "./VariableService";
 import { d2Functions } from "./d2Functions";
 import { executeExpression } from "./executionService";
@@ -86,7 +86,7 @@ function updateVariable(variableToAssign, data, variablesHash) {
         const { variableType } = variableHash;
         let variableValue = normalizeRuleVariable(data, variableType);
         if (variableValue && isString(variableValue)) {
-            variableValue = `'${variableValue}'`;
+            variableValue = toStringLiteral(variableValue);
         }
 
         variablesHash[variableHashKey] = {
@@ -107,7 +107,7 @@ function updateVariable(variableToAssign, data, variablesHash) {
  * @param variablesHash
  * @returns {*}
  */
-const replaceVariablesWithValues = (expression, variablesHash) => {
+export const replaceVariablesWithValues = (expression, variablesHash) => {
     const warnMessage = (expr, variablePresent) => {
         console.error(`Expression ${expr} contains context variable ${variablePresent} 
     - but this variable is not defined.`);
@@ -126,7 +126,7 @@ const replaceVariablesWithValues = (expression, variablesHash) => {
     ];
     avoidReplacementFunctions.forEach(funcName => {
         const rex = new RegExp(
-            `${funcName}\\( *([A#CV]\\{[\\w -_.]+})( *, *(([\\d/\\*\\+\\-%. ]+)|'[^']*'))* *\\)`,
+            `${funcName}\\( *([A#CV]\\{[\\w -_.]+})( *, *(([\\d/\\*\\+\\-%. ]+)|'(?:[^'\\\\]|\\\\.)*'))* *\\)`,
             "g"
         );
 
@@ -165,7 +165,7 @@ const replaceVariablesWithValues = (expression, variablesHash) => {
                     // Replace all occurrences of the variable name(hence using regex replacement):
                     expression = expression.replace(
                         new RegExp(`${variablesHash[variablePresent].variablePrefix}\\{${variablePresent}\\}`, "g"),
-                        variablesHash[variablePresent].variableValue
+                        () => variablesHash[variablePresent].variableValue
                     );
                 } else {
                     warnMessage(expression, variablePresent);
@@ -191,7 +191,7 @@ const replaceVariablesWithValues = (expression, variablesHash) => {
                     // Replace all occurrences of the variable name(hence using regex replacement):
                     expression = expression.replace(
                         new RegExp(`V{${variablePresent}}`, "g"),
-                        variablesHash[variablePresent].variableValue
+                        () => variablesHash[variablePresent].variableValue
                     );
                 } else {
                     warnMessage(expression, variablePresent);
@@ -216,7 +216,7 @@ const replaceVariablesWithValues = (expression, variablesHash) => {
                     // Replace all occurrences of the variable name(hence using regex replacement):
                     expression = expression.replace(
                         new RegExp(`A{${variablePresent}}`, "g"),
-                        variablesHash[variablePresent].variableValue
+                        () => variablesHash[variablePresent].variableValue
                     );
                 } else {
                     warnMessage(expression, variablePresent);
@@ -241,7 +241,7 @@ const replaceVariablesWithValues = (expression, variablesHash) => {
                     // Replace all occurrences of the variable name(hence using regex replacement):
                     expression = expression.replace(
                         new RegExp(`C{${variablePresent}}`, "g"),
-                        variablesHash[variablePresent].variableValue
+                        () => variablesHash[variablePresent].variableValue
                     );
                 } else {
                     warnMessage(expression, variablePresent);
