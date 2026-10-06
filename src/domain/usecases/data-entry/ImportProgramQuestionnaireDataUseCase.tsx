@@ -1,6 +1,6 @@
-import { Dhis2EventsDefaultRepository } from "../../../data/repositories/Dhis2EventsDefaultRepository";
-import { SignalDefaultRepository } from "../../../data/repositories/SignalDefaultRepository";
-import { UsersDefaultRepository } from "../../../data/repositories/UsersDefaultRepository";
+import { EventsRepository } from "../../repositories/EventsRepository";
+import { SignalRepository } from "../../repositories/SignalRepository";
+import { UsersRepository } from "../../repositories/UsersRepository";
 import { Future, FutureData } from "../../entities/Future";
 import { Questionnaire } from "../../entities/Questionnaire";
 import { NotificationRepository } from "../../repositories/NotificationRepository";
@@ -9,10 +9,10 @@ import { ImportSignalsUseCase, SignalAction } from "./ear/ImportSignalsUseCase";
 
 export class ImportProgramQuestionnaireDataUseCase {
     constructor(
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
-        private signalRepository: SignalDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
+        private signalRepository: SignalRepository,
         private notificationRepository: NotificationRepository,
-        private usersDefaultRepository: UsersDefaultRepository
+        private usersDefaultRepository: UsersRepository
     ) {}
 
     execute(

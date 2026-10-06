@@ -12,11 +12,8 @@ import { GetGlassModuleByNameUseCase } from "./domain/usecases/GetGlassModuleByN
 import { GetGlassModuleByIdUseCase } from "./domain/usecases/GetGlassModuleByIdUseCase";
 import { GetGlassModulesUseCase } from "./domain/usecases/GetGlassModulesUseCase";
 import { GetGlassNewsUseCase } from "./domain/usecases/GetGlassNewsUseCase";
-import { GetInstanceVersionUseCase } from "./domain/usecases/GetInstanceVersionUseCase";
 import { ValidateGlassModulesUseCase } from "./domain/usecases/ValidateGlassModulesUseCase";
-import { ValidateGlassNewsUseCase } from "./domain/usecases/ValidateGlassNewsUseCase";
 import { GetDataSubmissionsByModuleAndOUUseCase } from "./domain/usecases/GetDataSubmissionsByModuleAndOUUseCase";
-import { GetGlassDocumentsUseCase } from "./domain/usecases/GetGlassDocumentsUseCase";
 import { UploadDocumentUseCase } from "./domain/usecases/UploadDocumentUseCase";
 import { SetUploadStatusUseCase } from "./domain/usecases/SetUploadStatusUseCase";
 import { GetGlassUploadsByDataSubmissionUseCase } from "./domain/usecases/GetGlassUploadsByDataSubmissionUseCase";
@@ -120,7 +117,6 @@ import { QuestionsAMCQuestionnaireD2Repository } from "./data/repositories/amc-q
 import { GetQuestionsAMCQuestionnaireUseCase } from "./domain/usecases/amc-questionnaires/GetQuestionsAMCQuestionnaireUseCase";
 import { SaveGeneralAMCQuestionnaireUseCase } from "./domain/usecases/amc-questionnaires/SaveGeneralAMCQuestionnaireUseCase";
 import { GetAMCQuestionnaireByOrgUnitAndPeriodUseCase } from "./domain/usecases/amc-questionnaires/GetAMCQuestionnaireByOrgUnitAndPeriodUseCase";
-import { GetAMCQuestionnaireByIdUseCase } from "./domain/usecases/amc-questionnaires/GetAMCQuestionnaireByIdUseCase";
 import { SaveAMClassAMCQuestionnaireUseCase } from "./domain/usecases/amc-questionnaires/SaveAMClassAMCQuestionnaireUseCase";
 import { Proportion50to100UnknownOptionsD2Repository } from "./data/repositories/amc-questionnaires/Proportion50to100UnknownOptionsD2Repository";
 import { DataLevelOptionsD2Repository } from "./data/repositories/amc-questionnaires/DataLevelOptionsD2Repository";
@@ -139,6 +135,7 @@ import { UNPopulationD2Repository } from "./data/repositories/amc-questionnaires
 import { GetUNPopulationUseCase } from "./domain/usecases/amc-questionnaires/GetUNPopulationUseCase";
 import { GetGlassUploadsIncludedSharedByModuleOUPeriodUseCase } from "./domain/usecases/GetGlassUploadsIncludedSharedByModuleOUPeriodUseCase";
 import { getUploadsFormDataBuilder } from "./utils/getUploadsFormDataBuilder";
+import { UseCase } from "./domain/UseCase";
 
 export function getCompositionRoot(instance: Instance) {
     const api = getD2APiFromInstance(instance);
@@ -176,7 +173,6 @@ export function getCompositionRoot(instance: Instance) {
     const amcProductDataRepository = new AMCProductDataDefaultRepository(api);
     const amcSubstanceDataRepository = new AMCSubstanceDataDefaultRepository(api);
     const glassAtcRepository = new GlassATCDefaultRepository(dataStoreClient);
-    const atcRepository = new GlassATCDefaultRepository(dataStoreClient);
     const eventVisualizationRepository = new EventVisualizationAnalyticsDefaultRepository(api);
     const countryRepository = new CountryDefaultRepository(api);
     const glassAsyncDeletionsRepository = new GlassAsyncDeletionsDefaultRepository(dataStoreClient);
@@ -199,7 +195,6 @@ export function getCompositionRoot(instance: Instance) {
     return {
         instance: getExecute({
             getCurrentUser: new GetCurrentUserUseCase(instanceRepository),
-            getVersion: new GetInstanceVersionUseCase(instanceRepository),
         }),
         glassModules: getExecute({
             getAll: new GetGlassModulesUseCase(glassModuleRepository, countryInformationRepository),
@@ -209,7 +204,6 @@ export function getCompositionRoot(instance: Instance) {
         }),
         glassNews: getExecute({
             getAll: new GetGlassNewsUseCase(glassNewsRepository),
-            validate: new ValidateGlassNewsUseCase(glassNewsRepository),
         }),
 
         glassDataSubmission: getExecute({
@@ -256,7 +250,6 @@ export function getCompositionRoot(instance: Instance) {
             }),
         }),
         glassDocuments: getExecute({
-            getAll: new GetGlassDocumentsUseCase(glassDocumentsRepository),
             upload: new UploadDocumentUseCase(glassDocumentsRepository, glassUploadsRepository),
             deleteByUploadId: new DeleteDocumentInfoByUploadIdUseCase(glassDocumentsRepository, glassUploadsRepository),
             download: new DownloadDocumentUseCase(glassDocumentsRepository),
@@ -277,7 +270,7 @@ export function getCompositionRoot(instance: Instance) {
                 glassModuleRepository,
                 instanceRepository,
                 programRulesMetadataDefaultRepository,
-                atcRepository,
+                glassAtcRepository,
                 amcProductDataRepository,
                 amcSubstanceDataRepository,
                 glassAtcRepository,
@@ -426,7 +419,6 @@ export function getCompositionRoot(instance: Instance) {
         }),
 
         amcQuestionnaires: getExecute({
-            getById: new GetAMCQuestionnaireByIdUseCase(amcQuestionnaireRepository),
             getByOrgUnitAndPeriod: new GetAMCQuestionnaireByOrgUnitAndPeriodUseCase(amcQuestionnaireRepository),
             saveGeneral: new SaveGeneralAMCQuestionnaireUseCase(amcQuestionnaireRepository),
             saveAmClass: new SaveAMClassAMCQuestionnaireUseCase(amcQuestionnaireRepository),
@@ -467,6 +459,4 @@ function getExecute<UseCases extends Record<Key, UseCase>, Key extends keyof Use
     }, initialOutput);
 }
 
-export interface UseCase {
-    execute: Function;
-}
+export type { UseCase } from "./domain/UseCase";

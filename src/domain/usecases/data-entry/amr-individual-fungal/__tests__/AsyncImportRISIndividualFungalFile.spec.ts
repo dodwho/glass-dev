@@ -1,4 +1,4 @@
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../../../entities/data-entry/TrackerImportResult";
 import { AsyncUploadProgress, ASYNC_UPLOAD_STALE_AFTER_MS } from "../../../../entities/AsyncUploadProgress";
 import { CustomDataColumns } from "../../../../entities/data-entry/amr-individual-fungal-external/RISIndividualFungalData";
 import { ImportSummary } from "../../../../entities/data-entry/ImportSummary";
@@ -53,7 +53,7 @@ class FakeDhis2 implements Partial<TrackerRepository> {
     failImportCall?: number;
     failDeletes = false;
 
-    import(req: TrackerPostRequest, options: { action: string }): FutureData<TrackerPostResponse> {
+    import(req: TrackerPostRequest, options: { action: string }): FutureData<TrackerImportResult> {
         const entities = req.trackedEntities ?? [];
         if (options.action === "DELETE") {
             if (this.failDeletes) return Future.error("network error while deleting");
@@ -99,10 +99,10 @@ function enrollmentId(entity: TrackerTrackedEntity | undefined): Id {
 
 function response(
     status: "OK" | "ERROR",
-    stats: Partial<TrackerPostResponse["stats"]>,
+    stats: Partial<TrackerImportResult["stats"]>,
     errorReports: object[] = [],
     created: TrackerTrackedEntity[] = []
-): TrackerPostResponse {
+): TrackerImportResult {
     return {
         status,
         validationReport: { errorReports, warningReports: [] },
@@ -110,7 +110,7 @@ function response(
         bundleReport: {
             typeReportMap: { TRACKED_ENTITY: { objectReports: created.map(e => ({ uid: e.trackedEntity })) } },
         },
-    } as unknown as TrackerPostResponse;
+    } as unknown as TrackerImportResult;
 }
 
 class FakeProgressRepository implements AsyncUploadProgressRepository {

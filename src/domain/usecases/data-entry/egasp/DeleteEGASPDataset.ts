@@ -1,10 +1,10 @@
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../../repositories/EventsRepository";
 import { FutureData } from "../../../entities/Future";
 import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
 import { ExcelRepository } from "../../../repositories/ExcelRepository";
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
-import { EGASP_PROGRAM_ID } from "../../../../data/repositories/program-rule/ProgramRulesMetadataDefaultRepository";
+import { EGASP_PROGRAM_ID } from "../../../entities/GlassMetadataReferences";
 import { InstanceRepository } from "../../../repositories/InstanceRepository";
 import { DeleteBLTemplateEventProgram } from "../DeleteBLTemplateEventProgram";
 import { GlassUploads } from "../../../entities/GlassUploads";
@@ -15,7 +15,7 @@ import { Maybe } from "../../../../utils/ts-utils";
 export class DeleteEGASPDataset {
     constructor(
         private options: {
-            dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository;
+            dhis2EventsDefaultRepository: EventsRepository;
             excelRepository: ExcelRepository;
             glassDocumentsRepository: GlassDocumentsRepository;
             metadataRepository: MetadataRepository;

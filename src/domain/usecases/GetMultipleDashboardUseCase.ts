@@ -1,10 +1,10 @@
-import { UseCase } from "../../CompositionRoot";
-import { GlassModuleDefaultRepository } from "../../data/repositories/GlassModuleDefaultRepository";
+import { UseCase } from "../UseCase";
+import { GlassModuleRepository } from "../repositories/GlassModuleRepository";
 import { Future, FutureData } from "../entities/Future";
 import { NamedRef } from "../entities/Ref";
 
 export class GetMultipleDashboardUseCase implements UseCase {
-    constructor(private glassModuleDefaultRepository: GlassModuleDefaultRepository) {}
+    constructor(private glassModuleDefaultRepository: GlassModuleRepository) {}
 
     public execute(
         moduleId: string

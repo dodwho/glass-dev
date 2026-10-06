@@ -23,7 +23,6 @@ export interface DataFileHistoryItemProps {
     uploadDate: string;
     dataSubmission: string;
     module: string;
-    records?: number; // TODO: Delete when no items in DataStore with records (because becomes rows)
     rows?: number;
     importSummary?: ImportSummaryErrors;
 }

@@ -1,7 +1,7 @@
 import {
     AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID,
     AMR_GLASS_AMC_TEA_PRODUCT_ID,
-} from "../../../../../data/repositories/data-entry/AMCProductDataDefaultRepository";
+} from "../../../../entities/data-entry/amc/amcProgramIds";
 import { logger } from "../../../../../utils/logger";
 import { Future, FutureData } from "../../../../entities/Future";
 import { GlassAtcVersionData } from "../../../../entities/GlassAtcVersionData";

@@ -29,9 +29,8 @@ import {
     getDefaultErrorDataValuesSaveSummary,
 } from "../../../entities/data-entry/DataValuesSaveSummary";
 import consoleLogger from "../../../../utils/consoleLogger";
+import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
 
-const AMR_AMR_DS_Input_files_Sample_ID = "OcAB7oaC072";
-const AMR_BATCHID_CC_ID = "rEMx3WFeLcU";
 const CREATE_AND_UPDATE = "CREATE_AND_UPDATE";
 
 export class AsyncImportSampleFile {
@@ -59,7 +58,7 @@ export class AsyncImportSampleFile {
             consoleLogger.debug(`Get ${risDataItems.length} sample data items from blob for upload ${uploadId}`);
             return Future.joinObj({
                 risDataItems: Future.success(risDataItems),
-                dataSet: this.repositories.metadataRepository.getDataSet(AMR_AMR_DS_Input_files_Sample_ID),
+                dataSet: this.repositories.metadataRepository.getDataSet(AMR_AMR_DS_Input_files_Sample_DS_ID),
                 dataSet_CC: this.repositories.metadataRepository.getCategoryCombination(AMR_BATCHID_CC_ID),
                 dataElement_CC: this.repositories.metadataRepository.getCategoryCombination(
                     AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID
@@ -145,7 +144,7 @@ export class AsyncImportSampleFile {
 
                     return this.saveDataValuesByChunks(chunkedDataValues, dryRun).flatMap(importSummaries => {
                         return this.getDataSetDHIS2ValidationErrors(
-                            AMR_AMR_DS_Input_files_Sample_ID,
+                            AMR_AMR_DS_Input_files_Sample_DS_ID,
                             period.toString(),
                             orgUnitId,
                             uniqueAttributeOptionCombos

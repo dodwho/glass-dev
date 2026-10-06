@@ -1,5 +1,5 @@
-import { UseCase } from "../../../CompositionRoot";
-import { GlassModuleDefaultRepository } from "../../../data/repositories/GlassModuleDefaultRepository";
+import { UseCase } from "../../UseCase";
+import { GlassModuleRepository } from "../../repositories/GlassModuleRepository";
 import { FutureData, Future } from "../../entities/Future";
 import { AMCDataRepository } from "../../repositories/data-entry/AMCDataRepository";
 import { EGASPDataRepository } from "../../repositories/data-entry/EGASPDataRepository";
@@ -11,7 +11,7 @@ export class ValidatePrimaryFileUseCase implements UseCase {
         private risDataRepository: RISDataRepository,
         private risIndividualFungalRepository: RISIndividualFungalDataRepository,
         private egaspDataRepository: EGASPDataRepository,
-        private glassModuleDefaultRepository: GlassModuleDefaultRepository,
+        private glassModuleDefaultRepository: GlassModuleRepository,
         private amcDataRepository: AMCDataRepository
     ) {}
 

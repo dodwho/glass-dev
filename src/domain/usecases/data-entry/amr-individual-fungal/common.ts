@@ -22,10 +22,7 @@ import {
     checkSpecimenDateNotInFuture,
 } from "./RISIndividualFungalFileValidations";
 import { parseDateStrict, validateAllDateFieldsInRow } from "../utils/dateValidation";
-
-const AMR_GLASS_AMR_TET_PATIENT = "CcgnfemKr5U";
-
-const AMR_GLASS_AMR_DET_SAMPLE_DATE = "Xtn5zEL9mGx";
+import { AMR_GLASS_AMR_DET_SAMPLE_DATE, AMR_GLASS_AMR_TET_PATIENT } from "../../../entities/GlassMetadataReferences";
 
 export function mapIndividualFungalDataItemsToEntities(
     individualFungalDataItems: CustomDataColumns[],

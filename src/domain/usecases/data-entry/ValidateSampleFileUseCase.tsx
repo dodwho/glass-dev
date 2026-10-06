@@ -1,6 +1,6 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { AMCSubstanceDataRepository } from "../../repositories/data-entry/AMCSubstanceDataRepository";
-import { GlassModuleDefaultRepository } from "../../../data/repositories/GlassModuleDefaultRepository";
+import { GlassModuleRepository } from "../../repositories/GlassModuleRepository";
 import { Future, FutureData } from "../../entities/Future";
 import { SampleDataRepository } from "../../repositories/data-entry/SampleDataRepository";
 
@@ -8,7 +8,7 @@ export class ValidateSampleFileUseCase implements UseCase {
     constructor(
         private sampleDataRepository: SampleDataRepository,
         private amcSubstanceDataReporsitory: AMCSubstanceDataRepository,
-        private glassModuleDefaultRepository: GlassModuleDefaultRepository
+        private glassModuleDefaultRepository: GlassModuleRepository
     ) {}
 
     public execute(inputFile: File, moduleName: string): FutureData<{ isValid: boolean; rows: number }> {

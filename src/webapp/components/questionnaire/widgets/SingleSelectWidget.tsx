@@ -1,5 +1,4 @@
 import React from "react";
-// @ts-ignore
 import { Radio, Button } from "@dhis2/ui";
 import { Id } from "../../../../domain/entities/Base";
 import { Maybe } from "../../../../types/utils";

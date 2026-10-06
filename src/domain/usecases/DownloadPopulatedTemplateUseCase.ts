@@ -1,6 +1,6 @@
 import moment from "moment";
-import { UseCase } from "../../CompositionRoot";
-import { EGASPProgramDefaultRepository } from "../../data/repositories/download-template/EGASPProgramDefaultRepository";
+import { UseCase } from "../UseCase";
+import { EGASPProgramRepository } from "../repositories/EGASPProgramRepository";
 import { Future, FutureData } from "../entities/Future";
 import { DownloadTemplateRepository } from "../repositories/DownloadTemplateRepository";
 import { ExcelRepository } from "../repositories/ExcelRepository";
@@ -11,7 +11,7 @@ export class DownloadPopulatedTemplateUseCase implements UseCase {
     constructor(
         private downloadTemplateRepository: DownloadTemplateRepository,
         private excelRepository: ExcelRepository,
-        private egaspRepository: EGASPProgramDefaultRepository,
+        private egaspRepository: EGASPProgramRepository,
         private metadataRepository: MetadataRepository
     ) {}
 

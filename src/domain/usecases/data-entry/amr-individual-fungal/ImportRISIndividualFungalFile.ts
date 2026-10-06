@@ -13,11 +13,17 @@ import { downloadIdsAndDeleteTrackedEntities } from "../utils/downloadIdsAndDele
 import { Country } from "../../../entities/Country";
 import { getLineNumbersByTrackerId, mapIndividualFungalDataItemsToEntities } from "./common";
 import { validateRISIndividualFungalRows } from "./validateRISIndividualFungalRows";
+import {
+    AMR_DATA_PROGRAM_STAGE_ID,
+    AMR_FUNGAL_PROGRAM_STAGE_ID,
+    AMR_GLASS_AMR_TET_PATIENT,
+    AMR_INDIVIDUAL_PROGRAM_ID,
+} from "../../../entities/GlassMetadataReferences";
 
-export const AMRIProgramID = "mMAj6Gofe49";
-export const AMR_GLASS_AMR_TET_PATIENT = "CcgnfemKr5U";
-export const AMRDataProgramStageId = "KCmWZD8qoAk";
-export const AMRCandidaProgramStageId = "ysGSonDq9Bc";
+export { AMR_GLASS_AMR_TET_PATIENT };
+export const AMRIProgramID = AMR_INDIVIDUAL_PROGRAM_ID;
+export const AMRDataProgramStageId = AMR_DATA_PROGRAM_STAGE_ID;
+export const AMRCandidaProgramStageId = AMR_FUNGAL_PROGRAM_STAGE_ID;
 
 // Line 1 of the file is the header row.
 const FIRST_DATA_LINE = 2;

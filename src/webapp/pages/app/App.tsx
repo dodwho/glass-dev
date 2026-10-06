@@ -1,7 +1,6 @@
 import { SnackbarProvider } from "@eyeseetea/d2-ui-components";
 import { MuiThemeProvider } from "@material-ui/core/styles";
 import _ from "lodash";
-//@ts-ignore
 import OldMuiThemeProvider from "material-ui/styles/MuiThemeProvider";
 import React, { useEffect, useState } from "react";
 import { appConfig } from "../../../app-config";
@@ -23,7 +22,6 @@ export interface AppProps {
 }
 
 export const App: React.FC<AppProps> = React.memo(function App({ api, d2, instance }) {
-    // const [showShareButton, setShowShareButton] = useState(false);
     const [loading, setLoading] = useState(true);
     const [appContext, setAppContext] = useState<AppContextState | null>(null);
 
@@ -38,10 +36,7 @@ export const App: React.FC<AppProps> = React.memo(function App({ api, d2, instan
 
             await compositionRoot.glassModules.validate().runAsync();
 
-            // const isShareButtonVisible = _(appConfig).get("appearance.showShareButton") || false;
-
             setAppContext({ api, currentUser, compositionRoot, instance: instance, allCountries: allCountries ?? [] });
-            // setShowShareButton(isShareButtonVisible);
             if (process.env.NODE_ENV !== "production") initFeedbackTool(d2, appConfig);
             setLoading(false);
         }
@@ -54,15 +49,11 @@ export const App: React.FC<AppProps> = React.memo(function App({ api, d2, instan
         <MuiThemeProvider theme={muiTheme}>
             <OldMuiThemeProvider muiTheme={muiThemeLegacy}>
                 <SnackbarProvider>
-                    {/* <HeaderBar appName="Skeleton App" /> */}
-
                     <div id="app" className="content">
                         <AppContext.Provider value={appContext}>
                             <Router />
                         </AppContext.Provider>
                     </div>
-
-                    {/* <Share visible={showShareButton} /> */}
                 </SnackbarProvider>
             </OldMuiThemeProvider>
         </MuiThemeProvider>

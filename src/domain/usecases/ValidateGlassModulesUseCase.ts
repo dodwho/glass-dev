@@ -1,8 +1,9 @@
-import { UseCase } from "../../CompositionRoot";
-import { glassColors } from "../../webapp/pages/app/themes/dhis2.theme";
+import { UseCase } from "../UseCase";
+import { glassColors } from "../entities/GlassColors";
 import { Future, FutureData } from "../entities/Future";
 import { GlassModule } from "../entities/GlassModule";
 import { GlassModuleRepository } from "../repositories/GlassModuleRepository";
+import { AMC_MODULE_ID, AMR_MODULE_ID, EGASP_MODULE_ID } from "../entities/GlassMetadataReferences";
 
 export class ValidateGlassModulesUseCase implements UseCase {
     constructor(private glassModuleRepository: GlassModuleRepository) {}
@@ -18,7 +19,7 @@ export class ValidateGlassModulesUseCase implements UseCase {
 
 const glassModules: GlassModule[] = [
     {
-        id: "AVnpk4xiXGG",
+        id: AMR_MODULE_ID,
         name: "AMR",
         color: glassColors.lightSecondary,
         userGroups: {
@@ -385,7 +386,7 @@ const glassModules: GlassModule[] = [
         dataColumns: [],
     },
     {
-        id: "BVnik5xiXGJ",
+        id: AMC_MODULE_ID,
         name: "AMC",
         color: glassColors.lightTertiary,
         userGroups: {
@@ -404,7 +405,7 @@ const glassModules: GlassModule[] = [
         dataColumns: [],
     },
     {
-        id: "CVVp44xiXGJ",
+        id: EGASP_MODULE_ID,
         name: "EGASP",
         color: glassColors.lightPrimary,
         userGroups: {

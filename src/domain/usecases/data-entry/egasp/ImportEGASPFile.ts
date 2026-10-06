@@ -1,4 +1,4 @@
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../../repositories/EventsRepository";
 import { FutureData } from "../../../entities/Future";
 import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
 import { ExcelRepository } from "../../../repositories/ExcelRepository";
@@ -7,7 +7,7 @@ import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRe
 import { GlassUploadsRepository } from "../../../repositories/GlassUploadsRepository";
 import { ProgramRulesMetadataRepository } from "../../../repositories/program-rules/ProgramRulesMetadataRepository";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
-import { EGASP_PROGRAM_ID } from "../../../../data/repositories/program-rule/ProgramRulesMetadataDefaultRepository";
+import { EGASP_PROGRAM_ID } from "../../../entities/GlassMetadataReferences";
 import { ImportBLTemplateEventProgram } from "../ImportBLTemplateEventProgram";
 import { InstanceRepository } from "../../../repositories/InstanceRepository";
 import { GlassATCRepository } from "../../../repositories/GlassATCRepository";
@@ -15,7 +15,7 @@ import { EncryptionRepository } from "../../../repositories/EncryptionRepository
 
 export class ImportEGASPFile {
     constructor(
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         // private egaspProgramDefaultRepository: EGASPProgramDefaultRepository, TO DO : Delete?
         private excelRepository: ExcelRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,

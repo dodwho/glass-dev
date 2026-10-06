@@ -35,7 +35,8 @@ import {
     AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID as AMC_RAW_PRODUCT_CONSUMPTION_CALCULATED_STAGE_ID,
     AMR_GLASS_AMC_TEA_ATC,
     AMR_GLASS_AMC_TEA_COMBINATION,
-} from "../../../entities/data-entry/amc/amcProgramIds";
+    AMR_GLASS_AMC_TET_PRODUCT_REGISTER,
+} from "../../../entities/GlassMetadataReferences";
 import {
     TrackerEnrollment,
     TrackerEnrollmentAttribute,
@@ -48,9 +49,8 @@ export {
     AMC_PRODUCT_REGISTER_PROGRAM_ID,
     AMC_RAW_PRODUCT_CONSUMPTION_CALCULATED_STAGE_ID,
     AMC_RAW_PRODUCT_CONSUMPTION_STAGE_ID,
+    AMR_GLASS_AMC_TET_PRODUCT_REGISTER,
 };
-
-export const AMR_GLASS_AMC_TET_PRODUCT_REGISTER = "uE6bIKLsGYW";
 
 export class ImportAMCProductLevelData {
     constructor(

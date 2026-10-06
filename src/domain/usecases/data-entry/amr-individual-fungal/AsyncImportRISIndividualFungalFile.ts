@@ -24,11 +24,12 @@ import {
 import { importTrackedEntitiesInChunksForAsyncUpload } from "../utils/importOrDeleteTrackedEntitiesInChunks";
 import { AsyncUploadProgressTracker } from "../utils/AsyncUploadProgressTracker";
 import consoleLogger from "../../../../utils/consoleLogger";
-
-const AMR_INDIVIDUAL_PROGRAM_ID = "mMAj6Gofe49";
-const AMR_DATA_PROGRAM_STAGE_ID = "KCmWZD8qoAk";
-const AMR_FUNGAL_PROGRAM_STAGE_ID = "ysGSonDq9Bc";
-const AMR_GLASS_AMR_TET_PATIENT = "CcgnfemKr5U";
+import {
+    AMR_DATA_PROGRAM_STAGE_ID,
+    AMR_FUNGAL_PROGRAM_STAGE_ID,
+    AMR_GLASS_AMR_TET_PATIENT,
+    AMR_INDIVIDUAL_PROGRAM_ID,
+} from "../../../entities/GlassMetadataReferences";
 
 const FILE_CHUNK_SIZE = 5000;
 // Line 1 of the file is the header row.

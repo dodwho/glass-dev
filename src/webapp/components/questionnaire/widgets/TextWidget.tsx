@@ -1,5 +1,4 @@
 import React from "react";
-// @ts-ignore
 import { Input, TextArea } from "@dhis2/ui";
 import { BaseWidgetProps } from "./BaseWidget";
 import { Maybe } from "../../../../types/utils";

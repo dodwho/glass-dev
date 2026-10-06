@@ -1,13 +1,14 @@
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../../repositories/EventsRepository";
 import { Future, FutureData } from "../../../entities/Future";
 import { Questionnaire } from "../../../entities/Questionnaire";
 import { Id } from "../../../entities/Ref";
 import { TrackerEvent, TrackerEventDataValue } from "../../../entities/TrackedEntityInstance";
 import { AMC_PROGRAM_ID, AMC_QUESTIONNAIRE_PROGRAM_STAGE } from "../../GetProgramQuestionnaireUseCase";
+import { AMR_GLASS_AMC_DET_DS_PERIOD } from "../../../entities/GlassMetadataReferences";
 
-export const AMR_GLASS_AMC_DET_DS_PERIOD = "W4D5kpe1il2";
+export { AMR_GLASS_AMC_DET_DS_PERIOD };
 export class ImportAMCQuestionnaireData {
-    constructor(private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository) {}
+    constructor(private dhis2EventsDefaultRepository: EventsRepository) {}
 
     importAMCQuestionnaireData(
         questionnaire: Questionnaire,

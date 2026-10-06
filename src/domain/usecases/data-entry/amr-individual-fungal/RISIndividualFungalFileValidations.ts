@@ -1,5 +1,6 @@
 import { parseDateStrict } from "../utils/dateValidation";
 import { CustomDataColumns } from "../../../entities/data-entry/amr-individual-fungal-external/RISIndividualFungalData";
+import { AMR_PATIENT_COUNTER_TEA_ID, AMR_PATIENT_ID_TEA_ID } from "../../../entities/GlassMetadataReferences";
 
 enum RISIndividualFungalFileColumns {
     COUNTRY = "COUNTRY",
@@ -22,8 +23,8 @@ export const AMR_INDIVIDUAL_FUNGAL_DATE_COLUMNS = [
  * attributes from the same list without a circular import.
  */
 export const MANDATORY_TEI_ATTRIBUTES: ReadonlyArray<{ id: string; column: string }> = [
-    { id: "uSGcLbT5gJJ", column: "PATIENTCOUNTER" },
-    { id: "qKWPfeSgTnc", column: "PATIENT_ID" },
+    { id: AMR_PATIENT_COUNTER_TEA_ID, column: "PATIENTCOUNTER" },
+    { id: AMR_PATIENT_ID_TEA_ID, column: "PATIENT_ID" },
 ];
 
 /** A mandatory attribute column must carry a value; for numeric columns it must also parse as a number. */

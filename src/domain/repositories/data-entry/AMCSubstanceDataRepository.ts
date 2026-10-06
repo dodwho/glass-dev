@@ -1,4 +1,4 @@
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../entities/data-entry/TrackerImportResult";
 import { FutureData } from "../../entities/Future";
 import { Id } from "../../entities/Ref";
 import { RawSubstanceConsumptionData } from "../../entities/data-entry/amc/RawSubstanceConsumptionData";
@@ -21,7 +21,7 @@ export interface AMCSubstanceDataRepository {
         orgUnitId: Id;
         calculatedConsumptionSubstanceLevelData: SubstanceConsumptionCalculated[];
         chunkSize?: number;
-    }): FutureData<{ response: TrackerPostResponse; eventIdLineNoMap: { id: string; lineNo: number }[] }>;
+    }): FutureData<{ response: TrackerImportResult; eventIdLineNoMap: { id: string; lineNo: number }[] }>;
     getAllRawSubstanceConsumptionDataByByPeriod(
         orgUnitId: Id,
         period: string
@@ -33,5 +33,5 @@ export interface AMCSubstanceDataRepository {
     deleteCalculatedSubstanceConsumptionDataById(
         calculatedConsumptionIds: Id[],
         chunkSize?: number
-    ): FutureData<TrackerPostResponse>;
+    ): FutureData<TrackerImportResult>;
 }

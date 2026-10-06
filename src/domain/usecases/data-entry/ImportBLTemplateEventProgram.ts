@@ -1,6 +1,6 @@
 import _ from "lodash";
 import moment from "moment";
-import { Dhis2EventsDefaultRepository } from "../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../repositories/EventsRepository";
 import { ImportStrategy } from "../../entities/data-entry/DataValuesSaveSummary";
 import { ConsistencyError, ImportSummary, ImportSummaryWithEventIdList } from "../../entities/data-entry/ImportSummary";
 import { Future, FutureData } from "../../entities/Future";
@@ -14,7 +14,7 @@ import { ValidationResult } from "../../entities/program-rules/EventEffectTypes"
 import { generateId, Id, NamedRef } from "../../entities/Ref";
 import { DataPackage, DataPackageDataValue } from "../../entities/data-entry/DataPackage";
 import { getStringFromFile } from "./utils/fileToString";
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../entities/data-entry/TrackerImportResult";
 import { ProgramRuleValidationForBLEventProgram } from "../program-rules-processing/ProgramRuleValidationForBLEventProgram";
 import { ProgramRulesMetadataRepository } from "../../repositories/program-rules/ProgramRulesMetadataRepository";
 import { CustomValidationForEventProgram, PATIENT_DATAELEMENT_ID } from "./egasp/CustomValidationForEventProgram";
@@ -25,11 +25,12 @@ import { AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID } from "./amc/ImportAMCSubstan
 import { GlassATCRepository } from "../../repositories/GlassATCRepository";
 import { ListGlassATCLastVersionKeysByYear } from "../../entities/GlassAtcVersionData";
 import { TrackerEvent } from "../../entities/TrackedEntityInstance";
-import { EGASP_PROGRAM_ID } from "../../../data/repositories/program-rule/ProgramRulesMetadataDefaultRepository";
+import { EGASP_PROGRAM_ID } from "../../entities/GlassMetadataReferences";
 import sodium from "libsodium-wrappers";
 import { EncryptionData } from "../../entities/EncryptionData";
+import { ATC_VERSION_DATA_ELEMENT_ID } from "../../entities/GlassMetadataReferences";
 
-export const ATC_VERSION_DATA_ELEMENT_ID = "aCuWz3HZ5Ti";
+export { ATC_VERSION_DATA_ELEMENT_ID };
 
 export class ImportBLTemplateEventProgram {
     constructor(
@@ -37,7 +38,7 @@ export class ImportBLTemplateEventProgram {
         private instanceRepository: InstanceRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,
         private glassUploadsRepository: GlassUploadsRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         private metadataRepository: MetadataRepository,
         private programRulesMetadataRepository: ProgramRulesMetadataRepository,
         private glassAtcRepository: GlassATCRepository
@@ -511,7 +512,7 @@ function withoutCascadeErrors<Report extends { errorCode?: string }>(errorReport
 }
 
 export const mapToImportSummary = (
-    result: TrackerPostResponse,
+    result: TrackerImportResult,
     type: "event" | "trackedEntity",
     metadataRepository: MetadataRepository,
     params?: {

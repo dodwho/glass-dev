@@ -80,7 +80,6 @@ export const CtaButtons: React.FC<CtaButtonsProps> = ({ ctas, position, setCurre
     ]);
 
     const getCTAButton = (cta: CTAs, setCurrentStep: React.Dispatch<React.SetStateAction<number>>) => {
-        // TODO : Button click event handlers to be added as corresponding feature developed.
         switch (cta.label) {
             case "Go to questionnaires":
                 if (moduleProperties.get(currentModuleAccess.moduleName)?.isQuestionnaireReq)

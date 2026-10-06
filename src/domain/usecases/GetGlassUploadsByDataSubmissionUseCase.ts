@@ -1,11 +1,9 @@
-import { UseCase } from "../../CompositionRoot";
+import { UseCase } from "../UseCase";
 import { FutureData, Future } from "../entities/Future";
 import { GlassUploads } from "../entities/GlassUploads";
 import { GlassDataSubmissionsRepository } from "../repositories/GlassDataSubmissionRepository";
 import { GlassUploadsRepository } from "../repositories/GlassUploadsRepository";
-
-const AMR_AGG = "AVnpk4xiXGG";
-const AMR_I = "IVnpk5xiXGG";
+import { AMR_INDIVIDUAL_MODULE_ID, AMR_MODULE_ID } from "../entities/GlassMetadataReferences";
 
 export class GetGlassUploadsByDataSubmissionUseCase implements UseCase {
     constructor(
@@ -15,8 +13,12 @@ export class GetGlassUploadsByDataSubmissionUseCase implements UseCase {
 
     public execute(orgUnit: string, period: string): FutureData<GlassUploads[]> {
         return Future.joinObj({
-            amrAgg: this.glassDataSubmissionRepository.getSpecificDataSubmission(AMR_AGG, orgUnit, period),
-            amrInd: this.glassDataSubmissionRepository.getSpecificDataSubmission(AMR_I, orgUnit, period),
+            amrAgg: this.glassDataSubmissionRepository.getSpecificDataSubmission(AMR_MODULE_ID, orgUnit, period),
+            amrInd: this.glassDataSubmissionRepository.getSpecificDataSubmission(
+                AMR_INDIVIDUAL_MODULE_ID,
+                orgUnit,
+                period
+            ),
         }).flatMap(({ amrAgg, amrInd }) => {
             const dataSubmissionIds = [amrAgg[0]?.id, amrInd[0]?.id].filter((id): id is string => id !== undefined);
             return dataSubmissionIds.length > 0

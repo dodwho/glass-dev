@@ -1,6 +1,6 @@
 import _ from "lodash";
 
-import { Dhis2EventsDefaultRepository } from "../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../repositories/EventsRepository";
 import {
     getDefaultErrorImportSummary,
     ImportSummary,
@@ -28,7 +28,7 @@ export class DeleteBLTemplateEventProgram {
         private excelRepository: ExcelRepository,
         private instanceRepository: InstanceRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         private metadataRepository: MetadataRepository,
         private glassUploadsRepository: GlassUploadsRepository,
         private trackerRepository: TrackerRepository

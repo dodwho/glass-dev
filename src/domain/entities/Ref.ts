@@ -57,7 +57,6 @@ export function generateId() {
  */
 export function isValidId(code: string) {
     if (code == null) {
-        // eslint-disable-line eqeqeq
         return false;
     }
 

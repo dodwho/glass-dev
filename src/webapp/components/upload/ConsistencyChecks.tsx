@@ -16,6 +16,7 @@ import { useCurrentOrgUnitContext } from "../../contexts/current-orgUnit-context
 import { SupportButtons } from "./SupportButtons";
 import { moduleProperties } from "../../../domain/utils/ModuleProperties";
 import { useSnackbar } from "@eyeseetea/d2-ui-components";
+import { csvTextCell } from "../../utils/csv";
 
 interface ConsistencyChecksProps {
     changeStep: (step: number) => void;
@@ -56,7 +57,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
         const csvContent = [
             Object.keys(primaryFileImportSummary?.blockingErrors[0] ?? {}).join(","),
             ...(primaryFileImportSummary?.blockingErrors.map(
-                ({ error, count, lines }) => `"${error}",${count},"${lines?.join(";")}"`
+                ({ error, count, lines }) => `${csvTextCell(error)},${count},${csvTextCell(lines?.join(";"))}`
             ) ?? []),
         ].join("\n");
 
@@ -328,10 +329,6 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                     : Future.success(undefined),
             }).run(
                 ({ importPrimaryFileSummary, importSecondaryFileSummary }) => {
-                    /* eslint-disable no-console */
-                    console.log({ importPrimaryFileSummary });
-                    console.log({ importSecondaryFileSummary });
-
                     const primaryUploadId = localStorage.getItem("primaryUploadId");
 
                     setPrimaryFileImportSummary(importPrimaryFileSummary);

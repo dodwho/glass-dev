@@ -1,7 +1,8 @@
 import { assertUnreachable, Dictionary, Maybe } from "../../types/utils";
 import { Code, Id, NamedRef, Ref, updateCollection } from "./Base";
+import { AMC_QUESTIONNAIRE_PROGRAM_ID } from "./GlassMetadataReferences";
 
-export const AMCDataQuestionnaire = "qGG6BjULAaf";
+export const AMCDataQuestionnaire = AMC_QUESTIONNAIRE_PROGRAM_ID;
 export type QuestionnairesType = "Program" | "Dataset";
 export interface QuestionnaireBase {
     id: Id;

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Breadcrumbs, Button } from "@material-ui/core";
+import { Button } from "@material-ui/core";
 import { useCurrentModuleContext } from "../../contexts/current-module-context";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import { NavLink } from "react-router-dom";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import styled from "styled-components";
-import { glassColors, palette } from "../app/themes/dhis2.theme";
+import { StyledBreadCrumbs } from "../../components/breadcrumbs/StyledBreadCrumbs";
+import { glassColors } from "../app/themes/dhis2.theme";
 
 import { ProgramQuestionnaireForm } from "../../components/new-signal/ProgramQuestionnaireForm";
 import { EAR_PROGRAM_ID } from "../../../domain/usecases/GetProgramQuestionnaireUseCase";
@@ -74,31 +75,6 @@ const PreContent = styled.div`
             color: ${glassColors.green};
             opacity: 1;
         }
-    }
-`;
-
-const StyledBreadCrumbs = styled(Breadcrumbs)`
-    color: ${glassColors.mainPrimary};
-    font-weight: 400;
-    text-transform: uppercase;
-    li {
-        display: flex;
-        align-items: center;
-        p {
-            padding: 6px 8px;
-        }
-        .MuiButton-root {
-            span {
-                color: ${glassColors.mainPrimary};
-                font-size: 15px;
-            }
-        }
-    }
-    .MuiBreadcrumbs-separator {
-        display: none;
-    }
-    svg {
-        color: ${palette.text.secondary};
     }
 `;
 const CenteredDiv = styled.div`

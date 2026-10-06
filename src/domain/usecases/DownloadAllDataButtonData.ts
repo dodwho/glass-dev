@@ -1,5 +1,5 @@
-import { UseCase } from "../../CompositionRoot";
-import { GlassModuleDefaultRepository } from "../../data/repositories/GlassModuleDefaultRepository";
+import { UseCase } from "../UseCase";
+import { GlassModuleRepository } from "../repositories/GlassModuleRepository";
 import { FutureData, Future } from "../entities/Future";
 import { LineListDetails } from "../entities/GlassModule";
 import { EventVisualizationAnalyticsRepository } from "../repositories/EventVisualizationAnalyticsRepository";
@@ -7,7 +7,7 @@ import { EventVisualizationAnalyticsRepository } from "../repositories/EventVisu
 export class DownloadAllDataButtonData implements UseCase {
     constructor(
         private eventVisualizationRepository: EventVisualizationAnalyticsRepository,
-        private glassModuleDefaultRepository: GlassModuleDefaultRepository
+        private glassModuleDefaultRepository: GlassModuleRepository
     ) {}
 
     public execute(moduleName: string): FutureData<LineListDetails[]> {

@@ -117,9 +117,6 @@ export class TrackerDefaultRepository implements TrackerRepository {
     }
 
     public getProgramMetadata(programID: string, programStageId: string): FutureData<any> {
-        console.log("Fetching program metadata for program ID:", programID);
-        console.log("Fetching program metadata for programStageId ID:", programStageId);
-        console.log("API base URL:", (this.api as any)?.http?.baseUrl || (this.api as any)?.baseUrl);
         return apiToFuture(
             this.api.models.programs.get({
                 fields: {
@@ -152,7 +149,6 @@ export class TrackerDefaultRepository implements TrackerRepository {
                 filter: { id: { eq: programID } },
             })
         ).map(response => {
-            console.log("Program metadata fetched for program ID:", programID);
             const programStage = response.objects[0]?.programStages.find(ps => ps.id === programStageId);
             return {
                 programAttributes: response.objects[0]?.programTrackedEntityAttributes.map(

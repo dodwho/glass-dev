@@ -134,7 +134,6 @@ export class GlassDocumentsDefaultRepository implements GlassDocumentsRepository
     }
 
     download(id: string): FutureData<Blob> {
-        console.log("GlassDocumentsDefaultRepository download file id : ", id);
         try {
             return apiToFuture(this.api.files.get(id));
         } catch (error) {

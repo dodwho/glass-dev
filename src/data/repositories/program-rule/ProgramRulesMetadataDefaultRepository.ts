@@ -6,8 +6,10 @@ import { apiToFuture } from "../../../utils/futures";
 import { Instance } from "../../entities/Instance";
 import { getD2APiFromInstance } from "../../../utils/d2-api";
 import { BulkLoadMetadata, metadataQuery } from "../../../domain/entities/program-rules/EventEffectTypes";
+import { EGASP_PROGRAM_ID } from "../../../domain/entities/GlassMetadataReferences";
 
-export const EGASP_PROGRAM_ID = "SOjanrinfuG";
+// Re-exported for existing importers; the value lives in egaspProgramId.
+export { EGASP_PROGRAM_ID };
 
 export class ProgramRulesMetadataDefaultRepository implements ProgramRulesMetadataRepository {
     private api: D2Api;

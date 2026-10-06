@@ -407,23 +407,6 @@ function isPendingDeletion(
 }
 
 // TODO: send notification to users
-/*function _sendNotification(
-    usergroupIds: Id[],
-    repositories: {
-        notificationRepository: NotificationRepository;
-        usersRepository: UsersRepository;
-    }
-): FutureData<void> {
-    const { notificationRepository, usersRepository } = repositories;
-    const notificationText = `The datasets marked for deletion have been successfully deleted.`;
-    const notOrgUnitPath = "";
-    return new SendNotificationsUseCase(notificationRepository, usersRepository).execute(
-        notificationText,
-        notificationText,
-        usergroupIds,
-        notOrgUnitPath
-    );
-}*/
 
 function getGlassModulesFromDatastore(glassModuleRepository: GlassModuleRepository): FutureData<GlassModule[]> {
     return glassModuleRepository.getAll();

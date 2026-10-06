@@ -1,4 +1,4 @@
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../../entities/data-entry/TrackerImportResult";
 import { Future } from "../../../entities/Future";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { mapToImportSummary } from "../ImportBLTemplateEventProgram";
@@ -19,12 +19,12 @@ const cascade = (eventUid: string, enrollmentUid: string) => ({
     uid: eventUid,
 });
 
-function report(errorReports: object[]): TrackerPostResponse {
+function report(errorReports: object[]): TrackerImportResult {
     return {
         status: "ERROR",
         validationReport: { errorReports, warningReports: [] },
         stats: { created: 0, updated: 0, deleted: 0, ignored: 6, total: 6 },
-    } as unknown as TrackerPostResponse;
+    } as unknown as TrackerImportResult;
 }
 
 function summarise(errorReports: object[]) {

@@ -189,8 +189,6 @@ export class ProgramRuleValidationForBLEventProgram {
 
         switch (effect.type) {
             case "ASSIGN": {
-                console.debug(`Effect ${effect.type} ${effect.targetDataType}:${effect.id} -> ${effect.value}`);
-
                 switch (effect.targetDataType) {
                     case "dataElement":
                         return this.getUpdateActionEvent(metadata, program, event, effect.id, effect.value);

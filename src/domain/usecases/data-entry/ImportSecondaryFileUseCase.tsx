@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { Future, FutureData } from "../../entities/Future";
 import { MetadataRepository } from "../../repositories/MetadataRepository";
 import { DataValuesRepository } from "../../repositories/data-entry/DataValuesRepository";
@@ -9,7 +9,7 @@ import { ImportSampleFile } from "./amr/ImportSampleFile";
 import { ImportAMCSubstanceLevelData } from "./amc/ImportAMCSubstanceLevelData";
 import { ExcelRepository } from "../../repositories/ExcelRepository";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
-import { Dhis2EventsDefaultRepository } from "../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../repositories/EventsRepository";
 import { ProgramRulesMetadataRepository } from "../../repositories/program-rules/ProgramRulesMetadataRepository";
 import { GlassATCRepository } from "../../repositories/GlassATCRepository";
 import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepository";
@@ -24,7 +24,7 @@ export class ImportSecondaryFileUseCase implements UseCase {
         private instanceRepository: InstanceRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,
         private glassUploadsRepository: GlassUploadsRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         private programRulesMetadataRepository: ProgramRulesMetadataRepository,
         private glassAtcRepository: GlassATCRepository
     ) {}

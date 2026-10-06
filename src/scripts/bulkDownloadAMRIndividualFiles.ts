@@ -61,7 +61,7 @@ import { CsvStreamWriter, escapeCsvField } from "./utils/csvStreamWriter";
 
 // Load .env.local first, then .env — dotenv never overrides an already-set key, so this gives
 // .env.local precedence (matching Create React App's precedence, which is where credentials like
-// REACT_APP_DHIS2_TOKEN_PROD are kept for this repo). `-r dotenv/config` in the npm script only loads
+// DHIS2_TOKEN_PROD are kept for this repo). `-r dotenv/config` in the npm script only loads
 // .env, so without this the token in .env.local would be invisible to the script.
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -276,7 +276,7 @@ Auth / node globals — mirrors bulkDownloadAMUFiles.ts
 */
 
 async function setupNodeGlobals(): Promise<void> {
-    const g = globalThis as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const g = globalThis as any;
 
     if (typeof g.Blob !== "function" || typeof g.File !== "function" || typeof g.FormData !== "function") {
         const { Blob: PBlob, File: PFile, FormData: PFormData } = await import("formdata-node");
@@ -286,7 +286,7 @@ async function setupNodeGlobals(): Promise<void> {
     }
     if (typeof g._ === "undefined") {
         const lodashModule = await import("lodash");
-        g._ = (lodashModule as any).default ?? lodashModule; // eslint-disable-line @typescript-eslint/no-explicit-any
+        g._ = (lodashModule as any).default ?? lodashModule;
     }
 }
 

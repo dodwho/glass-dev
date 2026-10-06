@@ -1,5 +1,5 @@
 import { D2Api } from "../../types/d2-api";
-import { CaptureFormRepository } from "../../domain/repositories/CaptureFormRepository";
+import { CaptureFormEvent, CaptureFormRepository } from "../../domain/repositories/CaptureFormRepository";
 import { FutureData, Future } from "../../domain/entities/Future";
 import {
     BooleanQuestion,
@@ -98,7 +98,7 @@ export class CaptureFormDefaultRepository implements CaptureFormRepository {
         });
     }
 
-    getPopulatedForm(event: D2TrackerEvent, programId: string): FutureData<Questionnaire> {
+    getPopulatedForm(event: CaptureFormEvent, programId: string): FutureData<Questionnaire> {
         return apiToFuture(
             this.api.request<ProgramMetadata>({
                 method: "get",
@@ -143,7 +143,7 @@ export class CaptureFormDefaultRepository implements CaptureFormRepository {
         section: ProgramStageSections,
         dataElements: EARDataElements[],
         options: Option[],
-        event: D2TrackerEvent | undefined = undefined
+        event: CaptureFormEvent | undefined = undefined
     ): Question[] {
         const questions: Question[] = _.compact(
             section.dataElements.map(dataElement => {

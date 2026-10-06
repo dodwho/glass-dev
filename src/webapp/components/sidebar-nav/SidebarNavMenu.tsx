@@ -1,5 +1,3 @@
-/* eslint-disable react/no-multi-comp */
-/* eslint-disable react/display-name */
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { makeStyles } from "@material-ui/styles";

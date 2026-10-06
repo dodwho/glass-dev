@@ -1,8 +1,8 @@
 import _ from "lodash";
 import moment, { Moment } from "moment";
 import { DataFormType } from "../entities/DataForm";
-import { Id } from "@eyeseetea/d2-api";
-import { RelationshipOrgUnitFilter } from "../../data/repositories/download-template/DownloadTemplateDefaultRepository";
+import { Id } from "../entities/Ref";
+import { RelationshipOrgUnitFilter } from "../entities/DownloadTemplateMetadata";
 import { DataPackage } from "../entities/data-entry/DataPackage";
 import { TrackedEntityInstance } from "../entities/TrackedEntityInstance";
 import { GeneratedTemplate } from "../entities/Template";
@@ -10,10 +10,10 @@ import { ExcelRepository } from "../repositories/ExcelRepository";
 import { DownloadTemplateRepository } from "../repositories/DownloadTemplateRepository";
 import { SheetBuilder } from "../../data/repositories/download-template/sheetBuilder";
 import { ExcelBuilder } from "../helpers/ExcelBuilder";
-import { getTemplateId } from "../../data/repositories/ExcelPopulateDefaultRepository";
+import { getTemplateId } from "./getTemplateId";
 import * as templates from "../entities/data-entry/program-templates";
-import { EGASPProgramDefaultRepository } from "../../data/repositories/download-template/EGASPProgramDefaultRepository";
-import { EGASP_PROGRAM_ID } from "../../data/repositories/program-rule/ProgramRulesMetadataDefaultRepository";
+import { EGASPProgramRepository } from "../repositories/EGASPProgramRepository";
+import { EGASP_PROGRAM_ID } from "../entities/GlassMetadataReferences";
 import {
     AMC_PRODUCT_REGISTER_PROGRAM_ID,
     AMC_RAW_PRODUCT_CONSUMPTION_CALCULATED_STAGE_ID,
@@ -67,7 +67,7 @@ export class DownloadTemplate {
     constructor(
         private downloadtemplateRepository: DownloadTemplateRepository,
         private excelRepository: ExcelRepository,
-        private egaspRepository: EGASPProgramDefaultRepository
+        private egaspRepository: EGASPProgramRepository
     ) {}
 
     public async downloadTemplate({

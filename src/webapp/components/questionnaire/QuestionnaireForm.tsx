@@ -2,7 +2,6 @@ import { LinearProgress, makeStyles } from "@material-ui/core";
 import React, { useCallback, useMemo } from "react";
 import { Id } from "../../../domain/entities/Base";
 import { Question, QuestionnaireBase } from "../../../domain/entities/Questionnaire";
-// @ts-ignore
 import { DataTable, TableHead, DataTableRow, DataTableColumnHeader, TableBody } from "@dhis2/ui";
 import QuestionRow from "./QuestionRow";
 import { PageHeader } from "../page-header/PageHeader";

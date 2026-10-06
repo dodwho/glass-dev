@@ -1,5 +1,4 @@
 import React from "react";
-// @ts-ignore
 import { Maybe } from "../../../../types/utils";
 import { BaseWidgetProps } from "./BaseWidget";
 import { DatePicker } from "material-ui";

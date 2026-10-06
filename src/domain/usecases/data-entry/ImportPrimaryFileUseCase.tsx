@@ -7,7 +7,7 @@ import { GlassModuleRepository } from "../../repositories/GlassModuleRepository"
 import { ImportStrategy } from "../../entities/data-entry/DataValuesSaveSummary";
 import { ImportRISFile } from "./amr/ImportRISFile";
 import { ImportEGASPFile } from "./egasp/ImportEGASPFile";
-import { Dhis2EventsDefaultRepository } from "../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../repositories/EventsRepository";
 import { ExcelRepository } from "../../repositories/ExcelRepository";
 import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepository";
 import { ProgramRulesMetadataRepository } from "../../repositories/program-rules/ProgramRulesMetadataRepository";
@@ -29,7 +29,7 @@ export class ImportPrimaryFileUseCase {
         private risIndividualFungalRepository: RISIndividualFungalDataRepository,
         private metadataRepository: MetadataRepository,
         private dataValuesRepository: DataValuesRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         private excelRepository: ExcelRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,
         private glassUploadsRepository: GlassUploadsRepository,

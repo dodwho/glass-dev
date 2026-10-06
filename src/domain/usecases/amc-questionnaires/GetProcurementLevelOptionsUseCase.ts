@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { ProcurementLevelOption } from "../../entities/amc-questionnaires/ProcurementLevelOption";
 import { FutureData } from "../../entities/Future";
 import { ProcurementLevelOptionsRepository } from "../../repositories/amc-questionnaires/ProcurementLevelOptionsRepository";

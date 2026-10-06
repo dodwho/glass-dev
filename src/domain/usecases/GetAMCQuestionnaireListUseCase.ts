@@ -1,4 +1,4 @@
-import { Dhis2EventsDefaultRepository } from "../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../repositories/EventsRepository";
 import { Id } from "../entities/Base";
 
 import { Future, FutureData } from "../entities/Future";
@@ -11,7 +11,7 @@ import { amcQuestionMap } from "./ApplyAMCQuestionUpdationUseCase";
 export class GetAMCQuestionnaireListUseCase {
     constructor(
         private questionnaireRepository: QuestionnaireRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository
+        private dhis2EventsDefaultRepository: EventsRepository
     ) {}
 
     splitAMCDataQuestionnaire(

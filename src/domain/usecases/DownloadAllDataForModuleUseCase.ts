@@ -1,4 +1,4 @@
-import { UseCase } from "../../CompositionRoot";
+import { UseCase } from "../UseCase";
 import { FutureData } from "../entities/Future";
 import { LineListDetails } from "../entities/GlassModule";
 import { EventVisualizationAnalyticsRepository } from "../repositories/EventVisualizationAnalyticsRepository";

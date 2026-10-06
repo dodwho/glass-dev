@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { NationalPopulationDataSourceOption } from "../../entities/amc-questionnaires/NationalPopulationDataSourceOption";
 import { FutureData } from "../../entities/Future";
 import { NationalPopulationDataSourceOptionsRepository } from "../../repositories/amc-questionnaires/NationalPopulationDataSourceOptionsRepository";

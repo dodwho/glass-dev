@@ -49,9 +49,6 @@ type State = {
     handleFormChange: (updatedField: FormFieldState) => Promise<void>;
     onClickSave: () => void;
     onCancelForm: () => void;
-    onCopyForm: () => void;
-    onAddToForm: () => void;
-    onResetForm: () => void;
     openModal: boolean;
     modalData?: ModalData;
     setOpenModal: (open: boolean) => void;
@@ -347,12 +344,6 @@ export function useAMCQuestionnaireForm<T extends AMCQuestionnaireFormType>(para
         }
     }, [onCancel]);
 
-    const onCopyForm = useCallback(() => {}, []);
-
-    const onAddToForm = useCallback(() => {}, []);
-
-    const onResetForm = useCallback(() => {}, []);
-
     return {
         formLabels,
         globalMessage,
@@ -361,9 +352,6 @@ export function useAMCQuestionnaireForm<T extends AMCQuestionnaireFormType>(para
         handleFormChange,
         onClickSave,
         onCancelForm,
-        onCopyForm,
-        onAddToForm,
-        onResetForm,
         openModal,
         setOpenModal,
     };

@@ -19,10 +19,8 @@ export function getD2APiFromInstance(instance: Instance): D2Api {
     return new D2Api({ baseUrl: instance.url, auth: instance.auth, backend: "fetch" });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function patchWithApiToken(connection: any, token: string): void {
     const original = connection.request.bind(connection);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connection.request = (options: any) =>
         original({ ...options, headers: { ...options.headers, Authorization: `ApiToken ${token}` } });
 }

@@ -1,5 +1,5 @@
-import { UseCase } from "../../CompositionRoot";
-import { EGASPProgramDefaultRepository } from "../../data/repositories/download-template/EGASPProgramDefaultRepository";
+import { UseCase } from "../UseCase";
+import { EGASPProgramRepository } from "../repositories/EGASPProgramRepository";
 import { DataPackage } from "../entities/data-entry/DataPackage";
 import { TrackedEntityInstance } from "../entities/TrackedEntityInstance";
 import { Future, FutureData } from "../entities/Future";
@@ -27,7 +27,7 @@ export class DownloadBulkPopulatedTemplateUseCase implements UseCase {
     constructor(
         private downloadTemplateRepository: DownloadTemplateRepository,
         private excelRepository: ExcelRepository,
-        private egaspRepository: EGASPProgramDefaultRepository,
+        private egaspRepository: EGASPProgramRepository,
         private metadataRepository: MetadataRepository
     ) {}
 

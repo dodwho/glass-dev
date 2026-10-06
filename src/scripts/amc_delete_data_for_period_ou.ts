@@ -154,12 +154,10 @@ async function getEventIds(api: D2Api, orgUnitId: string, period: string, progra
 
 async function trackerDelete(api: D2Api, payload: unknown, label: string): Promise<number> {
     const postResponse = await api.tracker
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .postAsync({ importStrategy: "DELETE", skipRuleEngine: true }, payload as any)
         .getData();
 
     const result = await api.system.waitFor("TRACKER_IMPORT_JOB", postResponse.response.id).getData();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyResult = result as any;
     if (anyResult?.status === "ERROR") {
         console.error(`  ${label}: delete returned ERROR:`, JSON.stringify(anyResult?.validationReport?.errorReports));

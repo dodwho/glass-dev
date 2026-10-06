@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { Future, FutureData } from "../../entities/Future";
 import { MetadataRepository } from "../../repositories/MetadataRepository";
 import { DataValuesRepository } from "../../repositories/data-entry/DataValuesRepository";
@@ -6,7 +6,7 @@ import { SampleDataRepository } from "../../repositories/data-entry/SampleDataRe
 import { ImportSummary } from "../../entities/data-entry/ImportSummary";
 import { ExcelRepository } from "../../repositories/ExcelRepository";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
-import { Dhis2EventsDefaultRepository } from "../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../repositories/EventsRepository";
 import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepository";
 import { InstanceRepository } from "../../repositories/InstanceRepository";
 import { GlassModule } from "../../entities/GlassModule";
@@ -20,7 +20,7 @@ export class DeleteSecondaryFileDataUseCase implements UseCase {
         private options: {
             sampleDataRepository: SampleDataRepository;
             dataValuesRepository: DataValuesRepository;
-            dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository;
+            dhis2EventsDefaultRepository: EventsRepository;
             excelRepository: ExcelRepository;
             glassDocumentsRepository: GlassDocumentsRepository;
             metadataRepository: MetadataRepository;

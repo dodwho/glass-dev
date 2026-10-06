@@ -1,21 +1,24 @@
 import _ from "lodash";
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../../repositories/EventsRepository";
 import { Future, FutureData } from "../../../entities/Future";
 import { ConsistencyError } from "../../../entities/data-entry/ImportSummary";
 import { ValidationResult } from "../../../entities/program-rules/EventEffectTypes";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID } from "../amc/ImportAMCSubstanceLevelData";
-import { EGASP_PROGRAM_ID } from "../../../../data/repositories/program-rule/ProgramRulesMetadataDefaultRepository";
+import { EGASP_PROGRAM_ID } from "../../../entities/GlassMetadataReferences";
 import { validateAtcVersion } from "../../../entities/GlassAtcVersionData";
 import i18n from "../../../../locales";
 import { TrackerEvent } from "../../../entities/TrackedEntityInstance";
+import {
+    ATC_VERSION_DATA_ELEMENT_ID,
+    EGASP_DATAELEMENT_ID,
+    PATIENT_DATAELEMENT_ID,
+} from "../../../entities/GlassMetadataReferences";
 
-const EGASP_DATAELEMENT_ID = "KaS2YBRN8eH";
-export const PATIENT_DATAELEMENT_ID = "aocFHBxcQa0";
-const ATC_VERSION_DATAELEMENT_ID = "aCuWz3HZ5Ti";
+export { PATIENT_DATAELEMENT_ID };
 export class CustomValidationForEventProgram {
     constructor(
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         private metadataRepository: MetadataRepository
     ) {}
     public getValidatedEvents(
@@ -34,7 +37,7 @@ export class CustomValidationForEventProgram {
                 const initialErrors: ConsistencyError = { error: "", count: 0, lines: [] };
                 const atcVersionKeyError: ConsistencyError = events.reduce((acc, event) => {
                     const atcVersionKey = event.dataValues.find(
-                        value => value.dataElement === ATC_VERSION_DATAELEMENT_ID
+                        value => value.dataElement === ATC_VERSION_DATA_ELEMENT_ID
                     );
                     return atcVersionKey && validateAtcVersion(atcVersionKey?.value)
                         ? acc

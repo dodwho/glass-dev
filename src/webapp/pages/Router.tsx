@@ -10,7 +10,6 @@ import { UserProfilePage } from "./user-profile/UserProfilePage";
 import { CurrentOrgUnitContextProvider } from "../context-providers/CurrentOrgUnitContextProvider";
 import { CurrentModuleContextProvider } from "../context-providers/CurrentModuleContextProvider";
 import { PrivateRoute } from "../components/private-route/PrivateRoute";
-import { QuestionnaireFormTest } from "../components/questionnaire/QuestionnaireFormTest";
 import { CurrentPeriodContextProvider } from "../context-providers/CurrentPeriodContextProvider";
 import { MainLayout } from "../components/layouts/main-layout/MainLayout";
 import { ReportsPage } from "./reports/ReportsPage";
@@ -74,14 +73,6 @@ export const Router: React.FC = React.memo(() => {
                                         render={({ location }) => (
                                             <PrivateRoute pathname={location.pathname}>
                                                 <CountryInformationPage />
-                                            </PrivateRoute>
-                                        )}
-                                    />
-                                    <Route
-                                        path="/questionnaire"
-                                        render={({ location }) => (
-                                            <PrivateRoute pathname={location.pathname}>
-                                                <QuestionnaireFormTest />
                                             </PrivateRoute>
                                         )}
                                     />

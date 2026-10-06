@@ -1,4 +1,4 @@
-import { UseCase } from "../../CompositionRoot";
+import { UseCase } from "../UseCase";
 import { FutureData } from "../entities/Future";
 import { UserAccessInfo } from "../entities/User";
 import { InstanceRepository } from "../repositories/InstanceRepository";

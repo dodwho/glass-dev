@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { Proportion50to100UnknownOption } from "../../entities/amc-questionnaires/Proportion50to100UnknownOption";
 import { FutureData } from "../../entities/Future";
 import { Proportion50to100UnknownOptionsRepository } from "../../repositories/amc-questionnaires/Proportion50to100UnknownOptionsRepository";

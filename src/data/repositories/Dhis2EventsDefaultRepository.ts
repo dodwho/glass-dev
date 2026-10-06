@@ -12,10 +12,11 @@ import { trackerPostResponseDefaultError } from "./utils/TrackerPostResponseDefa
 import { TrackerEvent, TrackerEventsPostRequest } from "../../domain/entities/TrackedEntityInstance";
 import { mapTrackerPostRequestToD2TrackerPostRequest } from "./utils/importApiTracker";
 import { ImportStrategy } from "../../domain/entities/data-entry/ImportSummary";
+import { EventsRepository } from "../../domain/repositories/EventsRepository";
 
-export declare type EventStatus = "ACTIVE" | "COMPLETED" | "VISITED" | "SCHEDULED" | "OVERDUE" | "SKIPPED";
+export type { EventStatus } from "../../domain/entities/EventStatus";
 
-export class Dhis2EventsDefaultRepository {
+export class Dhis2EventsDefaultRepository implements EventsRepository {
     private api: D2Api;
 
     constructor(instance: Instance) {

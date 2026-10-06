@@ -1,4 +1,4 @@
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../entities/data-entry/TrackerImportResult";
 import { FutureData } from "../../entities/Future";
 import { Id } from "../../entities/Ref";
 import { ProductDataTrackedEntity } from "../../entities/data-entry/amc/ProductDataTrackedEntity";
@@ -28,7 +28,7 @@ export interface AMCProductDataRepository {
         orgUnitId: Id;
         period: string;
         chunkSize?: number;
-    }): FutureData<TrackerPostResponse>;
+    }): FutureData<TrackerImportResult>;
     getProductRegisterProgramMetadata(): FutureData<ProductRegisterProgramMetadata | undefined>;
     getProductRegisterAndRawProductConsumptionByProductIds(
         orgUnitId: Id,
@@ -45,5 +45,5 @@ export interface AMCProductDataRepository {
     deleteRawSubstanceConsumptionCalculatedById(
         rawSubstanceConsumptionCalculatedIds: Id[],
         chunkSize?: number
-    ): FutureData<TrackerPostResponse>;
+    ): FutureData<TrackerImportResult>;
 }

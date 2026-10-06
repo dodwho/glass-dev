@@ -1,10 +1,9 @@
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../entities/data-entry/TrackerImportResult";
 import { FutureData } from "../entities/Future";
 import { ImportStrategy } from "../entities/data-entry/DataValuesSaveSummary";
 import { Id } from "../entities/Ref";
 import { TrackerPostRequest } from "../entities/TrackedEntityInstance";
 
-// TODO: fix coupling with data layer because of TrackerPostResponse
 export interface TrackerRepository {
     import(
         req: TrackerPostRequest,
@@ -15,7 +14,7 @@ export interface TrackerRepository {
             /** Only for payloads whose objects all carry client-generated ids, so that a resend cannot duplicate. */
             retryTransientErrors?: boolean;
         }
-    ): FutureData<TrackerPostResponse>;
+    ): FutureData<TrackerImportResult>;
     getProgramMetadata(programID: string, programStageId: string): FutureData<any>;
     getExistingTrackedEntitiesIdsByIds(trackEntitiesIds: Id[], programId: Id): FutureData<Id[]>;
     getExistingTrackedEntities(

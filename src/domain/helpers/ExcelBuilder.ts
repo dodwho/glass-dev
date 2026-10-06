@@ -25,7 +25,7 @@ import {
     DownloadTemplateRepository,
     emptyBuilderMetadata,
 } from "../repositories/DownloadTemplateRepository";
-import { removeCharacters } from "../../data/repositories/utils/string";
+import { removeCharacters } from "../utils/string";
 
 const dateFormatPattern = "yyyy-MM-dd";
 

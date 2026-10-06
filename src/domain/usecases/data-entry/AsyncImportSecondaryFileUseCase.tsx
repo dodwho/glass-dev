@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { Future, FutureData } from "../../entities/Future";
 import { ImportSummary } from "../../entities/data-entry/ImportSummary";
 import { DEFAULT_ASYNC_UPLOAD_DELETE_CHUNK_SIZE, GlassModule } from "../../entities/GlassModule";

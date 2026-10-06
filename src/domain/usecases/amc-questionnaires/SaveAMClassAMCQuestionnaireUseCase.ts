@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { AMClassAMCQuestionnaire } from "../../entities/amc-questionnaires/AMClassAMCQuestionnaire";
 import { FutureData } from "../../entities/Future";
 import { Id } from "../../entities/Ref";

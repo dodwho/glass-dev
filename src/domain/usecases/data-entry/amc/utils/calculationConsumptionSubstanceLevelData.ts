@@ -216,20 +216,6 @@ export function calculateConsumptionSubstanceLevelData(
             // Sanity check: if NEW_DDD > OLD_DDD (DDD got larger), the adjusted count decreases.
             const dddsAdjust = getDDDsAdjust(rawSubstanceConsumption, oldDDD, newDDD, latestAtcVersionData);
 
-            // OLD approach (kept for reference):
-            // const atcManualVersionData = atcVersionsByKeys[atc_version_manual];
-            // const oldAtcCodeInLatestAtcData = atcManualVersionData.atcs.find(...)?.CODE;
-            // const atcManualVersionAtcChanges = getATCChanges(atcManualVersionData.changes);
-            // const oldAtcCode = oldAtcCodeInLatestAtcData
-            //     ? oldAtcCodeInLatestAtcData
-            //     : getNewAtcCodeRecursively({ oldAtcCode: ..., atcChanges: atcManualVersionAtcChanges,
-            //           currentAtcs: atcManualVersionData.atcs });
-            // if (oldAtcCode === undefined) { return copyDDDManualToDDDAutocalculated({...}); }
-            // const oldDDD = getDDDForAtcVersion({ atcCode: oldAtcCode, atcVersion: atcManualVersionData, ... });
-            // const newDDD = getDDDForAtcVersion({ atcCode: atcAutocalculated, atcVersion: latestAtcVersionData, ... });
-            // if (oldDDD === undefined || newDDD === undefined) { return setDDDAutocalculatedToZero({...}); }
-            // const dddsAdjust = getDDDsAdjust(raw, oldDDD, newDDD, latestAtcVersionData, atcManualVersionData);
-
             calculationLogs = [...calculationLogs, ...dddsAdjust.logs];
             if (dddsAdjust.result != null) ratioAdjustedCount++;
             else incompatibleUnitsCount++;

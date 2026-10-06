@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { DataLevelOption } from "../../entities/amc-questionnaires/DataLevelOption";
 import { FutureData } from "../../entities/Future";
 import { DataLevelOptionsRepository } from "../../repositories/amc-questionnaires/DataLevelOptionsRepository";

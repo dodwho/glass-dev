@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-09-29T14:50:16.515Z\n"
-"PO-Revision-Date: 2026-09-29T14:50:16.515Z\n"
+"POT-Creation-Date: 2026-10-05T15:31:23.834Z\n"
+"PO-Revision-Date: 2026-10-05T15:31:23.834Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -168,12 +168,6 @@ msgstr ""
 msgid "Terms of Use"
 msgstr ""
 
-msgid "Add"
-msgstr ""
-
-msgid "List"
-msgstr ""
-
 msgid "WHO Region"
 msgstr ""
 
@@ -222,6 +216,9 @@ msgid ""
 msgstr ""
 
 msgid "Edit"
+msgstr ""
+
+msgid "Add"
 msgstr ""
 
 msgid "Data structure"

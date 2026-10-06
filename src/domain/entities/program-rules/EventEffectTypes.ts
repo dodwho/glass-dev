@@ -5,6 +5,7 @@ import {
     MetadataPick,
 } from "@eyeseetea/d2-api/2.34";
 import { Id } from "../Ref";
+import { EventStatus } from "../EventStatus";
 import { ConsistencyError } from "../data-entry/ImportSummary";
 import {
     TrackerEnrollment,
@@ -176,7 +177,7 @@ export interface UpdateActionTeiAttribute {
 
 export type D2EventToPost = TrackerEventsPostRequest["events"][number];
 export type D2DataValueToPost = D2EventToPost["dataValues"][number];
-export declare type EventStatus = "ACTIVE" | "COMPLETED" | "VISITED" | "SCHEDULE" | "OVERDUE" | "SKIPPED";
+export type { EventStatus };
 export interface ProgramRuleEvent {
     eventId: Id;
     programId?: Id;

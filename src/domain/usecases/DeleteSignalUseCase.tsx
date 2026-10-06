@@ -1,15 +1,12 @@
-import { Dhis2EventsDefaultRepository } from "../../data/repositories/Dhis2EventsDefaultRepository";
-import { SignalDefaultRepository } from "../../data/repositories/SignalDefaultRepository";
+import { EventsRepository } from "../repositories/EventsRepository";
+import { SignalRepository } from "../repositories/SignalRepository";
 import { Future, FutureData } from "../entities/Future";
 import { SignalStatusTypes } from "../entities/Signal";
 import { TrackerEvent } from "../entities/TrackedEntityInstance";
 import { EAR_PROGRAM_ID, EAR_PROGRAM_STAGE } from "./GetProgramQuestionnaireUseCase";
 
 export class DeleteSignalUseCase {
-    constructor(
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
-        private signalRepository: SignalDefaultRepository
-    ) {}
+    constructor(private dhis2EventsDefaultRepository: EventsRepository, private signalRepository: SignalRepository) {}
 
     execute(
         signalId: string | undefined,

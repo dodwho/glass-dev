@@ -13,29 +13,14 @@ import { CellRef, Range, SheetRef, ValueRef } from "../../domain/entities/Templa
 import moment from "moment";
 import { Future, FutureData } from "../../domain/entities/Future";
 import { Id } from "../../domain/entities/Ref";
-import { AMC_PRODUCT_REGISTER_PROGRAM_ID } from "../../domain/usecases/data-entry/amc/ImportAMCProductLevelData";
-import { EGASP_PROGRAM_ID } from "./program-rule/ProgramRulesMetadataDefaultRepository";
-import {
-    AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID,
-    AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID,
-} from "../../domain/usecases/data-entry/amc/ImportAMCSubstanceLevelData";
+import { getTemplateId } from "../../domain/utils/getTemplateId";
 import { removeCharacters } from "./utils/string";
 import i18n from "../../locales";
 
 type RowWithCells = XLSX.Row & { _cells: XLSX.Cell[] };
 
-export const getTemplateId = (programId: Id): string => {
-    switch (programId) {
-        case AMC_PRODUCT_REGISTER_PROGRAM_ID:
-            return "TRACKER_PROGRAM_GENERATED_v3";
-        case EGASP_PROGRAM_ID:
-        case AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID:
-        case AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID:
-            return "PROGRAM_GENERATED_v4";
-        default:
-            return "";
-    }
-};
+// Re-exported for existing importers; the function lives in the domain.
+export { getTemplateId };
 
 export class ExcelPopulateDefaultRepository extends ExcelRepository {
     private workbooks: Record<string, ExcelWorkbook> = {};
@@ -52,18 +37,6 @@ export class ExcelPopulateDefaultRepository extends ExcelRepository {
         delete this.definedNameByNormalized[id];
         delete this.mergedCellsBySheet[id];
     }
-
-    /* public loadTemplate(file: Blob, programId: Id): FutureData<string> {
-         const templateId = getTemplateId(programId);
-         console.log("programId:", programId);
-         console.log("Loading template for program ID:", programId, "with template ID:", templateId);
-         return Future.fromPromise(this.parseFile(file)).map(workbook => {
-             console.log("Template loaded successfully for program ID:", programId);
-             const id = templateId;
-             this.workbooks[id] = workbook;
-             return id;
-         });
-     }*/
 
     public loadTemplate(file: Blob, programId: Id): FutureData<string> {
         const templateId = getTemplateId(programId);
@@ -103,13 +76,6 @@ export class ExcelPopulateDefaultRepository extends ExcelRepository {
         });
     }
 
-    /* public async toBlob(id: string): Promise<Blob> {
-         const data = await this.toBuffer(id);
-         return new Blob([data], {
-             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-         });
-     }*/
-
     public async toBlob(id: string): Promise<Blob> {
         const workbook = await this.getWorkbook(id);
         // Request uint8array explicitly: outputAsync() defaults to "blob" in browser
@@ -125,22 +91,14 @@ export class ExcelPopulateDefaultRepository extends ExcelRepository {
         return workbook.outputAsync() as unknown as Buffer;
     }
 
-    /*private async parseFile(file: Blob): Promise<ExcelWorkbook> {
-        console.log("Parsing Excel file...");
-        return XLSX.fromDataAsync(file);
-    }*/
-
     private async parseWorkbookFromBlob(file: Blob | File): Promise<ExcelWorkbook> {
-        console.log("[parseWorkbookFromBlob] Parsing Excel file...");
-
-        // Log the input meta so we can spot native/polyfill mixes
+        // Input meta is included in the error log so we can spot native/polyfill mixes
         const meta = {
             ctor: (file as any)?.constructor?.name,
             name: (file as any)?.name,
             type: (file as any)?.type,
             size: (file as any)?.size,
         };
-        console.log("[parseWorkbookFromBlob] input meta:", meta);
 
         try {
             if (!file || typeof (file as any).arrayBuffer !== "function") {
@@ -152,32 +110,7 @@ export class ExcelPopulateDefaultRepository extends ExcelRepository {
             const ab = await file.arrayBuffer();
             const bytes = new Uint8Array(ab);
 
-            // Quick diagnostics
-            const head16 = bytes.subarray(0, 16);
-            const headHex = Array.from(head16)
-                .map(b => b.toString(16).padStart(2, "0"))
-                .join(" ");
-            const magic = Array.from(bytes.subarray(0, 4))
-                .map(b => b.toString(16).padStart(2, "0"))
-                .join(" ");
-            console.log("[parseWorkbookFromBlob] bytes length:", bytes.byteLength);
-            console.log("[parseWorkbookFromBlob] first 16 bytes (hex):", headHex);
-            console.log('[parseWorkbookFromBlob] expected XLSX ZIP magic "50 4b 03 04", got:', magic);
-
-            console.log("[parseWorkbookFromBlob] calling XlsxPopulate.fromDataAsync(bytes)...");
             const workbook = await XlsxPopulate.fromDataAsync(bytes);
-            console.log("[parseWorkbookFromBlob] workbook loaded OK.");
-
-            // Optional: try to log sheet names
-            try {
-                // @ts-ignore depends on typing
-                const sheetNames = workbook.sheets ? workbook.sheets().map((s: any) => s.name()) : [];
-                console.log("[parseWorkbookFromBlob] sheets:", sheetNames);
-            } catch {
-                console.warn(
-                    "[parseWorkbookFromBlob] unable to read sheet names, workbook structure may be unexpected."
-                );
-            }
 
             return workbook as unknown as ExcelWorkbook;
         } catch (err: any) {

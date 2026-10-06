@@ -1,4 +1,4 @@
-import { UseCase } from "../../CompositionRoot";
+import { UseCase } from "../UseCase";
 import { FutureData } from "../entities/Future";
 import { DataSubmissionStatusTypes } from "../entities/GlassDataSubmission";
 import { GlassDataSubmissionsRepository } from "../repositories/GlassDataSubmissionRepository";

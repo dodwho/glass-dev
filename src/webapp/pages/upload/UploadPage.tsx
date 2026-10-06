@@ -1,8 +1,9 @@
-import { Breadcrumbs, Button } from "@material-ui/core";
+import { Button } from "@material-ui/core";
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
+import { StyledBreadCrumbs } from "../../components/breadcrumbs/StyledBreadCrumbs";
 import { UploadContent } from "../../components/upload/UploadContent";
-import { glassColors, palette } from "../app/themes/dhis2.theme";
+import { glassColors } from "../app/themes/dhis2.theme";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import { NavLink } from "react-router-dom";
 import { CustomCard } from "../../components/custom-card/CustomCard";
@@ -45,7 +46,6 @@ export const UploadPage: React.FC = React.memo(() => {
     return (
         <ContentWrapper>
             <PreContent>
-                {/* // TODO: replace this with a global reusable StyledBreadCrumbs component */}
                 <StyledBreadCrumbs aria-label="breadcrumb" separator="">
                     <Button component={NavLink} to={`/current-data-submission`} exact={true} onClick={() => null}>
                         <span>{module}</span>
@@ -86,30 +86,5 @@ const PreContent = styled.div`
             color: ${glassColors.green};
             opacity: 1;
         }
-    }
-`;
-
-const StyledBreadCrumbs = styled(Breadcrumbs)`
-    color: ${glassColors.mainPrimary};
-    font-weight: 400;
-    text-transform: uppercase;
-    li {
-        display: flex;
-        align-items: center;
-        p {
-            padding: 6px 8px;
-        }
-        .MuiButton-root {
-            span {
-                color: ${glassColors.mainPrimary};
-                font-size: 15px;
-            }
-        }
-    }
-    .MuiBreadcrumbs-separator {
-        display: none;
-    }
-    svg {
-        color: ${palette.text.secondary};
     }
 `;

@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { StrataOption } from "../../entities/amc-questionnaires/StrataOption";
 import { FutureData } from "../../entities/Future";
 import { StrataOptionsRepository } from "../../repositories/amc-questionnaires/StrataOptionsRepository";

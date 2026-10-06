@@ -1,4 +1,4 @@
-import { UseCase } from "../../CompositionRoot";
+import { UseCase } from "../UseCase";
 import { CountryInformation } from "../entities/CountryInformation";
 import { Future, FutureData } from "../entities/Future";
 import { GlassModule } from "../entities/GlassModule";

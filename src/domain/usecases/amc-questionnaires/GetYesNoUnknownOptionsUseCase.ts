@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { YesNoUnknownOption } from "../../entities/amc-questionnaires/YesNoUnknownOption";
 import { FutureData } from "../../entities/Future";
 import { YesNoUnknownOptionsRepository } from "../../repositories/amc-questionnaires/YesNoUnknownOptionsRepository";

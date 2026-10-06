@@ -35,7 +35,6 @@ const COMB_CODE_PRODUCT_NOT_HAVE_ATC = "Z99ZZ99_99";
 
 export class CustomValidationsAMCProductData {
     constructor(private atcRepository: GlassATCRepository, private amcProductRepository: AMCProductDataRepository) {}
-    // private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
     public getValidatedEvents(
         teis: TrackerTrackedEntity[],
         orgUnitId: string,

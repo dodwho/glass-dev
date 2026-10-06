@@ -8,7 +8,6 @@ import {
 } from "../../../domain/repositories/DownloadTemplateRepository";
 import { Instance } from "../../entities/Instance";
 import { getD2APiFromInstance } from "../../../utils/d2-api";
-import { TeiOuRequest as TrackedEntityOURequestApi } from "@eyeseetea/d2-api/api/trackedEntityInstances";
 import { promiseMap, promiseMapConcurrent, retryAsync } from "../../../utils/promises";
 import { Id, NamedRef, Ref } from "../../../domain/entities/Ref";
 import { D2RelationshipConstraint } from "@eyeseetea/d2-api/schemas";
@@ -24,40 +23,30 @@ import moment from "moment";
 import { D2TrackerTrackedEntitySchema } from "@eyeseetea/d2-api/api/trackerTrackedEntities";
 import { DataElementType } from "../../../domain/entities/DataForm";
 import { D2TrackerEventSchema } from "@eyeseetea/d2-api/api/trackerEvents";
+import {
+    GetElementMetadataType,
+    RelationshipConstraint,
+    RelationshipConstraintEventInProgram,
+    RelationshipConstraintTei,
+    RelationshipMetadata,
+    RelationshipOrgUnitFilter,
+    RelationshipType,
+} from "../../../domain/entities/DownloadTemplateMetadata";
+
+// Re-exported for existing importers; the types live in the domain.
+export type {
+    GetElementMetadataType,
+    RelationshipConstraint,
+    RelationshipConstraintEventInProgram,
+    RelationshipConstraintTei,
+    RelationshipOrgUnitFilter,
+    RelationshipType,
+};
 
 export interface Program {
     id: Id;
     trackedEntityType: Ref;
     attributes: Attribute[];
-}
-export type RelationshipConstraint = RelationshipConstraintTei | RelationshipConstraintEventInProgram;
-
-export type RelationshipOrgUnitFilter = TrackedEntityOURequestApi["ouMode"];
-
-export interface RelationshipConstraintTei {
-    type: "tei";
-    name: string;
-    program?: Ref;
-    teis: Ref[]; // Selectable TEIs for this constraint
-}
-
-export interface RelationshipConstraintEventInProgram {
-    type: "eventInProgram";
-    program: NamedRef;
-    programStage?: NamedRef;
-    events: Ref[];
-}
-
-export interface RelationshipType {
-    id: Id;
-    name: string;
-    constraints: {
-        from: RelationshipConstraint;
-        to: RelationshipConstraint;
-    };
-}
-interface RelationshipMetadata {
-    relationshipTypes: RelationshipType[];
 }
 
 interface ProgramFilters {
@@ -90,20 +79,6 @@ interface Element {
 }
 
 export type GetElementType = D2Program & { type: string };
-
-export type GetElementMetadataType = {
-    element: any;
-    metadata: RelationshipMetadata | {};
-    elementMetadata: Map<any, any>;
-    organisationUnits: {
-        id: string;
-        displayName: string;
-        code?: string | undefined;
-        translations: unknown;
-        type: string;
-    }[];
-    rawMetadata: any;
-};
 
 export interface GetOptions {
     api: D2Api;
@@ -282,7 +257,7 @@ export class DownloadTemplateDefaultRepository implements DownloadTemplateReposi
             }
         });
 
-        // FIXME: This is needed for getting all possible org units for a program/dataSet
+        // NOTE: This is needed for getting all possible org units for a program/dataSet
         const requestOrgUnits = orgUnitIds;
 
         const responses = await promiseMap(_.chunk(_.uniq(requestOrgUnits), 400), orgUnits =>
@@ -416,8 +391,6 @@ export class DownloadTemplateDefaultRepository implements DownloadTemplateReposi
                       relationshipsOuFilter: params.relationshipsOuFilter,
                       fetchConcurrency: params.fetchConcurrency,
                       orgUnitLabels: params.orgUnitLabels,
-                      // @ts-ignore FIXME: Add property in d2-api
-                      fields: "*",
                   }),
         ]);
 
@@ -493,25 +466,7 @@ export class DownloadTemplateDefaultRepository implements DownloadTemplateReposi
     }): Promise<ElementMetadata & unknown> {
         const { elementMetadata } = options;
 
-        // if (element.type === "dataSets") {
-        //     const categoryOptions = await this.getCategoryOptions(this.api);
-        //     const categoryOptionIdsToInclude = this.getCategoryOptionIdsToInclude(
-        //         element,
-        //         orgUnitIds,
-        //         categoryOptions,
-        //         options
-        //     );
-
-        //     const categoryOptionCombosFiltered = elementMetadata.categoryOptionCombos.filter(coc =>
-        //         _(coc.categoryOptions).every(categoryOption => {
-        //             return categoryOptionIdsToInclude.has(categoryOption.id);
-        //         })
-        //     );
-
-        //     return { ...elementMetadata, categoryOptionCombos: categoryOptionCombosFiltered };
-        // } else {
         return elementMetadata;
-        // }
     }
 }
 

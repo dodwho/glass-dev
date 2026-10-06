@@ -8,8 +8,9 @@ import { checkSpecimenPathogenFromDataColumns } from "../utils/checkSpecimenPath
 import { checkFungalPathogenAntifungal } from "./checkFungalPathogenAntifungal";
 import { checkValuesAgainstProgramMetadata, ProgramFieldMetadata } from "./checkValuesAgainstProgramMetadata";
 import { runCustomValidations } from "./common";
+import { AMR_FUNGAL_PROGRAM_STAGE_ID } from "../../../entities/GlassMetadataReferences";
 
-export const AMR_FUNGAL_PROGRAM_STAGE_ID = "ysGSonDq9Bc";
+export { AMR_FUNGAL_PROGRAM_STAGE_ID };
 
 export type RISIndividualFungalValidationContext = {
     countryCode: string;

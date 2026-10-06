@@ -7,6 +7,7 @@ import { apiToFuture } from "../../../utils/futures";
 import { EGASP_PROGRAM_ID } from "../program-rule/ProgramRulesMetadataDefaultRepository";
 import { BulkLoadDataStoreClient } from "../../data-store/BulkLoadDataStoreClient";
 import { DataElementType } from "../../../domain/entities/DataForm";
+import { EGASPProgramRepository } from "../../../domain/repositories/EGASPProgramRepository";
 
 type TrackedEntityTypeApi = Pick<D2TrackedEntityType, "id" | "featureType">;
 export interface DataElement {
@@ -22,7 +23,7 @@ export interface TrackedEntityType {
 }
 export type TrackedEntityTypeFeatureType = "none" | "point" | "polygon";
 
-export class EGASPProgramDefaultRepository {
+export class EGASPProgramDefaultRepository implements EGASPProgramRepository {
     private api: D2Api;
 
     //TODO: @cache does not work with futures

@@ -1,5 +1,4 @@
 import React from "react";
-// @ts-ignore
 import { Checkbox } from "@dhis2/ui";
 import { Maybe } from "../../../../types/utils";
 import { BaseWidgetProps } from "./BaseWidget";

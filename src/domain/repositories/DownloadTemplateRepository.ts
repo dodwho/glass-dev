@@ -1,8 +1,8 @@
 import {
     GetElementMetadataType,
-    GetElementType,
     RelationshipOrgUnitFilter,
-} from "../../data/repositories/download-template/DownloadTemplateDefaultRepository";
+    TemplateElement,
+} from "../entities/DownloadTemplateMetadata";
 import { DataFormType } from "../entities/DataForm";
 import { Id, NamedRef } from "../entities/Ref";
 import { TrackedEntityInstance } from "../entities/TrackedEntityInstance";
@@ -55,7 +55,7 @@ export interface GetElementMetadataParams {
 export interface DownloadTemplateRepository {
     getBuilderMetadata(teis: TrackedEntityInstance[]): Promise<BuilderMetadata>;
     getDataPackage(params: GetDataPackageParams): Promise<DataPackage>;
-    getElement(type: string, id: string): Promise<GetElementType>;
+    getElement(type: string, id: string): Promise<TemplateElement>;
     getElementMetadata(params: GetElementMetadataParams): Promise<GetElementMetadataType>;
     /** Fetches every tracked entity for a program/org-unit set, unfiltered by enrollment date — the
      *  complete register, independent of any date window a caller might otherwise apply to events. */

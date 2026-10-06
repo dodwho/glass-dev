@@ -1,7 +1,7 @@
-import { EventStatus } from "@eyeseetea/d2-api";
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
-import { SignalDefaultRepository } from "../../../../data/repositories/SignalDefaultRepository";
-import { UsersDefaultRepository } from "../../../../data/repositories/UsersDefaultRepository";
+import { EventStatus } from "../../../entities/EventStatus";
+import { EventsRepository } from "../../../repositories/EventsRepository";
+import { SignalRepository } from "../../../repositories/SignalRepository";
+import { UsersRepository } from "../../../repositories/UsersRepository";
 import { Future, FutureData } from "../../../entities/Future";
 import { Questionnaire } from "../../../entities/Questionnaire";
 import { generateId } from "../../../entities/Ref";
@@ -9,18 +9,21 @@ import { Signal, SignalStatusTypes } from "../../../entities/Signal";
 import { NotificationRepository } from "../../../repositories/NotificationRepository";
 import { TrackerEvent, TrackerEventDataValue } from "../../../entities/TrackedEntityInstance";
 import { formatDate } from "../../../../utils/dates";
+import {
+    EAR_CONFIDENTIAL_DATAELEMENT,
+    EAR_PROGRAM_ID,
+    EAR_PROGRAM_STAGE_ID,
+} from "../../../entities/GlassMetadataReferences";
 
-export const EAR_PROGRAM_ID = "SQe26z0smFP";
-export const EAR_PROGRAM_STAGE_ID = "Oic1c7maX1g";
-const EAR_CONFIDENTIAL_DATAELEMENT = "KycX5z7NLqU";
+export { EAR_PROGRAM_ID, EAR_PROGRAM_STAGE_ID };
 export type SignalAction = "Save" | "Publish";
 
 export class ImportSignalsUseCase {
     constructor(
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
-        private signalRepository: SignalDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
+        private signalRepository: SignalRepository,
         private notificationRepository: NotificationRepository,
-        private usersDefaultRepository: UsersDefaultRepository
+        private usersDefaultRepository: UsersRepository
     ) {}
 
     importSignals(

@@ -1,5 +1,4 @@
 import React from "react";
-// @ts-ignore
 import { Input } from "@dhis2/ui";
 import styled from "styled-components";
 import { BaseWidgetProps } from "./BaseWidget";

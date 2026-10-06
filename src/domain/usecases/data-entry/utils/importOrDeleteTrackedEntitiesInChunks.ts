@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../../entities/data-entry/TrackerImportResult";
 
 import {
     ImportSummary,
@@ -193,7 +193,7 @@ function buildImportChunkFutures(params: {
     async: boolean;
     skipSideEffects: boolean;
     lineNumbers?: { id: Id; lineNo: number }[];
-    importChunk?: (trackedEntitiesChunk: TrackerTrackedEntity[]) => FutureData<TrackerPostResponse>;
+    importChunk?: (trackedEntitiesChunk: TrackerTrackedEntity[]) => FutureData<TrackerImportResult>;
 }): Array<Future<ImportSummaryWithEventIdList, ImportSummaryWithEventIdList>> {
     const {
         trackedEntities,
@@ -309,6 +309,6 @@ function importTrackedEntities(
         skipSideEffects?: boolean;
         action: "CREATE_AND_UPDATE" | "DELETE";
     }
-): FutureData<TrackerPostResponse> {
+): FutureData<TrackerImportResult> {
     return options.trackerRepository.import({ trackedEntities: trackedEntitiesChunk }, options);
 }

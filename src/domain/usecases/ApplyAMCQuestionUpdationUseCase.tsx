@@ -1,5 +1,6 @@
 import { Question, Questionnaire } from "../entities/Questionnaire";
 import { Id, NamedRef } from "../entities/Ref";
+import { AMC_SECTOR_LEVEL_QUESTION_IDS } from "../entities/GlassMetadataReferences";
 
 interface AMCQuestionDisableMap {
     id: Id;
@@ -8,17 +9,17 @@ interface AMCQuestionDisableMap {
 }
 
 //Community sector levels
-const sl_pub_com = "OyEpE54Ni9M";
-const sl_pri_com = "iEiUvYuiZ67";
-const sl_glo_com = "q0I3VtGouPX";
+const sl_pub_com = AMC_SECTOR_LEVEL_QUESTION_IDS.communityPublic;
+const sl_pri_com = AMC_SECTOR_LEVEL_QUESTION_IDS.communityPrivate;
+const sl_glo_com = AMC_SECTOR_LEVEL_QUESTION_IDS.communityGlobal;
 //Hospital sector levels
-const sl_pub_hos = "uIeCXoTa56d";
-const sl_pri_hos = "Owcxj6ieun0";
-const sl_glo_hos = "u2YDekmc8YR";
+const sl_pub_hos = AMC_SECTOR_LEVEL_QUESTION_IDS.hospitalPublic;
+const sl_pri_hos = AMC_SECTOR_LEVEL_QUESTION_IDS.hospitalPrivate;
+const sl_glo_hos = AMC_SECTOR_LEVEL_QUESTION_IDS.hospitalGlobal;
 //Total sector levels
-const sl_glo_pub = "mQS6OUXAaRr";
-const sl_glo_pri = "GWac7iDfHv3";
-const sl_glo_tot = "mks6wWdSZRq";
+const sl_glo_pub = AMC_SECTOR_LEVEL_QUESTION_IDS.totalPublic;
+const sl_glo_pri = AMC_SECTOR_LEVEL_QUESTION_IDS.totalPrivate;
+const sl_glo_tot = AMC_SECTOR_LEVEL_QUESTION_IDS.totalGlobal;
 
 export const amcQuestionMap: AMCQuestionDisableMap[] = [
     //Community sector levels

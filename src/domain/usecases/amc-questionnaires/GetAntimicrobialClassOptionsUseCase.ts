@@ -1,4 +1,4 @@
-import { UseCase } from "../../../CompositionRoot";
+import { UseCase } from "../../UseCase";
 import { AntimicrobialClassOption } from "../../entities/amc-questionnaires/AntimicrobialClassOption";
 import { FutureData } from "../../entities/Future";
 import { AntimicrobialClassOptionsRepository } from "../../repositories/amc-questionnaires/AntimicrobialClassOptionsRepository";

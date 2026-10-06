@@ -4,7 +4,7 @@ import { FutureData } from "../../../entities/Future";
 import { ExcelRepository } from "../../../repositories/ExcelRepository";
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
 import { GlassUploadsRepository } from "../../../repositories/GlassUploadsRepository";
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../../repositories/EventsRepository";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { ImportBLTemplateEventProgram } from "../ImportBLTemplateEventProgram";
 import { ProgramRulesMetadataRepository } from "../../../repositories/program-rules/ProgramRulesMetadataRepository";
@@ -24,7 +24,7 @@ export class ImportAMCSubstanceLevelData {
         private instanceRepository: InstanceRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,
         private glassUploadsRepository: GlassUploadsRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository,
+        private dhis2EventsDefaultRepository: EventsRepository,
         private metadataRepository: MetadataRepository,
         private programRulesMetadataRepository: ProgramRulesMetadataRepository,
         private glassAtcRepository: GlassATCRepository

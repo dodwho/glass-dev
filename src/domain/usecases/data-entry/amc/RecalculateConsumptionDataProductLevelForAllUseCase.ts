@@ -10,7 +10,7 @@ import {
 import {
     AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID,
     AMR_GLASS_AMC_TEA_PRODUCT_ID,
-} from "../../../../data/repositories/data-entry/AMCProductDataDefaultRepository";
+} from "../../../entities/data-entry/amc/amcProgramIds";
 import { AMCProductDataRepository } from "../../../repositories/data-entry/AMCProductDataRepository";
 import {
     ProductRegisterProgramMetadata,

@@ -2,11 +2,16 @@ import { Future } from "../entities/Future";
 import { Id, NamedRef } from "../entities/Ref";
 import { CaptureFormRepository } from "../repositories/CaptureFormRepository";
 import { amcQuestionMap } from "./ApplyAMCQuestionUpdationUseCase";
+import {
+    AMC_QUESTIONNAIRE_PROGRAM_ID,
+    AMC_QUESTIONNAIRE_PROGRAM_STAGE,
+    EAR_PROGRAM_ID,
+    EAR_PROGRAM_STAGE_ID,
+} from "../entities/GlassMetadataReferences";
 
-export const EAR_PROGRAM_ID = "SQe26z0smFP";
-export const EAR_PROGRAM_STAGE = "Oic1c7maX1g";
-export const AMC_PROGRAM_ID = "qGG6BjULAaf";
-export const AMC_QUESTIONNAIRE_PROGRAM_STAGE = "eks1YEESEOK";
+export { EAR_PROGRAM_ID, AMC_QUESTIONNAIRE_PROGRAM_STAGE };
+export const EAR_PROGRAM_STAGE = EAR_PROGRAM_STAGE_ID;
+export const AMC_PROGRAM_ID = AMC_QUESTIONNAIRE_PROGRAM_ID;
 export const AMC_DATA_Q_GENERAL_SECTION_TITLE = "Data General Questionnaire";
 
 export class GetProgramQuestionnaireUseCase {

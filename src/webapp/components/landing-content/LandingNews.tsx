@@ -1,7 +1,7 @@
 import React from "react";
 import { Grid, Typography } from "@material-ui/core";
 import styled from "styled-components";
-import { CustomCard } from "../custom-card/CustomCard";
+import { CustomCard, TitleContainer } from "../custom-card/CustomCard";
 import { glassColors } from "../../pages/app/themes/dhis2.theme";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import dayjs from "dayjs";
@@ -59,14 +59,6 @@ export const LandingNews: React.FC = () => {
         </ContentLoader>
     );
 };
-
-// TODO: create reusable custom card with Title prop to prevent repeat of this TitleContainer styled component
-const TitleContainer = styled.div`
-    background: ${glassColors.mainPrimary};
-    color: white;
-    border-radius: 20px 20px 0px 0px;
-    padding: 14px 34px;
-`;
 
 const NewsList = styled.div`
     display: flex;

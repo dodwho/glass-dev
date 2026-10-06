@@ -11,7 +11,7 @@ import { ExcelRepository } from "../../../repositories/ExcelRepository";
 import { GlassATCRepository } from "../../../repositories/GlassATCRepository";
 import { InstanceRepository } from "../../../repositories/InstanceRepository";
 import { AMCProductDataRepository } from "../../../repositories/data-entry/AMCProductDataRepository";
-import { AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID } from "../../../../data/repositories/data-entry/AMCProductDataDefaultRepository";
+import { AMC_RAW_SUBSTANCE_CONSUMPTION_CALCULATED_STAGE_ID } from "../../../entities/data-entry/amc/amcProgramIds";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { ImportSummary, ImportSummaryWithEventIdList } from "../../../entities/data-entry/ImportSummary";
 import { getConsumptionDataProductLevel } from "./utils/getConsumptionDataProductLevel";
@@ -19,7 +19,7 @@ import { logger } from "../../../../utils/logger";
 import { GlassModuleRepository } from "../../../repositories/GlassModuleRepository";
 import { AMCSubstanceDataRepository } from "../../../repositories/data-entry/AMCSubstanceDataRepository";
 import { RawSubstanceConsumptionCalculated } from "../../../entities/data-entry/amc/RawSubstanceConsumptionCalculated";
-import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
+import { TrackerImportResult } from "../../../entities/data-entry/TrackerImportResult";
 import { mapRawSubstanceCalculatedToSubstanceCalculated } from "./utils/mapRawSubstanceCalculatedToSubstanceCalculated";
 import { GlassUploadsRepository } from "../../../repositories/GlassUploadsRepository";
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
@@ -236,7 +236,7 @@ export class CalculateConsumptionDataProductLevelUseCase {
         rawSubstanceConsumptionCalculatedData: RawSubstanceConsumptionCalculated[],
         orgUnitId: string,
         period: string,
-        importProductResponse: TrackerPostResponse,
+        importProductResponse: TrackerImportResult,
         uploadId: Id,
         moduleName: string,
         importCalculationChunkSize: Maybe<number>

@@ -1,4 +1,4 @@
-import { Dhis2EventsDefaultRepository } from "../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../repositories/EventsRepository";
 import { Id } from "../entities/Base";
 import { GlassModule } from "../entities/GlassModule";
 import { QuestionnaireRepository } from "../repositories/QuestionnaireRepository";
@@ -7,7 +7,7 @@ import { GetAMCQuestionnaireListUseCase } from "./GetAMCQuestionnaireListUseCase
 export class GetQuestionnaireListUseCase {
     constructor(
         private questionnaireRepository: QuestionnaireRepository,
-        private dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository
+        private dhis2EventsDefaultRepository: EventsRepository
     ) {}
 
     execute(module: GlassModule, options: { orgUnitId: Id; year: string }, captureAccess: boolean) {

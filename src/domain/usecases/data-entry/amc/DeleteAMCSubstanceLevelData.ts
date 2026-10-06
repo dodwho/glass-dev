@@ -1,4 +1,4 @@
-import { Dhis2EventsDefaultRepository } from "../../../../data/repositories/Dhis2EventsDefaultRepository";
+import { EventsRepository } from "../../../repositories/EventsRepository";
 import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
 import { FutureData } from "../../../entities/Future";
 import { ExcelRepository } from "../../../repositories/ExcelRepository";
@@ -18,7 +18,7 @@ import { Maybe } from "../../../../utils/ts-utils";
 export class DeleteAMCSubstanceLevelData {
     constructor(
         private options: {
-            dhis2EventsDefaultRepository: Dhis2EventsDefaultRepository;
+            dhis2EventsDefaultRepository: EventsRepository;
             excelRepository: ExcelRepository;
             glassDocumentsRepository: GlassDocumentsRepository;
             metadataRepository: MetadataRepository;

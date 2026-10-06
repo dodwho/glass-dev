@@ -271,15 +271,11 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                                         } else {
                                             const itemsDeleted =
                                                 currentModuleAccess.moduleName === "AMC" ? "products" : "rows";
-                                            let message = `${
-                                                primaryFileToDelete?.rows || primaryFileToDelete?.records
-                                            } ${itemsDeleted} deleted for ${
+                                            let message = `${primaryFileToDelete?.rows} ${itemsDeleted} deleted for ${
                                                 moduleProperties.get(currentModuleAccess.moduleName)?.primaryFileType
                                             } file`;
                                             if (currentModuleAccess.moduleName === "AMC") {
-                                                message = `${
-                                                    primaryFileToDelete?.rows || primaryFileToDelete?.records
-                                                } ${itemsDeleted} deleted for ${
+                                                message = `${primaryFileToDelete?.rows} ${itemsDeleted} deleted for ${
                                                     moduleProperties.get(currentModuleAccess.moduleName)
                                                         ?.primaryFileType
                                                 } file and its corresponding calculated substance consumption data if any`;
@@ -287,9 +283,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                                             if (secondaryFileToDelete && deleteSecondaryFileSummary) {
                                                 message =
                                                     message +
-                                                    ` and ${
-                                                        secondaryFileToDelete.rows || secondaryFileToDelete.records
-                                                    } rows deleted for ${
+                                                    ` and ${secondaryFileToDelete.rows} rows deleted for ${
                                                         moduleProperties.get(currentModuleAccess.moduleName)
                                                             ?.secondaryFileType
                                                     } file.`;
@@ -387,7 +381,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                                             const itemsDeleted =
                                                 currentModuleAccess.moduleName === "AMC" ? "substances" : "rows";
                                             const message = ` ${
-                                                secondaryFileToDelete.rows || secondaryFileToDelete.records
+                                                secondaryFileToDelete.rows
                                             } ${itemsDeleted} deleted for ${
                                                 moduleProperties.get(currentModuleAccess.moduleName)?.secondaryFileType
                                             } file.`;
@@ -708,7 +702,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                         <TableRow key={row.id} onClick={() => handleShowImportSummaryErrors(row)}>
                             <TableCell>{row.uploadDate ? dayjs(row.uploadDate).format("DD-MM-YYYY") : ""}</TableCell>
                             <TableCell>{row.period}</TableCell>
-                            <TableCell>{row?.records || row?.rows}</TableCell>
+                            <TableCell>{row?.rows}</TableCell>
                             <TableCell>{row.fileType}</TableCell>
                             {moduleProperties.get(currentModuleAccess.moduleName)?.isbatchReq && (
                                 <TableCell style={{ opacity: 0.5 }}>{row.batchId}</TableCell>

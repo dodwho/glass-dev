@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Backdrop, Button, CircularProgress, makeStyles, withStyles } from "@material-ui/core";
-// @ts-ignore
 import { DataTable, TableHead, DataTableRow, DataTableColumnHeader, TableBody, DataTableCell } from "@dhis2/ui";
 import { useStyles } from "../questionnaire/QuestionnaireForm";
 import { useAppContext } from "../../contexts/app-context";
@@ -51,7 +50,7 @@ export const ProgramQuestionnaireForm: React.FC<ProgramQuestionnaireFormProps> =
     const { currentOrgUnitAccess } = useCurrentOrgUnitContext();
     const { readAccessGroup, confidentialAccessGroup } = useCurrentUserGroupsAccess();
     const { currentPeriod } = useCurrentPeriodContext();
-    const [refresh, setRefresh] = useState({});
+    const [, setRefresh] = useState({});
     const [localAggSubQuestionnaires, setLocalAggSubQuestionnaires] = useState(props.aggsubQuestionnaires);
     const history = useHistory();
 
@@ -163,8 +162,6 @@ export const ProgramQuestionnaireForm: React.FC<ProgramQuestionnaireFormProps> =
                 );
         }
     };
-
-    useEffect(() => {}, [refresh]);
 
     const updateQuestion = (question: Question) => {
         if (moduleProperties.get(currentModuleAccess.moduleName)?.applyQuestionnaireValidation) {

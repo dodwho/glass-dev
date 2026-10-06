@@ -11,9 +11,7 @@ import _ from "lodash";
 import { AMRAggDataValuesImportHelper } from "./AMRAggDataValuesImportHelper";
 import { RISData } from "../../../entities/data-entry/amr-external/RISData";
 import { DataValuesImportRepository } from "../../../repositories/data-entry/DataValuesImportRepository";
-
-const AMR_AMR_DS_INPUT_FILES_RIS_DS_ID = "CeQPmXgrhHF";
-const AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID = "S427AvQESbw";
+import { AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID } from "./amrAggMetadataIds";
 
 export class RISDataSetImportHelper extends AMRAggDataValuesImportHelper {
     private static risMetadataCache: {

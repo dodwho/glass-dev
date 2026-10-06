@@ -19,7 +19,6 @@ import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import _ from "lodash";
 
 import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
-import { DataValuesDefaultImportRepository } from "../../../../data/repositories/data-entry/DataValuesDefaultImportRepository";
 import { RISData } from "../../../entities/data-entry/amr-external/RISData";
 import { ExternalData } from "../../../entities/data-entry/amr-external/ExternalData";
 import { DataValuesImportRepository } from "../../../repositories/data-entry/DataValuesImportRepository";

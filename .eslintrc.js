@@ -47,10 +47,35 @@ module.exports = {
         "react-hooks/exhaustive-deps": "warn",
         "array-callback-return": "off",
         "react/jsx-key": "warn",
+        "import/no-restricted-paths": [
+            "warn",
+            {
+                zones: [
+                    { target: "./src/domain", from: "./src/data" },
+                    { target: "./src/domain", from: "./src/webapp" },
+                    { target: "./src/domain", from: "./src/scripts" },
+                    { target: "./src/domain", from: "./src/CompositionRoot.ts" },
+                ],
+            },
+        ],
     },
+    overrides: [
+        {
+            files: ["src/domain/**/*.{ts,tsx}"],
+            rules: {
+                // The domain layer must not depend on DHIS2 libraries or on the d2-api wrapper.
+                // Plain string patterns: the build's ESLint (react-scripts 4) rejects the object form.
+                "no-restricted-imports": [
+                    "warn",
+                    { patterns: ["@eyeseetea/d2-api", "@eyeseetea/d2-api/*", "@dhis2/*", "d2", "**/types/d2-api"] },
+                ],
+            },
+        },
+    ],
     plugins: ["cypress", "@typescript-eslint", "react-hooks", "unused-imports"],
     env: { "cypress/globals": true },
     settings: {
+        "import/resolver": { node: { extensions: [".js", ".jsx", ".ts", ".tsx"] } },
         react: {
             pragma: "React",
             version: "16.6.0",

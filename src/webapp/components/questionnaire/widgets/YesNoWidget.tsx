@@ -1,5 +1,4 @@
 import React from "react";
-// @ts-ignore
 import { Radio } from "@dhis2/ui";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import { Maybe } from "../../../../types/utils";

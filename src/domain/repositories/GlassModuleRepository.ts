@@ -1,4 +1,4 @@
-import { Id } from "@eyeseetea/d2-api";
+import { Id } from "../entities/Ref";
 import { FutureData } from "../entities/Future";
 import { GlassModule } from "../entities/GlassModule";
 

@@ -44,7 +44,7 @@ export const StyleCard = styled(Paper)<CustomCardProps>`
     overflow: hidden;
 `;
 
-const TitleContainer = styled.div`
+export const TitleContainer = styled.div`
     background: ${glassColors.mainPrimary};
     color: white;
     border-radius: 20px 20px 0px 0px;

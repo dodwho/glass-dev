@@ -1,6 +1,5 @@
 import { makeStyles } from "@material-ui/core";
 import React from "react";
-// @ts-ignore
 import { DataTableRow, DataTableCell } from "@dhis2/ui";
 import { Question, QuestionnaireSelector } from "../../../domain/entities/Questionnaire";
 import styled from "styled-components";

@@ -3,8 +3,10 @@ import { isElementOfUnion, UnionFromValues } from "./ts-utils";
 const logLevels = ["debug", "info", "warn", "error"] as const;
 export type LogLevel = UnionFromValues<typeof logLevels>;
 
-const levelFromEnv =
-    typeof process !== "undefined" && process.env && process.env["LOG_LEVEL"] ? process.env["LOG_LEVEL"] || "" : "";
+// Create React App copies every REACT_APP_* value into the browser build (some libraries read process.env as a
+// whole), so secrets must never use that prefix. The build-folder script blanks the old secret names and
+// config/check-build-secrets.js fails the build if a secret is found.
+const levelFromEnv = (typeof process !== "undefined" && process.env.LOG_LEVEL) || "";
 const level = isElementOfUnion(levelFromEnv, logLevels) ? levelFromEnv : "debug";
 const levelIndex = logLevels.indexOf(level);
 

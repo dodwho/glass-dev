@@ -1,6 +1,5 @@
 import React from "react";
 import styled from "styled-components";
-// @ts-ignore
 import { DataTable, TableHead, DataTableRow, DataTableColumnHeader, TableBody, DataTableCell } from "@dhis2/ui";
 
 import { FieldWidget } from "./FieldWidget";

@@ -22,10 +22,10 @@ import { useCurrentUserGroupsAccess } from "../../hooks/useCurrentUserGroupsAcce
 import { ProgramQuestionnaireForm } from "../new-signal/ProgramQuestionnaireForm";
 import { NamedRef } from "../../../domain/entities/Ref";
 import { moduleProperties } from "../../../domain/utils/ModuleProperties";
+import { AMR_MODULE_ID } from "../../../domain/entities/GlassMetadataReferences";
 import { useGlassUploadsByModuleOUPeriod } from "../../hooks/useGlassUploadsByModuleOUPeriod";
 import { getCompletedUploads } from "./ListOfDatasets";
 
-const AMR_MODULE_ID = "AVnpk4xiXGG";
 const AMR_MODULE_NAME = "AMR";
 interface QuestionnairesProps {
     setRefetchStatus: Dispatch<SetStateAction<DataSubmissionStatusTypes | undefined>>;

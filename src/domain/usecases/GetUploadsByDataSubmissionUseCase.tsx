@@ -1,5 +1,5 @@
-import { Id } from "@eyeseetea/d2-api";
-import { UseCase } from "../../CompositionRoot";
+import { Id } from "../entities/Ref";
+import { UseCase } from "../UseCase";
 import { FutureData } from "../entities/Future";
 import { GlassUploadsRepository } from "../repositories/GlassUploadsRepository";
 import { GlassUploads } from "../entities/GlassUploads";
