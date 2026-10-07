@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { D2TrackerEventToPost } from "@eyeseetea/d2-api/api/trackerEvents";
 import { AMClassAMCQuestionnaire } from "../../../domain/entities/amc-questionnaires/AMClassAMCQuestionnaire";
 import {

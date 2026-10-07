@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { EventsRepository } from "../repositories/EventsRepository";
 import { Id } from "../entities/Base";
 

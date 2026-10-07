@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { Future, FutureData } from "../../../domain/entities/Future";
 import { EGASPDataRepository } from "../../../domain/repositories/data-entry/EGASPDataRepository";
 import { SpreadsheetXlsxDataSource } from "../SpreadsheetXlsxDefaultRepository";

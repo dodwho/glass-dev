@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { EventsRepository } from "../../../repositories/EventsRepository";
 import { Future, FutureData } from "../../../entities/Future";
 import { Questionnaire } from "../../../entities/Questionnaire";

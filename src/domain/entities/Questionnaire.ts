@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { assertUnreachable, Dictionary, Maybe } from "../../types/utils";
 import { Code, Id, NamedRef, Ref, updateCollection } from "./Base";
 import { AMC_QUESTIONNAIRE_PROGRAM_ID } from "./GlassMetadataReferences";

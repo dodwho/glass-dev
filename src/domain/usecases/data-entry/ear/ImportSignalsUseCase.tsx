@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { EventStatus } from "../../../entities/EventStatus";
 import { EventsRepository } from "../../../repositories/EventsRepository";
 import { SignalRepository } from "../../../repositories/SignalRepository";

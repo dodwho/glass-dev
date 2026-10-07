@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { RISData } from "../../../domain/entities/data-entry/amr-external/RISData";
 import { Future, FutureData } from "../../../domain/entities/Future";
 import { RISDataRepository } from "../../../domain/repositories/data-entry/RISDataRepository";

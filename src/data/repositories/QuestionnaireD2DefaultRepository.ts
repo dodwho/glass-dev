@@ -1,3 +1,4 @@
+import _ from "lodash";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import { getId, Id } from "../../domain/entities/Base";
 import { Future, FutureData } from "../../domain/entities/Future";
