@@ -136,7 +136,8 @@
         "migrate-async-deletions-datastore": "npx ts-node -r dotenv/config src/scripts/async_deletions_migrate_new_datastore.ts",
         "amc-recalculate-local": "npx ts-node -P src/scripts/tsconfig.json src/scripts/cliAMCEnv.ts",
         "amc-delete-data": "npx ts-node -r dotenv/config src/scripts/amc_delete_data_for_period_ou.ts",
-        "enrol-countries": "npx ts-node -r dotenv/config src/scripts/enrol_countries_in_modules.ts"
+        "enrol-countries": "npx ts-node -r dotenv/config src/scripts/enrol_countries_in_modules.ts",
+        "release-preflight": "npx ts-node -r ./src/scripts/registerD2UiComponentsCjsInterop.js -r dotenv/config src/scripts/release_preflight.ts"
     },
     "manifest.webapp": {
         "name": "glass",
