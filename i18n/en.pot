@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-05T15:31:23.834Z\n"
-"PO-Revision-Date: 2026-10-05T15:31:23.834Z\n"
+"POT-Creation-Date: 2026-10-07T12:56:50.803Z\n"
+"PO-Revision-Date: 2026-10-07T12:56:50.803Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -304,6 +304,12 @@ msgstr ""
 msgid "Changed at"
 msgstr ""
 
+msgid "Changed by"
+msgstr ""
+
+msgid "Not recorded"
+msgstr ""
+
 msgid "Error fetching questionnaires."
 msgstr ""
 
@@ -449,6 +455,9 @@ msgstr ""
 msgid "Uploaded"
 msgstr ""
 
+msgid "Uploaded by"
+msgstr ""
+
 msgid "Period"
 msgstr ""
 
@@ -505,6 +514,9 @@ msgstr ""
 msgid "Error occurred when removing async uploads"
 msgstr ""
 
+msgid "Error occurred when recording the deletion request, nothing was deleted"
+msgstr ""
+
 msgid "Error occurred when setting data submission status to COMPLETED"
 msgstr ""
 
@@ -517,6 +529,9 @@ msgstr ""
 msgid "This might take several minutes, do not refresh the page or press back."
 msgstr ""
 
+msgid "Reason for deleting (required)"
+msgstr ""
+
 msgid "MARKED TO BE UPLOADED"
 msgstr ""
 
@@ -527,6 +542,9 @@ msgid "Marked to be deleted"
 msgstr ""
 
 msgid "There was an error deleting this file. Admin needs to check."
+msgstr ""
+
+msgid "Deletion requested by {{user}} on {{date}}"
 msgstr ""
 
 msgid "Overview"
@@ -553,6 +571,9 @@ msgstr ""
 msgid "Error downloading data"
 msgstr ""
 
+msgid "The deleted files could not be loaded."
+msgstr ""
+
 msgid "File Type"
 msgstr ""
 
@@ -566,6 +587,24 @@ msgid "Filename"
 msgstr ""
 
 msgid "Download"
+msgstr ""
+
+msgid "Deleted files"
+msgstr ""
+
+msgid "Uploaded at"
+msgstr ""
+
+msgid "Deletion requested by"
+msgstr ""
+
+msgid "Deletion requested at"
+msgstr ""
+
+msgid "Deletion reason"
+msgstr ""
+
+msgid "No deleted files found"
 msgstr ""
 
 msgid "Filters"
