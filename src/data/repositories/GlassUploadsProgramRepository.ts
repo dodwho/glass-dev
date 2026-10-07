@@ -544,8 +544,9 @@ export class GlassUploadsProgramRepository implements GlassUploadsRepository {
                     totalPages: true,
                     pageSize,
                     page,
-                    // A total order is needed for LIMIT/OFFSET paging, or rows go missing or repeat between pages.
-                    order: "event:asc",
+                    // Newest first, as users expect; the event id makes it a total order, which LIMIT/OFFSET paging needs
+                    // (otherwise rows go missing or repeat between pages).
+                    order: "createdAt:desc,event:asc",
                     ...filters,
                 })
             ).flatMap(response => {
