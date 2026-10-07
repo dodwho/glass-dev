@@ -18,12 +18,13 @@ import { GlassModuleRepository } from "../domain/repositories/GlassModuleReposit
 import { Semaphore } from "../domain/usecases/data-entry/utils/Semaphore";
 import { GetSpecificDataSubmissionUseCase } from "../domain/usecases/GetSpecificDataSubmissionUseCase";
 import { SaveDataSubmissionsUseCase } from "../domain/usecases/SaveDataSubmissionsUseCase";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import { SetDataSubmissionStatusUseCase } from "../domain/usecases/SetDataSubmissionStatusUseCase";
 import { SetUploadStatusUseCase } from "../domain/usecases/SetUploadStatusUseCase";
 
 import { generateUid } from "../utils/uid";
 import { setupConsoleLogger, logger, BatchLogContent } from "../utils/logger";
-import { getEnvVars, getInstance, warmUpSession } from "./common";
+import { getEnvVars, getInstance, getTokenOwner, warmUpSession } from "./common";
 import { GlassUploadsProgramRepository } from "../data/repositories/GlassUploadsProgramRepository";
 import { getUploadsFormDataBuilder } from "../utils/getUploadsFormDataBuilder";
 import { getD2APiFromInstance } from "../utils/d2-api";
@@ -77,6 +78,7 @@ let setUploadStatusUseCase: SetUploadStatusUseCase;
 let getSpecificDataSubmission: GetSpecificDataSubmissionUseCase;
 let saveDataSubmissions: SaveDataSubmissionsUseCase;
 let setSubmissionStatus: SetDataSubmissionStatusUseCase;
+let changedBy: StatusChangedBy;
 let glassDataSubmissionRepository: GlassDataSubmissionsDefaultRepository;
 let moduleRepository: GlassModuleRepository;
 let excelRepository: ExcelRepository;
@@ -340,6 +342,7 @@ async function initializeGlobals() {
     const instance = getInstance(envVars);
     api = getD2APiFromInstance(instance);
     await warmUpSession(api);
+    changedBy = await getTokenOwner(api);
     // The AMC calculation use cases log via the shared `logger`, which is undefined until a setup
     // function runs. Initialize a console logger (as the AMC CLI scripts do) before any use case runs.
     await setupConsoleLogger({ isDebug: false });
@@ -1520,7 +1523,7 @@ async function applySubmissionTransitions(
             continue;
         }
 
-        await retryWithBackoff(() => setSubmissionStatus.execute(submissionId, target).toPromise());
+        await retryWithBackoff(() => setSubmissionStatus.execute(submissionId, target, changedBy).toPromise());
     }
 }
 

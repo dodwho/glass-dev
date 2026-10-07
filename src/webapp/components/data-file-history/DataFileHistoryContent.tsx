@@ -1,9 +1,13 @@
 import styled from "styled-components";
+import { Typography } from "@material-ui/core";
+import i18n from "@eyeseetea/d2-ui-components/locales";
 import { useEffect, useState } from "react";
 import { SortDirection, DataFileTable } from "./DataFileTable";
 import { useLocation } from "react-router-dom";
 import { useAppContext } from "../../contexts/app-context";
 import { useGlassUploads } from "../../hooks/useGlassUploads";
+import { useDeletedGlassUploads } from "../../hooks/useDeletedGlassUploads";
+import { DeletedFilesTable } from "./DeletedFilesTable";
 import { ALL_FILTER_VALUE, Filter, Status, yearFilterValue } from "./Filter";
 import { CustomCard } from "../custom-card/CustomCard";
 import { ContentLoader } from "../content-loader/ContentLoader";
@@ -15,6 +19,7 @@ export const DataFileHistoryContent: React.FC = () => {
     const location = useLocation();
     const { compositionRoot } = useAppContext();
     const uploads = useGlassUploads(compositionRoot);
+    const deletedUploads = useDeletedGlassUploads(compositionRoot);
     const params = new URLSearchParams(location.search);
     const [yearFilterOption, setYearFilterOption] = useState<yearFilterValue>(ALL_FILTER_VALUE);
     const [status, setStatus] = useState<Status>(ALL_FILTER_VALUE);
@@ -51,6 +56,20 @@ export const DataFileHistoryContent: React.FC = () => {
                         />
                     )}
                 </CustomCard>
+                {deletedUploads.kind === "error" && (
+                    <CustomCard padding="20px 30px 20px">
+                        <Typography color="error">{i18n.t("The deleted files could not be loaded.")}</Typography>
+                    </CustomCard>
+                )}
+                {deletedUploads.kind === "loaded" && (
+                    <CustomCard padding="20px 30px 20px">
+                        <DeletedFilesTable
+                            items={deletedUploads.data.filter(
+                                u => yearFilterOption === ALL_FILTER_VALUE || u.period === yearFilterOption.toString()
+                            )}
+                        />
+                    </CustomCard>
+                )}
             </ContentWrapper>
         </ContentLoader>
     );

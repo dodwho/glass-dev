@@ -21,6 +21,7 @@ export interface DataFileHistoryItemProps {
     specimens: string[];
     status: string;
     uploadDate: string;
+    uploadedBy?: string;
     dataSubmission: string;
     module: string;
     rows?: number;
@@ -117,6 +118,9 @@ export const DataFileTable: React.FC<DataFileTableProps> = ({ title, items, clas
                                         <ArrowDownward fontSize="small" />
                                     )}
                                 </span>
+                            </TableCell>
+                            <TableCell>
+                                <Typography variant="caption">{i18n.t("Uploaded by")}</Typography>
                             </TableCell>
                             <TableCell
                                 onClick={() => {

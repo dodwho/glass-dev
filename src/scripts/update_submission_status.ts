@@ -1,17 +1,19 @@
 ﻿import { command, run } from "cmd-ts";
 import path from "path";
-import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
+import { describeAuth, getEnvVars, getInstance, getTokenOwner, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import dotenv from "dotenv";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { Instance } from "../data/entities/Instance";
 import { GlassDataSubmissionsDefaultRepository } from "../data/repositories/GlassDataSubmissionDefaultRepository";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import { SetDataSubmissionStatusUseCase } from "../domain/usecases/SetDataSubmissionStatusUseCase";
 dotenv.config();
 
 let instance: Instance;
 let dataStoreClient: DataStoreClient;
 let setSubmissionStatus: SetDataSubmissionStatusUseCase;
+let changedBy: StatusChangedBy;
 let glassDataSubmissionRepository: GlassDataSubmissionsDefaultRepository;
 //let getSpecificDataSubmission: GetSpecificDataSubmissionUseCase;
 
@@ -52,6 +54,7 @@ function main() {
             const instance = getInstance(envVars);
             const api = getD2APiFromInstance(instance);
             await warmUpSession(api);
+            changedBy = await getTokenOwner(api);
             // Call this function once to initialize the variables
             initializeGlobals(envVars);
 
@@ -73,7 +76,7 @@ function main() {
             //1: Get the directory
 
             try {
-                setSubmissionStatus.execute("fHLfaB7MSst", "UPDATE_REQUEST_ACCEPTED").toPromise();
+                setSubmissionStatus.execute("fHLfaB7MSst", "UPDATE_REQUEST_ACCEPTED", changedBy).toPromise();
             } catch (error) {
                 console.error(`Error thrown while trying to delete Document: ${error}`);
             }

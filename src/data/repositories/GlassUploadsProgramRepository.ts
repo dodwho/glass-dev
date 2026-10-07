@@ -1,7 +1,7 @@
 import _ from "lodash";
 
 import { Future, FutureData } from "../../domain/entities/Future";
-import { GlassUploads, GlassUploadsStatus } from "../../domain/entities/GlassUploads";
+import { DeletionRequest, GlassUploads, GlassUploadsStatus } from "../../domain/entities/GlassUploads";
 import { Id } from "../../domain/entities/Ref";
 import { ImportSummary, ImportSummaryErrors } from "../../domain/entities/data-entry/ImportSummary";
 import { GetUploadsByModuleOuParams, GlassUploadsRepository } from "../../domain/repositories/GlassUploadsRepository";
@@ -47,6 +47,9 @@ export const uploadsDHIS2Ids = {
     asyncImportSummaries: "rV0d3FQC8Jp",
     period: "BXvUeQEf9bT",
     uploadDate: "NczzzehrmcO",
+    deletionRequestedBy: "qROG1TPI09C",
+    deletionRequestedAt: "EQ8KdQ0aaic",
+    deletionReason: "m870FaDlihh",
 } as const;
 
 export function getValueById(dataValues: DataValue[], dataElement: string): Maybe<string> {
@@ -136,6 +139,19 @@ export class GlassUploadsProgramRepository implements GlassUploadsRepository {
                 );
             })
         );
+    }
+
+    requestDeletion(id: Id, request: DeletionRequest): FutureData<void> {
+        return this.updateUpload(id, { deletionRequest: request });
+    }
+
+    getDeletedUploadsByModuleOU(module: Id, orgUnit: Id): FutureData<GlassUploads[]> {
+        return this.getEventsWithFilters({
+            orgUnit,
+            orgUnitMode: "SELECTED",
+            filter: `${uploadsDHIS2Ids.moduleId}:eq:${module}`,
+            includeDeleted: true,
+        }).map(d2Events => d2Events.filter(event => event.deleted).map(event => this.mapEventToUpload(event)));
     }
 
     getUploadsByDataSubmission(dataSubmissionId: Id): FutureData<GlassUploads[]> {
@@ -317,41 +333,59 @@ export class GlassUploadsProgramRepository implements GlassUploadsRepository {
             asyncImportSummaries: areAsyncImportSummariesPresent
                 ? this.getAsyncImportSummaries(event.event, uploadsDHIS2Ids.asyncImportSummaries)
                 : Future.success(undefined),
-        }).map(({ importSummary, asyncImportSummaries }) => {
-            return {
-                id: event.event,
-                batchId: getValueById(event.dataValues, uploadsDHIS2Ids.batchId) || "",
-                countryCode: getValueById(event.dataValues, uploadsDHIS2Ids.countryCode) || "",
-                fileType: getValueById(event.dataValues, uploadsDHIS2Ids.documentFileType) || "",
-                fileId: getValueById(event.dataValues, uploadsDHIS2Ids.documentId) || "",
-                fileName: getValueById(event.dataValues, uploadsDHIS2Ids.documentName) || "",
-                period: getValueById(event.dataValues, uploadsDHIS2Ids.period) || "",
-                specimens: (getValueById(event.dataValues, uploadsDHIS2Ids.specimens) || "").split(","),
-                status: (getValueById(event.dataValues, uploadsDHIS2Ids.status) as GlassUploadsStatus) || "UPLOADED",
-                uploadDate: getValueById(event.dataValues, uploadsDHIS2Ids.uploadDate) || "",
-                dataSubmission: getValueById(event.dataValues, uploadsDHIS2Ids.dataSubmissionId) || "",
-                module: getValueById(event.dataValues, uploadsDHIS2Ids.moduleId) || "",
-                orgUnit: event.orgUnit,
-                records: parseInt(getValueById(event.dataValues, uploadsDHIS2Ids.rows) || "0", 10),
-                rows: parseInt(getValueById(event.dataValues, uploadsDHIS2Ids.rows) || "0", 10),
-                correspondingRisUploadId:
-                    getValueById(event.dataValues, uploadsDHIS2Ids.correspondingRisUploadId) || "",
-                eventListFileId: getValueById(event.dataValues, uploadsDHIS2Ids.eventListDocumentId) || undefined,
-                calculatedEventListFileId:
-                    getValueById(event.dataValues, uploadsDHIS2Ids.calculatedEventListDocumentId) || undefined,
-                eventListDataDeleted: this.getBooleanValue(event.dataValues, uploadsDHIS2Ids.eventListDataDeleted),
-                calculatedEventListDataDeleted: this.getBooleanValue(
-                    event.dataValues,
-                    uploadsDHIS2Ids.calculatedEventListDataDeleted
-                ),
-                errorAsyncDeleting: this.getBooleanValue(event.dataValues, uploadsDHIS2Ids.errorAsyncDeleting),
-                errorAsyncUploading: this.getBooleanValue(event.dataValues, uploadsDHIS2Ids.errorAsyncUploading),
-                importSummary: importSummary,
-                asyncImportSummaries: asyncImportSummaries,
-                inputLineNb: 0,
-                outputLineNb: 0,
-            };
-        });
+        }).map(({ importSummary, asyncImportSummaries }) => ({
+            ...this.mapEventToUpload(event),
+            importSummary: importSummary,
+            asyncImportSummaries: asyncImportSummaries,
+        }));
+    }
+
+    /** Maps the event data values only; import summaries are separate files, fetched by buildGlassUploadFromEvent. */
+    private mapEventToUpload(event: D2TrackerEvent): GlassUploads {
+        return {
+            id: event.event,
+            batchId: getValueById(event.dataValues, uploadsDHIS2Ids.batchId) || "",
+            countryCode: getValueById(event.dataValues, uploadsDHIS2Ids.countryCode) || "",
+            fileType: getValueById(event.dataValues, uploadsDHIS2Ids.documentFileType) || "",
+            fileId: getValueById(event.dataValues, uploadsDHIS2Ids.documentId) || "",
+            fileName: getValueById(event.dataValues, uploadsDHIS2Ids.documentName) || "",
+            period: getValueById(event.dataValues, uploadsDHIS2Ids.period) || "",
+            specimens: (getValueById(event.dataValues, uploadsDHIS2Ids.specimens) || "").split(","),
+            status: (getValueById(event.dataValues, uploadsDHIS2Ids.status) as GlassUploadsStatus) || "UPLOADED",
+            uploadDate: getValueById(event.dataValues, uploadsDHIS2Ids.uploadDate) || "",
+            uploadedBy: event.createdBy?.username,
+            deleted: event.deleted,
+            deletionRequest: this.getDeletionRequest(event.dataValues),
+            dataSubmission: getValueById(event.dataValues, uploadsDHIS2Ids.dataSubmissionId) || "",
+            module: getValueById(event.dataValues, uploadsDHIS2Ids.moduleId) || "",
+            orgUnit: event.orgUnit,
+            records: parseInt(getValueById(event.dataValues, uploadsDHIS2Ids.rows) || "0", 10),
+            rows: parseInt(getValueById(event.dataValues, uploadsDHIS2Ids.rows) || "0", 10),
+            correspondingRisUploadId: getValueById(event.dataValues, uploadsDHIS2Ids.correspondingRisUploadId) || "",
+            eventListFileId: getValueById(event.dataValues, uploadsDHIS2Ids.eventListDocumentId) || undefined,
+            calculatedEventListFileId:
+                getValueById(event.dataValues, uploadsDHIS2Ids.calculatedEventListDocumentId) || undefined,
+            eventListDataDeleted: this.getBooleanValue(event.dataValues, uploadsDHIS2Ids.eventListDataDeleted),
+            calculatedEventListDataDeleted: this.getBooleanValue(
+                event.dataValues,
+                uploadsDHIS2Ids.calculatedEventListDataDeleted
+            ),
+            errorAsyncDeleting: this.getBooleanValue(event.dataValues, uploadsDHIS2Ids.errorAsyncDeleting),
+            errorAsyncUploading: this.getBooleanValue(event.dataValues, uploadsDHIS2Ids.errorAsyncUploading),
+            inputLineNb: 0,
+            outputLineNb: 0,
+        };
+    }
+
+    private getDeletionRequest(dataValues: DataValue[]): Maybe<DeletionRequest> {
+        const requestedBy = getValueById(dataValues, uploadsDHIS2Ids.deletionRequestedBy);
+        if (!requestedBy) return undefined;
+
+        return {
+            requestedBy,
+            requestedAt: getValueById(dataValues, uploadsDHIS2Ids.deletionRequestedAt) || "",
+            reason: getValueById(dataValues, uploadsDHIS2Ids.deletionReason) || "",
+        };
     }
 
     private getBooleanValue(dataValues: DataValue[], dataElement: string): boolean {
@@ -402,6 +436,13 @@ export class GlassUploadsProgramRepository implements GlassUploadsRepository {
                 value: upload.uploadDate,
             },
             // FIX: null needed to remove the value in DHIS2 if a yes-only field is set to false
+            ...(upload.deletionRequest
+                ? [
+                      { dataElement: uploadsDHIS2Ids.deletionRequestedBy, value: upload.deletionRequest.requestedBy },
+                      { dataElement: uploadsDHIS2Ids.deletionRequestedAt, value: upload.deletionRequest.requestedAt },
+                      { dataElement: uploadsDHIS2Ids.deletionReason, value: upload.deletionRequest.reason },
+                  ]
+                : []),
         ] as D2TrackerEventToPost["dataValues"];
 
         const importSummariesDataValues: D2TrackerEventToPost["dataValues"] = [
@@ -488,6 +529,7 @@ export class GlassUploadsProgramRepository implements GlassUploadsRepository {
         pageSize?: number;
         filter?: string;
         orgUnitMode?: "SELECTED" | "CHILDREN" | "DESCENDANTS" | "ACCESSIBLE" | "CAPTURE" | "ALL";
+        includeDeleted?: boolean;
     }): FutureData<D2TrackerEvent[]> {
         const pageSize = filters.pageSize ?? DEFAULT_PAGE_SIZE;
         const events: D2TrackerEvent[] = [];
@@ -502,6 +544,8 @@ export class GlassUploadsProgramRepository implements GlassUploadsRepository {
                     totalPages: true,
                     pageSize,
                     page,
+                    // A total order is needed for LIMIT/OFFSET paging, or rows go missing or repeat between pages.
+                    order: "event:asc",
                     ...filters,
                 })
             ).flatMap(response => {
@@ -643,6 +687,8 @@ const eventFields = {
     orgUnit: true,
     occurredAt: true,
     createdAt: true,
+    createdBy: true,
+    deleted: true,
 } as const;
 
 type D2TrackerEvent = SelectedPick<D2TrackerEventSchema, typeof eventFields>;

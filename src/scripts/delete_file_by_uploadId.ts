@@ -1,6 +1,15 @@
 ﻿import { command, option, run, string } from "cmd-ts";
 import path from "path";
-import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
+import {
+    deletionReasonOption,
+    describeAuth,
+    getEnvVars,
+    getInstance,
+    getTokenOwner,
+    recordDeletionRequest,
+    warmUpSession,
+} from "./common";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import dotenv from "dotenv";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { GlassDocumentsDefaultRepository } from "../data/repositories/GlassDocumentsDefaultRepository";
@@ -15,6 +24,7 @@ let instance: Instance;
 let dataStoreClient: DataStoreClient;
 let glassDocumentsRepository: GlassDocumentsDefaultRepository;
 let glassUploadsRepository: GlassUploadsProgramRepository;
+let tokenOwner: StatusChangedBy;
 let deleteDocumentInfoByUploadIdUseCase: DeleteDocumentInfoByUploadIdUseCase;
 
 // Initialize the global variables
@@ -24,6 +34,7 @@ async function initializeGlobals(envVars: any) {
     glassDocumentsRepository = new GlassDocumentsDefaultRepository(dataStoreClient, instance);
     const api = getD2APiFromInstance(instance);
     await warmUpSession(api);
+    tokenOwner = await getTokenOwner(api);
     const runtime: "node" | "browser" = typeof window === "undefined" ? "node" : "browser";
     const uploadsFormDataBuilder = getUploadsFormDataBuilder(runtime);
     glassUploadsRepository = new GlassUploadsProgramRepository(api, uploadsFormDataBuilder);
@@ -48,6 +59,7 @@ function main() {
                 long: "uploadId",
                 description: "The uploadId",
             }),
+            reason: deletionReasonOption,
             // fileId: option({
             //    type: string,
             //     long: "fileId",
@@ -80,6 +92,11 @@ function main() {
             //1: Get the directory
 
             try {
+                await recordDeletionRequest(glassUploadsRepository, {
+                    uploadId: uploadId,
+                    tokenOwner: tokenOwner,
+                    reason: args.reason,
+                });
                 await glassUploadsRepository.delete(uploadId).toPromise();
                 console.log("deleted the upload with uploadId: " + uploadId);
                 deleteDocumentInfoByUploadIdUseCase.execute(uploadId);

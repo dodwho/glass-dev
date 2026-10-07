@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Backdrop, Button, CircularProgress, Typography } from "@material-ui/core";
 import styled from "styled-components";
 import { glassColors } from "../../pages/app/themes/dhis2.theme";
@@ -37,7 +37,8 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
     secondaryFileImportSummary,
     isRunningCalculation,
 }) => {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
+    const changedBy = useMemo(() => ({ id: currentUser.id, username: currentUser.username }), [currentUser]);
     const snackbar = useSnackbar();
     const { currentModuleAccess } = useCurrentModuleContext();
     const { currentOrgUnitAccess } = useCurrentOrgUnitContext();
@@ -123,7 +124,7 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                                                 currentQuestionnaires?.every(q => q.isMandatory && q.isCompleted))
                                         ) {
                                             compositionRoot.glassDataSubmission
-                                                .setStatus(dataSubmissionId, "COMPLETE")
+                                                .setStatus(dataSubmissionId, "COMPLETE", changedBy)
                                                 .run(
                                                     () => {
                                                         changeStep(4);
@@ -209,38 +210,40 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                                             "QUESTIONNAIRE_AND_DATASET" &&
                                             currentQuestionnaires?.every(q => q.isMandatory && q.isCompleted))
                                     ) {
-                                        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "COMPLETE").run(
-                                            () => {
-                                                changeStep(4);
-                                                setIsLoading(false);
-                                                if (captureAccessGroup.kind === "loaded") {
-                                                    const userGroupsIds = captureAccessGroup.data.map(cag => {
-                                                        return cag.id;
-                                                    });
-                                                    const notificationText = `The data submission for ${currentModuleAccess.moduleName} module for year ${currentPeriod} and country ${currentOrgUnitAccess.orgUnitName} has changed to DATA TO BE APPROVED BY COUNTRY`;
+                                        compositionRoot.glassDataSubmission
+                                            .setStatus(dataSubmissionId, "COMPLETE", changedBy)
+                                            .run(
+                                                () => {
+                                                    changeStep(4);
+                                                    setIsLoading(false);
+                                                    if (captureAccessGroup.kind === "loaded") {
+                                                        const userGroupsIds = captureAccessGroup.data.map(cag => {
+                                                            return cag.id;
+                                                        });
+                                                        const notificationText = `The data submission for ${currentModuleAccess.moduleName} module for year ${currentPeriod} and country ${currentOrgUnitAccess.orgUnitName} has changed to DATA TO BE APPROVED BY COUNTRY`;
 
-                                                    compositionRoot.notifications
-                                                        .send(
-                                                            notificationText,
-                                                            notificationText,
-                                                            userGroupsIds,
-                                                            currentOrgUnitAccess.orgUnitPath
-                                                        )
-                                                        .run(
-                                                            () => {},
-                                                            () => {}
-                                                        );
+                                                        compositionRoot.notifications
+                                                            .send(
+                                                                notificationText,
+                                                                notificationText,
+                                                                userGroupsIds,
+                                                                currentOrgUnitAccess.orgUnitPath
+                                                            )
+                                                            .run(
+                                                                () => {},
+                                                                () => {}
+                                                            );
+                                                    }
+                                                },
+                                                error => {
+                                                    changeStep(4);
+                                                    setIsLoading(false);
+                                                    console.debug(
+                                                        "Error occurred when setting data submission status, error: " +
+                                                            error
+                                                    );
                                                 }
-                                            },
-                                            error => {
-                                                changeStep(4);
-                                                setIsLoading(false);
-                                                console.debug(
-                                                    "Error occurred when setting data submission status, error: " +
-                                                        error
-                                                );
-                                            }
-                                        );
+                                            );
                                     } else {
                                         changeStep(4);
                                         setIsLoading(false);
@@ -262,6 +265,7 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
             );
         }
     }, [
+        changedBy,
         primaryFile,
         secondaryFile,
         compositionRoot.glassUploads,

@@ -48,6 +48,7 @@ export const UploadsTable: React.FC<UploadsTableProps> = ({
                     <TableHead>
                         <TableRow>
                             <TableCell>{i18n.t("Uploaded")}</TableCell>
+                            <TableCell>{i18n.t("Uploaded by")}</TableCell>
                             <TableCell>{i18n.t("Period")}</TableCell>
                             {currentModuleAccess.moduleName === "AMC" ? (
                                 <TableCell>{i18n.t("Products/Substances")}</TableCell>

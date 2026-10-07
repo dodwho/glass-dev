@@ -1,5 +1,14 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Backdrop, TableBody, TableCell, TableRow, Button, DialogContent, Typography } from "@material-ui/core";
+import {
+    Backdrop,
+    TableBody,
+    TableCell,
+    TableRow,
+    Button,
+    DialogContent,
+    TextField,
+    Typography,
+} from "@material-ui/core";
 import styled from "styled-components";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import dayjs from "dayjs";
@@ -53,7 +62,8 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
     setIsDatasetMarkAsCompleted,
     setRefetchStatus,
 }) => {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
+    const changedBy = useMemo(() => ({ id: currentUser.id, username: currentUser.username }), [currentUser]);
     const snackbar = useSnackbar();
 
     const [loading, setLoading] = useState<boolean>(false);
@@ -61,6 +71,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
     const [completeOpen, setCompleteOpen] = React.useState(false);
     const [importSummaryErrorsToShow, setImportSummaryErrorsToShow] = React.useState<ImportSummaryErrors | null>(null);
     const [rowToDelete, setRowToDelete] = useState<UploadsDataItem>();
+    const [deleteReason, setDeleteReason] = useState("");
     const [rowToComplete, setRowToComplete] = useState<UploadsDataItem>();
 
     const { currentPeriod } = useCurrentPeriodContext();
@@ -78,6 +89,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
     const [questionnaires] = useQuestionnaires();
     const showDeleteConfirmationDialog = (rowToDelete: UploadsDataItem) => {
         setRowToDelete(rowToDelete);
+        setDeleteReason("");
         setDeleteOpen(true);
     };
 
@@ -473,21 +485,40 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
             return;
 
         const isRowInAsyncUploads = isSetToBeUploadedAsync(rowToDelete);
+        const uploadIds = getPrimaryAndSecondaryUploadIdsByUploadDataItem(rowToDelete);
 
-        if (isRowInAsyncUploads) {
-            compositionRoot.glassUploads.removeAsyncUploadById(rowToDelete.id).run(
+        // Who asks for the deletion and why is written on the upload events before anything is deleted.
+        compositionRoot.glassUploads
+            .requestDeletion({
+                uploadIds: uploadIds.length > 0 ? uploadIds : [rowToDelete.id],
+                requestedBy: currentUser.username,
+                reason: deleteReason,
+            })
+            .run(
                 () => {
-                    deleteDataset();
+                    if (isRowInAsyncUploads) {
+                        compositionRoot.glassUploads.removeAsyncUploadById(rowToDelete.id).run(
+                            () => {
+                                deleteDataset();
+                            },
+                            error => {
+                                snackbar.error(i18n.t("Error occurred when removing async uploads"));
+                                console.debug("Error occurred when removing async uploads: " + error);
+                            }
+                        );
+                    } else {
+                        deleteDataset();
+                    }
                 },
                 error => {
-                    snackbar.error(i18n.t("Error occurred when removing async uploads"));
-                    console.debug("Error occurred when removing async uploads: " + error);
+                    snackbar.error(i18n.t("Error occurred when recording the deletion request, nothing was deleted"));
+                    console.debug("Error occurred when recording the deletion request: " + error);
                 }
             );
-        } else {
-            deleteDataset();
-        }
     }, [
+        currentUser.username,
+        deleteReason,
+        getPrimaryAndSecondaryUploadIdsByUploadDataItem,
         asyncDeletionsState.kind,
         compositionRoot.glassUploads,
         currentModule.kind,
@@ -504,7 +535,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
 
     const setDataSubmissionAsCompleted = useCallback(
         (row: UploadsDataItem) => {
-            return compositionRoot.glassDataSubmission.setStatus(row.dataSubmission, "COMPLETE").run(
+            return compositionRoot.glassDataSubmission.setStatus(row.dataSubmission, "COMPLETE", changedBy).run(
                 () => {
                     setIsDatasetMarkAsCompleted && setIsDatasetMarkAsCompleted(true);
                     setLoading(false);
@@ -521,6 +552,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
             );
         },
         [
+            changedBy,
             compositionRoot.glassDataSubmission,
             refreshUploads,
             refreshAsyncUploads,
@@ -658,6 +690,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                                         moduleProperties.get(currentModuleAccess.moduleName)?.deleteConfirmation.title
                                     }
                                     onSave={manageDeleteDataset}
+                                    disableSave={!deleteReason.trim()}
                                     onCancel={hideDeleteConfirmationDialog}
                                     saveText={i18n.t("Ok")}
                                     cancelText={i18n.t("Cancel")}
@@ -671,6 +704,14 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                                                     .description
                                             }
                                         </Typography>
+                                        <TextField
+                                            label={i18n.t("Reason for deleting (required)")}
+                                            value={deleteReason}
+                                            onChange={event => setDeleteReason(event.target.value)}
+                                            multiline
+                                            fullWidth
+                                            margin="normal"
+                                        />
                                     </DialogContent>
                                 </ConfirmationDialog>
                                 <ImportSummaryErrorsDialog
@@ -701,6 +742,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                     {rows.map((row: UploadsDataItem) => (
                         <TableRow key={row.id} onClick={() => handleShowImportSummaryErrors(row)}>
                             <TableCell>{row.uploadDate ? dayjs(row.uploadDate).format("DD-MM-YYYY") : ""}</TableCell>
+                            <TableCell>{row.uploadedBy ?? i18n.t("Not recorded")}</TableCell>
                             <TableCell>{row.period}</TableCell>
                             <TableCell>{row?.rows}</TableCell>
                             <TableCell>{row.fileType}</TableCell>
@@ -727,21 +769,34 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                             <TableCell style={{ opacity: 0.5 }}>
                                 {currentDataSubmissionStatus.kind === "loaded" &&
                                 asyncDeletionsState.kind === "loaded" ? (
-                                    <Button
-                                        onClick={e => {
-                                            e.stopPropagation();
-                                            showDeleteConfirmationDialog(row);
-                                        }}
-                                        disabled={isDeletedDisabled(row)}
-                                    >
-                                        {isAlreadyMarkedToBeDeleted(row) ? (
-                                            i18n.t("Marked to be deleted")
-                                        ) : hasErrorAsyncDeleting(row) ? (
-                                            i18n.t("There was an error deleting this file. Admin needs to check.")
-                                        ) : (
-                                            <DeleteOutline />
-                                        )}
-                                    </Button>
+                                    <>
+                                        <Button
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                showDeleteConfirmationDialog(row);
+                                            }}
+                                            disabled={isDeletedDisabled(row)}
+                                        >
+                                            {isAlreadyMarkedToBeDeleted(row) ? (
+                                                i18n.t("Marked to be deleted")
+                                            ) : hasErrorAsyncDeleting(row) ? (
+                                                i18n.t("There was an error deleting this file. Admin needs to check.")
+                                            ) : (
+                                                <DeleteOutline />
+                                            )}
+                                        </Button>
+                                        {row.deletionRequest &&
+                                            (isAlreadyMarkedToBeDeleted(row) || hasErrorAsyncDeleting(row)) && (
+                                                <Typography variant="caption" display="block">
+                                                    {i18n.t("Deletion requested by {{user}} on {{date}}", {
+                                                        user: row.deletionRequest.requestedBy,
+                                                        date: dayjs(row.deletionRequest.requestedAt).format(
+                                                            "DD-MM-YYYY"
+                                                        ),
+                                                    })}
+                                                </Typography>
+                                            )}
+                                    </>
                                 ) : (
                                     <CircularProgress size={20} />
                                 )}

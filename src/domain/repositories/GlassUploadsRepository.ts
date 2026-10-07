@@ -1,5 +1,5 @@
 import { FutureData } from "../entities/Future";
-import { GlassUploads, GlassUploadsStatus } from "../entities/GlassUploads";
+import { DeletionRequest, GlassUploads, GlassUploadsStatus } from "../entities/GlassUploads";
 import { Id } from "../entities/Ref";
 import { ImportSummary, ImportSummaryErrors } from "../entities/data-entry/ImportSummary";
 
@@ -18,6 +18,8 @@ export interface GlassUploadsRepository {
         eventListFileId: string | undefined;
         calculatedEventListFileId: string | undefined;
     }>;
+    requestDeletion(id: Id, request: DeletionRequest): FutureData<void>;
+    getDeletedUploadsByModuleOU(module: Id, orgUnit: Id): FutureData<GlassUploads[]>;
     getUploadsByModuleOU(module: string, orgUnit: string): FutureData<GlassUploads[]>;
     getUploadsByModuleOUPeriod(props: GetUploadsByModuleOuParams): FutureData<GlassUploads[]>;
     updateSampleUploadWithRisId(sampleUploadId: string, risUploadId: string): FutureData<void>;

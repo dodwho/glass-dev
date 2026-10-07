@@ -17,7 +17,8 @@ interface AdvancedButtonsProps {
     setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
 }
 export const AdvancedButtons: React.FC<AdvancedButtonsProps> = ({ setRefetchStatus, setCurrentStep }) => {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
+    const changedBy = { id: currentUser.id, username: currentUser.username };
     const { currentOrgUnitAccess } = useCurrentOrgUnitContext();
     const { currentModuleAccess } = useCurrentModuleContext();
     const { currentPeriod } = useCurrentPeriodContext();
@@ -33,7 +34,7 @@ export const AdvancedButtons: React.FC<AdvancedButtonsProps> = ({ setRefetchStat
 
     const requestDatasetUpdate = () => {
         setLoading(true);
-        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "PENDING_UPDATE_APPROVAL").run(
+        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "PENDING_UPDATE_APPROVAL", changedBy).run(
             () => {
                 setRefetchStatus("PENDING_UPDATE_APPROVAL");
                 if (captureAccessGroup.kind === "loaded" && approveAccessGroup.kind === "loaded") {

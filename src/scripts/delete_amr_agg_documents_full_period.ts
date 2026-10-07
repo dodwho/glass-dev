@@ -1,13 +1,22 @@
 ﻿import { command, run, string, option } from "cmd-ts";
 import path from "path";
 import fs from "fs";
-import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
+import {
+    deletionReasonOption,
+    describeAuth,
+    getEnvVars,
+    getInstance,
+    getTokenOwner,
+    recordDeletionRequest,
+    warmUpSession,
+} from "./common";
 import dotenv from "dotenv";
 import { GlassDataSubmissionsDefaultRepository } from "../data/repositories/GlassDataSubmissionDefaultRepository";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { GetSpecificDataSubmissionUseCase } from "../domain/usecases/GetSpecificDataSubmissionUseCase";
 import { GlassDocumentsDefaultRepository } from "../data/repositories/GlassDocumentsDefaultRepository";
 import { Instance } from "../data/entities/Instance";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import { SetDataSubmissionStatusUseCase } from "../domain/usecases/SetDataSubmissionStatusUseCase";
 import { DeleteDocumentInfoByUploadIdUseCase } from "../domain/usecases/DeleteDocumentInfoByUploadIdUseCase";
 import { GlassUploadsProgramRepository } from "../data/repositories/GlassUploadsProgramRepository";
@@ -25,6 +34,7 @@ let glassUploadsRepository: GlassUploadsProgramRepository;
 let getSpecificDataSubmission: GetSpecificDataSubmissionUseCase;
 let glassDataSubmissionRepository: GlassDataSubmissionsDefaultRepository;
 let setSubmissionStatus: SetDataSubmissionStatusUseCase;
+let changedBy: StatusChangedBy;
 let deleteDocumentInfoByUploadIdUseCase: DeleteDocumentInfoByUploadIdUseCase;
 
 const moduleName = "AMR";
@@ -69,6 +79,7 @@ const cmd = command({
             long: "period",
             description: "The period ",
         }),
+        reason: deletionReasonOption,
         //moduleId: option({
         //    type: string,
         //     long: "moduleId",
@@ -82,6 +93,7 @@ const cmd = command({
         const instance = getInstance(envVars);
         const api = getD2APiFromInstance(instance);
         await warmUpSession(api);
+        changedBy = await getTokenOwner(api);
 
         initializeGlobals(envVars);
 
@@ -148,6 +160,11 @@ const cmd = command({
                     // Delete uploads and associated documents
                     for (const upload of uploads) {
                         try {
+                            await recordDeletionRequest(glassUploadsRepository, {
+                                uploadId: upload.id,
+                                tokenOwner: changedBy,
+                                reason: args.reason,
+                            });
                             await glassUploadsRepository.delete(upload.id).toPromise();
                             const id = await glassDocumentsRepository.delete(upload.fileId).toPromise();
                             await glassDocumentsRepository.deleteDocumentApi(id).toPromise();
@@ -159,7 +176,7 @@ const cmd = command({
                         }
                     }
 
-                    await setSubmissionStatus.execute(dataSubmissionId.id, "NOT_COMPLETED").toPromise();
+                    await setSubmissionStatus.execute(dataSubmissionId.id, "NOT_COMPLETED", changedBy).toPromise();
                 } catch (innerError) {
                     console.error(`Error processing OrgUnit: ${orgUnit.name}, Error: ${innerError}`);
                     throw innerError;

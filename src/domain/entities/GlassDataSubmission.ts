@@ -22,4 +22,7 @@ export type StatusHistoryType = {
     from?: DataSubmissionStatusTypes;
     to: DataSubmissionStatusTypes;
     changedAt: string;
+    changedBy?: StatusChangedBy;
 };
+
+export type StatusChangedBy = { id: Id; username: string };

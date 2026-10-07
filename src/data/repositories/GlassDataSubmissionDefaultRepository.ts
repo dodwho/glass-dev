@@ -1,5 +1,9 @@
 import { Future, FutureData } from "../../domain/entities/Future";
-import { DataSubmissionStatusTypes, GlassDataSubmission } from "../../domain/entities/GlassDataSubmission";
+import {
+    DataSubmissionStatusTypes,
+    GlassDataSubmission,
+    StatusChangedBy,
+} from "../../domain/entities/GlassDataSubmission";
 import { GlassModule } from "../../domain/entities/GlassModule";
 import { GlassDataSubmissionsRepository } from "../../domain/repositories/GlassDataSubmissionRepository";
 import { DataStoreClient } from "../data-store/DataStoreClient";
@@ -82,7 +86,7 @@ export class GlassDataSubmissionsDefaultRepository implements GlassDataSubmissio
         });
     }
 
-    setStatus(id: string, status: DataSubmissionStatusTypes): FutureData<void> {
+    setStatus(id: string, status: DataSubmissionStatusTypes, changedBy: StatusChangedBy): FutureData<void> {
         return this.dataStoreClient
             .listCollection<GlassDataSubmission>(DataStoreKeys.DATA_SUBMISSIONS)
             .flatMap(dataSubmissions => {
@@ -92,6 +96,7 @@ export class GlassDataSubmissionsDefaultRepository implements GlassDataSubmissio
                         from: dataSubmission.status,
                         to: status,
                         changedAt: new Date().toISOString(),
+                        changedBy,
                     });
                     dataSubmission.status = status;
                     return this.dataStoreClient.saveObject(DataStoreKeys.DATA_SUBMISSIONS, dataSubmissions);

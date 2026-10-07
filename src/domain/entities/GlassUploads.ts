@@ -3,6 +3,12 @@ import { Id } from "./Ref";
 
 export type GlassUploadsStatus = "UPLOADED" | "IMPORTED" | "VALIDATED" | "COMPLETED" | "DELETED";
 
+export interface DeletionRequest {
+    requestedBy: string;
+    requestedAt: string;
+    reason: string;
+}
+
 export interface GlassUploads {
     id: string;
     batchId: string;
@@ -16,6 +22,7 @@ export interface GlassUploads {
     specimens: string[];
     status: GlassUploadsStatus;
     uploadDate: string;
+    uploadedBy?: string;
     dataSubmission: string;
     module: string;
     orgUnit: Id;
@@ -30,4 +37,6 @@ export interface GlassUploads {
     errorAsyncDeleting?: boolean;
     errorAsyncUploading?: boolean;
     asyncImportSummaries?: ImportSummary[];
+    deletionRequest?: DeletionRequest;
+    deleted?: boolean;
 }

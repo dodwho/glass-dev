@@ -1,5 +1,5 @@
 import { FutureData } from "../entities/Future";
-import { DataSubmissionStatusTypes, GlassDataSubmission } from "../entities/GlassDataSubmission";
+import { DataSubmissionStatusTypes, GlassDataSubmission, StatusChangedBy } from "../entities/GlassDataSubmission";
 
 export interface GlassDataSubmissionsRepository {
     getSpecificDataSubmission(module: string, orgUnit: string, period: string): FutureData<GlassDataSubmission[]>;
@@ -7,5 +7,5 @@ export interface GlassDataSubmissionsRepository {
     getOpenDataSubmissionsByOU(orgUnit: string, period: string): FutureData<GlassDataSubmission[]>;
     save(dataSubmission: GlassDataSubmission): FutureData<void>;
     saveMultiple(dataSubmission: GlassDataSubmission[]): FutureData<void>;
-    setStatus(id: string, status: DataSubmissionStatusTypes): FutureData<void>;
+    setStatus(id: string, status: DataSubmissionStatusTypes, changedBy: StatusChangedBy): FutureData<void>;
 }

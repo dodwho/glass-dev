@@ -6,6 +6,9 @@ import { useCurrentOrgUnitContext } from "../../contexts/current-orgUnit-context
 import { useCurrentPeriodContext } from "../../contexts/current-period-context";
 import { useCurrentDataSubmissionId } from "../../hooks/useCurrentDataSubmissionId";
 import { Maybe } from "../../../utils/ts-utils";
+import { Id } from "../../../domain/entities/Ref";
+
+const REMOVED_DURING_UPLOAD_REASON = "Removed by the uploader during upload";
 
 export type UploadContentState = {
     errorMessage: string;
@@ -31,7 +34,7 @@ export type UploadContentState = {
 };
 
 export function useUploadContent(): UploadContentState {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
     const {
         currentModuleAccess: { moduleId, moduleName },
     } = useCurrentModuleContext();
@@ -57,13 +60,26 @@ export function useUploadContent(): UploadContentState {
         setHasSecondaryFile(maybeFile ? true : false);
     }, []);
 
+    // Removing a file deletes its upload event, so the audit trail is written first, as for any other deletion.
+    const deleteUpload = useCallback(
+        (uploadId: Id) =>
+            compositionRoot.glassUploads
+                .requestDeletion({
+                    uploadIds: [uploadId],
+                    requestedBy: currentUser.username,
+                    reason: REMOVED_DURING_UPLOAD_REASON,
+                })
+                .flatMap(() => compositionRoot.glassDocuments.deleteByUploadId(uploadId)),
+        [compositionRoot.glassDocuments, compositionRoot.glassUploads, currentUser.username]
+    );
+
     const onRemovePrimaryFile = useCallback(
         (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
             event.preventDefault();
             setIsLoadingPrimary(true);
             const primaryUploadId = localStorage.getItem("primaryUploadId");
             if (primaryUploadId) {
-                return compositionRoot.glassDocuments.deleteByUploadId(primaryUploadId).run(
+                return deleteUpload(primaryUploadId).run(
                     () => {
                         localStorage.removeItem("primaryUploadId");
                         setPrimaryFile(null);
@@ -80,7 +96,7 @@ export function useUploadContent(): UploadContentState {
                 setIsLoadingPrimary(false);
             }
         },
-        [compositionRoot.glassDocuments]
+        [deleteUpload]
     );
 
     const onRemoveSecondaryFile = useCallback(
@@ -89,7 +105,7 @@ export function useUploadContent(): UploadContentState {
             setIsLoadingSecondary(true);
             const sampleUploadId = localStorage.getItem("secondaryUploadId");
             if (sampleUploadId) {
-                return compositionRoot.glassDocuments.deleteByUploadId(sampleUploadId).run(
+                return deleteUpload(sampleUploadId).run(
                     () => {
                         localStorage.removeItem("secondaryUploadId");
                         onSetSecondaryFile(null);
@@ -106,7 +122,7 @@ export function useUploadContent(): UploadContentState {
                 setIsLoadingSecondary(false);
             }
         },
-        [compositionRoot.glassDocuments, onSetSecondaryFile]
+        [deleteUpload, onSetSecondaryFile]
     );
 
     const removePrimaryFile = useCallbackEffect(onRemovePrimaryFile);

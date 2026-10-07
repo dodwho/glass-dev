@@ -45,7 +45,8 @@ interface ListOfDatasetsProps {
 }
 
 export const ListOfDatasets: React.FC<ListOfDatasetsProps> = ({ setRefetchStatus }) => {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
+    const changedBy = useMemo(() => ({ id: currentUser.id, username: currentUser.username }), [currentUser]);
     const { currentPeriod } = useCurrentPeriodContext();
     const {
         currentModuleAccess: { moduleId, moduleName },
@@ -108,7 +109,7 @@ export const ListOfDatasets: React.FC<ListOfDatasetsProps> = ({ setRefetchStatus
             (moduleProperties.get(moduleName)?.completeStatusChange === "DATASET" ||
                 moduleProperties.get(moduleName)?.completeStatusChange === "QUESTIONNAIRE_AND_DATASET")
         ) {
-            compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "NOT_COMPLETED").run(
+            compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "NOT_COMPLETED", changedBy).run(
                 () => {
                     //Triggerring relaod of status in parent
                     setRefetchStatus("NOT_COMPLETED");
@@ -117,6 +118,7 @@ export const ListOfDatasets: React.FC<ListOfDatasetsProps> = ({ setRefetchStatus
             );
         }
     }, [
+        changedBy,
         completeUploads,
         captureAccessGroup,
         compositionRoot.notifications,

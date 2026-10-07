@@ -1,6 +1,15 @@
-﻿import { command, run } from "cmd-ts";
+﻿import { command, option, run, string } from "cmd-ts";
 import path from "path";
-import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
+import {
+    deletionReasonOption,
+    describeAuth,
+    getEnvVars,
+    getInstance,
+    getTokenOwner,
+    recordDeletionRequest,
+    warmUpSession,
+} from "./common";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import dotenv from "dotenv";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { GlassDocumentsDefaultRepository } from "../data/repositories/GlassDocumentsDefaultRepository";
@@ -15,6 +24,7 @@ let instance: Instance;
 let dataStoreClient: DataStoreClient;
 let glassDocumentsRepository: GlassDocumentsDefaultRepository;
 let glassUploadsRepository: GlassUploadsProgramRepository;
+let tokenOwner: StatusChangedBy;
 let deleteDocumentInfoByUploadIdUseCase: DeleteDocumentInfoByUploadIdUseCase;
 
 // Initialize the global variables
@@ -24,6 +34,7 @@ async function initializeGlobals(envVars: any) {
     glassDocumentsRepository = new GlassDocumentsDefaultRepository(dataStoreClient, instance);
     const api = getD2APiFromInstance(instance);
     await warmUpSession(api);
+    tokenOwner = await getTokenOwner(api);
     const runtime: "node" | "browser" = typeof window === "undefined" ? "node" : "browser";
     const uploadsFormDataBuilder = getUploadsFormDataBuilder(runtime);
     glassUploadsRepository = new GlassUploadsProgramRepository(api, uploadsFormDataBuilder);
@@ -38,6 +49,12 @@ function main() {
         name: path.basename(__filename),
         description: "Show DHIS2 instance info",
         args: {
+            dataSubmissionId: option({
+                type: string,
+                long: "dataSubmissionId",
+                description: "The id of the data submission whose uploads and documents are deleted",
+            }),
+            reason: deletionReasonOption,
             /* docId: option({
                 type: string,
                 long: "docId",
@@ -80,9 +97,16 @@ function main() {
             //1: Get the directory
 
             try {
-                const uploads = await glassUploadsRepository.getUploadsByDataSubmission("M1NYa4SHi4w").toPromise();
+                const uploads = await glassUploadsRepository
+                    .getUploadsByDataSubmission(args.dataSubmissionId)
+                    .toPromise();
                 for (const upload of uploads) {
-                    deleteDocumentInfoByUploadIdUseCase.execute(upload.id);
+                    await recordDeletionRequest(glassUploadsRepository, {
+                        uploadId: upload.id,
+                        tokenOwner: tokenOwner,
+                        reason: args.reason,
+                    });
+                    await deleteDocumentInfoByUploadIdUseCase.execute(upload.id).toPromise();
                 }
             } catch (error) {
                 console.error(`Error thrown while trying to delete Document: ${error}`);

@@ -39,6 +39,8 @@ import { ImportSecondaryFileUseCase } from "./domain/usecases/data-entry/ImportS
 import { RISDataCSVDefaultRepository } from "./data/repositories/data-entry/RISDataCSVDefaultRepository";
 import { SampleDataCSVDeafultRepository } from "./data/repositories/data-entry/SampleDataCSVDeafultRepository";
 import { GetGlassUploadsByModuleOUPeriodUseCase } from "./domain/usecases/GetGlassUploadsByModuleOUPeriodUseCase";
+import { GetDeletedGlassUploadsByModuleOUUseCase } from "./domain/usecases/GetDeletedGlassUploadsByModuleOUUseCase";
+import { RequestUploadDeletionUseCase } from "./domain/usecases/RequestUploadDeletionUseCase";
 import { SetDataSubmissionStatusUseCase } from "./domain/usecases/SetDataSubmissionStatusUseCase";
 import { DownloadDocumentUseCase } from "./domain/usecases/DownloadDocumentUseCase";
 import { ValidatePrimaryFileUseCase } from "./domain/usecases/data-entry/ValidatePrimaryFileUseCase";
@@ -216,6 +218,8 @@ export function getCompositionRoot(instance: Instance) {
         glassUploads: getExecute({
             getById: new GetGlassUploadByIdUseCase(glassUploadsRepository),
             setStatus: new SetUploadStatusUseCase(glassUploadsRepository),
+            requestDeletion: new RequestUploadDeletionUseCase(glassUploadsRepository),
+            getDeletedByModuleOU: new GetDeletedGlassUploadsByModuleOUUseCase(glassUploadsRepository),
             getAMRUploadsForCurrentDataSubmission: new GetGlassUploadsByDataSubmissionUseCase(
                 glassUploadsRepository,
                 glassDataSubmissionRepository

@@ -1,6 +1,14 @@
 import { boolean, command, flag, run, string, option, optional } from "cmd-ts";
 import path from "path";
-import { getEnvVars, getInstance, warmUpSession } from "./common";
+import {
+    deletionReasonOption,
+    getEnvVars,
+    getInstance,
+    getTokenOwner,
+    recordDeletionRequest,
+    warmUpSession,
+} from "./common";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import dotenv from "dotenv";
 import { GlassDataSubmissionsDefaultRepository } from "../data/repositories/GlassDataSubmissionDefaultRepository";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
@@ -23,6 +31,7 @@ let glassDocumentsRepository: GlassDocumentsDefaultRepository;
 let glassUploadsRepository: GlassUploadsProgramRepository;
 
 let glassDataSubmissionRepository: GlassDataSubmissionsDefaultRepository;
+let tokenOwner: StatusChangedBy;
 let deleteDocumentInfoByUploadIdUseCase: DeleteDocumentInfoByUploadIdUseCase;
 
 // Initialize the global variables
@@ -30,6 +39,7 @@ async function initializeGlobals(envVars: any) {
     instance = getInstance(envVars);
     const api = getD2APiFromInstance(instance);
     await warmUpSession(api);
+    tokenOwner = await getTokenOwner(api);
     const runtime: "node" | "browser" = typeof window === "undefined" ? "node" : "browser";
     const uploadsFormDataBuilder = getUploadsFormDataBuilder(runtime);
     glassUploadsRepository = new GlassUploadsProgramRepository(api, uploadsFormDataBuilder);
@@ -94,6 +104,7 @@ function main() {
         description:
             "Delete GLASS uploads and their associated documents/files for a given module, org unit and period, optionally restricted to a single batch id. Destructive and irreversible: run with --dry-run first.",
         args: {
+            reason: deletionReasonOption,
             period: option({
                 type: string,
                 long: "period",
@@ -197,6 +208,11 @@ function main() {
                 const failed: string[] = [];
                 for (const upload of targets) {
                     try {
+                        await recordDeletionRequest(glassUploadsRepository, {
+                            uploadId: upload.id,
+                            tokenOwner: tokenOwner,
+                            reason: args.reason,
+                        });
                         await deleteDocumentInfoByUploadIdUseCase.execute(upload.id).toPromise();
                         console.log(`Deleted upload ${upload.id} (file: ${upload.fileName})`);
                     } catch (error) {

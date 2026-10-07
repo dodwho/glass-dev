@@ -1,7 +1,7 @@
 import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import { Button, LinearProgress } from "@material-ui/core";
-import React, { Dispatch, SetStateAction, useCallback, useEffect } from "react";
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import { Id } from "../../../domain/entities/Base";
 import { QuestionnaireBase, QuestionnairesType } from "../../../domain/entities/Questionnaire";
@@ -31,7 +31,8 @@ interface QuestionnairesProps {
     setRefetchStatus: Dispatch<SetStateAction<DataSubmissionStatusTypes | undefined>>;
 }
 export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus }) => {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
+    const changedBy = useMemo(() => ({ id: currentUser.id, username: currentUser.username }), [currentUser]);
     const hasCurrentUserCaptureAccess = useGlassCaptureAccess();
     const hasCurrentUserViewAccess = useGlassReadAccess();
     const [questionnaires, updateQuestionnarie, questionnairesType, setRefresh] = useQuestionnaires();
@@ -56,7 +57,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
     const amrDataSubmissionId = useCurrentDataSubmissionId(AMR_MODULE_ID, AMR_MODULE_NAME, orgUnit.id, currentPeriod);
 
     const setCompleteStatus = useCallback(() => {
-        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "COMPLETE").run(
+        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "COMPLETE", changedBy).run(
             () => {
                 //Triggerring relaod of status in parent
                 setRefetchStatus("COMPLETE");
@@ -78,6 +79,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
             () => {}
         );
     }, [
+        changedBy,
         captureAccessGroup,
         compositionRoot.notifications,
         compositionRoot.glassDataSubmission,
@@ -110,7 +112,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
                         if (completedUploads && completedUploads?.length > 0) setCompleteStatus();
                     } else if (currentModuleAccess.moduleName === "AMR - Individual") {
                         //If AMR-I completes the questionnaire, change status for AMR-agg
-                        compositionRoot.glassDataSubmission.setStatus(amrDataSubmissionId, "COMPLETE").run(
+                        compositionRoot.glassDataSubmission.setStatus(amrDataSubmissionId, "COMPLETE", changedBy).run(
                             () => {},
                             () => {}
                         );
@@ -121,7 +123,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
                     q => q.id === questionnaireId
                 )?.isMandatory;
                 if (mandatoryQuestionnaireIncomplete) {
-                    compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "NOT_COMPLETED").run(
+                    compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "NOT_COMPLETED", changedBy).run(
                         () => {
                             //Triggerring relaod of status in parent
                             setRefetchStatus("NOT_COMPLETED");
@@ -130,7 +132,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
                     );
                 } else if (currentModuleAccess.moduleName === "AMR - Individual") {
                     //If AMR-I completes the questionnaire, change status for AMR-agg
-                    compositionRoot.glassDataSubmission.setStatus(amrDataSubmissionId, "NOT_COMPLETED").run(
+                    compositionRoot.glassDataSubmission.setStatus(amrDataSubmissionId, "NOT_COMPLETED", changedBy).run(
                         () => {},
                         () => {}
                     );
@@ -138,6 +140,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
             }
         },
         [
+            changedBy,
             amrDataSubmissionId,
             compositionRoot.glassDataSubmission,
             currentModuleAccess.moduleName,

@@ -1,3 +1,4 @@
+import i18n from "@eyeseetea/d2-ui-components/locales";
 import React, { useCallback } from "react";
 import { Button, TableBody, TableCell, TableRow } from "@material-ui/core";
 import styled from "styled-components";
@@ -62,6 +63,7 @@ export const DataFileTableBody: React.FC<DataFileTableBodyProps> = ({ rows }) =>
                             )}
                             <TableCell>{row.status}</TableCell>
                             <TableCell>{dayjs(row.uploadDate).format("YYYY-MM-DD HH:mm:ss")}</TableCell>
+                            <TableCell>{row.uploadedBy ?? i18n.t("Not recorded")}</TableCell>
                             <TableCell>{row.fileName}</TableCell>
                             <TableCell>
                                 <Button

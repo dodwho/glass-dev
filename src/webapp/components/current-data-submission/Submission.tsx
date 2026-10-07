@@ -18,7 +18,8 @@ interface SubmissionProps {
 }
 
 export const Submission: React.FC<SubmissionProps> = ({ setRefetchStatus, setCurrentStep }) => {
-    const { compositionRoot } = useAppContext();
+    const { compositionRoot, currentUser } = useAppContext();
+    const changedBy = { id: currentUser.id, username: currentUser.username };
     const [open, setOpen] = React.useState(false);
     const [isLoading, setIsLoading] = React.useState(false);
 
@@ -44,7 +45,7 @@ export const Submission: React.FC<SubmissionProps> = ({ setRefetchStatus, setCur
 
     const updateDataSubmissionStatus = () => {
         setIsLoading(true);
-        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "PENDING_APPROVAL").run(
+        compositionRoot.glassDataSubmission.setStatus(dataSubmissionId, "PENDING_APPROVAL", changedBy).run(
             () => {
                 //Triggerring reload of status in parent
                 setRefetchStatus("PENDING_APPROVAL");

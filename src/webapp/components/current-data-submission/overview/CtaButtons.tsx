@@ -208,6 +208,7 @@ export const CtaButtons: React.FC<CtaButtonsProps> = ({ ctas, position, setCurre
                                     <TableCell>{i18n.t("From")}</TableCell>
                                     <TableCell>{i18n.t("To")}</TableCell>
                                     <TableCell>{i18n.t("Changed at")}</TableCell>
+                                    <TableCell>{i18n.t("Changed by")}</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -218,6 +219,7 @@ export const CtaButtons: React.FC<CtaButtonsProps> = ({ ctas, position, setCurre
                                         </TableCell>
                                         <TableCell>{row.to}</TableCell>
                                         <TableCell>{dayjs(row.changedAt).format("DD-MM-YYYY h:mma")}</TableCell>
+                                        <TableCell>{row.changedBy?.username ?? i18n.t("Not recorded")}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

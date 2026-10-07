@@ -3,6 +3,10 @@ import _ from "lodash";
 import { isElementOfUnion } from "../utils/ts-utils";
 import { D2Api } from "../types/d2-api";
 import { Instance } from "../data/entities/Instance";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
+import { Id } from "../domain/entities/Ref";
+import { GlassUploadsRepository } from "../domain/repositories/GlassUploadsRepository";
+import { RequestUploadDeletionUseCase } from "../domain/usecases/RequestUploadDeletionUseCase";
 
 /**
  * Secrets must not start with REACT_APP_: Create React App copies every REACT_APP_* variable into the built app.
@@ -217,4 +221,26 @@ export function sleep(milliseconds: number) {
 export async function warmUpSession(api: D2Api): Promise<void> {
     const user = await api.get<{ id: string; username: string }>("/me").getData();
     console.log(`[auth] Session initialized for user: ${user.username} (${user.id})`);
+}
+
+export const deletionReasonOption = option({
+    type: string,
+    long: "reason",
+    description: "Why the files are deleted. Recorded in the audit trail with the token owner",
+});
+
+/** Records the token owner and the reason on the upload event, so it is kept as the audit trail once the upload is deleted. */
+export function recordDeletionRequest(
+    glassUploadsRepository: GlassUploadsRepository,
+    params: { uploadId: Id; tokenOwner: StatusChangedBy; reason: string }
+): Promise<void> {
+    return new RequestUploadDeletionUseCase(glassUploadsRepository)
+        .execute({ uploadIds: [params.uploadId], requestedBy: params.tokenOwner.username, reason: params.reason })
+        .toPromise();
+}
+
+/** The user that owns the token the script runs with, recorded as the author of audit-trail entries. */
+export async function getTokenOwner(api: D2Api): Promise<StatusChangedBy> {
+    const { id, username } = await api.get<StatusChangedBy>("/me?fields=id,username").getData();
+    return { id, username };
 }

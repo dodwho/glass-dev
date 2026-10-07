@@ -20,13 +20,14 @@ import { SampleDatasetImportHelper } from "../domain/usecases/data-entry/amr/Sam
 import { Semaphore } from "../domain/usecases/data-entry/utils/Semaphore";
 import { GetSpecificDataSubmissionUseCase } from "../domain/usecases/GetSpecificDataSubmissionUseCase";
 import { SaveDataSubmissionsUseCase } from "../domain/usecases/SaveDataSubmissionsUseCase";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import { SetDataSubmissionStatusUseCase } from "../domain/usecases/SetDataSubmissionStatusUseCase";
 import { SetUploadStatusUseCase } from "../domain/usecases/SetUploadStatusUseCase";
 import { UpdateSampleUploadWithRisIdUseCase } from "../domain/usecases/UpdateSampleUploadWithRisIdUseCase";
 import { moduleProperties } from "../domain/utils/ModuleProperties";
 
 import { generateUid } from "../utils/uid";
-import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
+import { describeAuth, getEnvVars, getInstance, getTokenOwner, warmUpSession } from "./common";
 import { DataValuesDefaultImportRepository } from "../data/repositories/data-entry/DataValuesDefaultImportRepository";
 import { GlassUploadsProgramRepository } from "../data/repositories/GlassUploadsProgramRepository";
 import { getUploadsFormDataBuilder } from "../utils/getUploadsFormDataBuilder";
@@ -50,6 +51,7 @@ let dataValuesRepository: DataValuesDefaultImportRepository;
 let getSpecificDataSubmission: GetSpecificDataSubmissionUseCase;
 let saveDataSubmissions: SaveDataSubmissionsUseCase;
 let setSubmissionStatus: SetDataSubmissionStatusUseCase;
+let changedBy: StatusChangedBy;
 let glassDataSubmissionRepository: GlassDataSubmissionsDefaultRepository;
 let moduleRepository: GlassModuleRepository;
 let risDataSetImportHelper: RISDataSetImportHelper;
@@ -97,6 +99,7 @@ async function initializeGlobals() {
     const instance = getInstance(envVars);
     api = getD2APiFromInstance(instance);
     await warmUpSession(api);
+    changedBy = await getTokenOwner(api);
     const runtime: "node" | "browser" = typeof window === "undefined" ? "node" : "browser";
     const uploadsFormDataBuilder = getUploadsFormDataBuilder(runtime);
     glassUploadsRepository = new GlassUploadsProgramRepository(api, uploadsFormDataBuilder);
@@ -707,13 +710,15 @@ async function handlePostUploadBatchDatastoreUpdates(
                 updateSecondaryFileWithPrimaryId.execute(secondaryFileUploadId, primaryFileUploadId).toPromise()
             );
         }
-        await retryWithBackoff(() => setSubmissionStatus.execute(submissionId, "PENDING_APPROVAL").toPromise());
+        await retryWithBackoff(() =>
+            setSubmissionStatus.execute(submissionId, "PENDING_APPROVAL", changedBy).toPromise()
+        );
 
         /*promises = [
                 updateSecondaryFileWithPrimaryId.execute(secondaryFileUploadId, primaryFileUploadId).toPromise(),
                 //setUploadStatusUseCase.execute({ id: primaryFileUploadId, status: "COMPLETED" }).toPromise(),
                 //setUploadStatusUseCase.execute({ id: secondaryFileUploadId, status: "COMPLETED" }).toPromise(),
-                setSubmissionStatus.execute(submissionId, "PENDING_APPROVAL").toPromise()
+                setSubmissionStatus.execute(submissionId, "PENDING_APPROVAL", changedBy).toPromise()
             ];*/
 
         //await Promise.all(promises);

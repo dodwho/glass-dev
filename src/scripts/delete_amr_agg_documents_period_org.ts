@@ -1,6 +1,14 @@
 ﻿import { command, run, string, option } from "cmd-ts";
 import path from "path";
-import { describeAuth, getEnvVars, getInstance, warmUpSession } from "./common";
+import {
+    deletionReasonOption,
+    describeAuth,
+    getEnvVars,
+    getInstance,
+    getTokenOwner,
+    recordDeletionRequest,
+    warmUpSession,
+} from "./common";
 import dotenv from "dotenv";
 import { GlassDataSubmissionsDefaultRepository } from "../data/repositories/GlassDataSubmissionDefaultRepository";
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
@@ -9,6 +17,7 @@ import { MetadataDefaultRepository } from "../data/repositories/MetadataDefaultR
 import { GlassDocumentsDefaultRepository } from "../data/repositories/GlassDocumentsDefaultRepository";
 import { Instance } from "../data/entities/Instance";
 import { CodedRef } from "../domain/entities/Ref";
+import { StatusChangedBy } from "../domain/entities/GlassDataSubmission";
 import { SetDataSubmissionStatusUseCase } from "../domain/usecases/SetDataSubmissionStatusUseCase";
 import { DeleteDocumentInfoByUploadIdUseCase } from "../domain/usecases/DeleteDocumentInfoByUploadIdUseCase";
 import { GlassUploadsProgramRepository } from "../data/repositories/GlassUploadsProgramRepository";
@@ -22,6 +31,7 @@ let metadataRepository: MetadataDefaultRepository;
 let glassDocumentsRepository: GlassDocumentsDefaultRepository;
 let glassUploadsRepository: GlassUploadsProgramRepository;
 let setSubmissionStatus: SetDataSubmissionStatusUseCase;
+let changedBy: StatusChangedBy;
 const moduleName = "AMR";
 const moduleId = "AVnpk4xiXGG";
 let orgUnits: CodedRef[] = [];
@@ -36,6 +46,7 @@ async function initializeGlobals(envVars: any) {
     metadataRepository = new MetadataDefaultRepository(instance);
     const api = getD2APiFromInstance(instance);
     await warmUpSession(api);
+    changedBy = await getTokenOwner(api);
     const runtime: "node" | "browser" = typeof window === "undefined" ? "node" : "browser";
     const uploadsFormDataBuilder = getUploadsFormDataBuilder(runtime);
     glassUploadsRepository = new GlassUploadsProgramRepository(api, uploadsFormDataBuilder);
@@ -68,6 +79,7 @@ function main() {
         name: path.basename(__filename),
         description: "Show DHIS2 instance info",
         args: {
+            reason: deletionReasonOption,
             period: option({
                 type: string,
                 long: "period",
@@ -138,11 +150,16 @@ function main() {
                     .toPromise();
                 console.log(`uploads.length: ${uploads.length}`);
                 for (const upload of uploads) {
+                    await recordDeletionRequest(glassUploadsRepository, {
+                        uploadId: upload.id,
+                        tokenOwner: changedBy,
+                        reason: args.reason,
+                    });
                     await glassUploadsRepository.delete(upload.id).toPromise();
                     deleteDocumentInfoByUploadIdUseCase.execute(upload.id);
                 }
 
-                setSubmissionStatus.execute(dataSubmissionId.id, "NOT_COMPLETED").toPromise();
+                setSubmissionStatus.execute(dataSubmissionId.id, "NOT_COMPLETED", changedBy).toPromise();
             } catch (error) {
                 console.error(`Error thrown while trying to delete Document: ${error}`);
             }
