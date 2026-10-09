@@ -47,8 +47,10 @@ module.exports = {
         "react-hooks/exhaustive-deps": "warn",
         "array-callback-return": "off",
         "react/jsx-key": "warn",
+        // Clean architecture: the domain layer must not import the data layer, the webapp, the scripts or the
+        // composition root. An error, so a new leak fails lint; the two known exceptions are listed below.
         "import/no-restricted-paths": [
-            "warn",
+            "error",
             {
                 zones: [
                     { target: "./src/domain", from: "./src/data" },
@@ -66,9 +68,18 @@ module.exports = {
                 // The domain layer must not depend on DHIS2 libraries or on the d2-api wrapper.
                 // Plain string patterns: the build's ESLint (react-scripts 4) rejects the object form.
                 "no-restricted-imports": [
-                    "warn",
+                    "error",
                     { patterns: ["@eyeseetea/d2-api", "@eyeseetea/d2-api/*", "@dhis2/*", "d2", "**/types/d2-api"] },
                 ],
+            },
+        },
+        {
+            // Known exceptions, still reported as warnings until they are redesigned: the program-rule types come
+            // from d2-api, and the template download uses the data layer's spreadsheet builder.
+            files: ["src/domain/entities/program-rules/EventEffectTypes.ts", "src/domain/utils/DownloadTemplate.ts"],
+            rules: {
+                "import/no-restricted-paths": "warn",
+                "no-restricted-imports": "warn",
             },
         },
     ],
