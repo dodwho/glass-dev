@@ -26,7 +26,6 @@ export class DataValuesDefaultImportRepository implements DataValuesImportReposi
                     {
                         importStrategy: action,
                         dryRun: dryRun,
-                        preheatCache: !dryRun,
                     },
                     { dataValues }
                 )
