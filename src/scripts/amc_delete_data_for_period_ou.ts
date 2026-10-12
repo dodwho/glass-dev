@@ -279,7 +279,8 @@ function main() {
     });
 
     run(cmd, process.argv.slice(2)).catch(err => {
-        console.error("Fatal error:", err);
+        // Message only: a d2-api error object carries the request headers, including the access token.
+        console.error(`Fatal error: ${err}`);
         process.exit(1);
     });
 }

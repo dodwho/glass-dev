@@ -97,10 +97,8 @@ function main() {
                     tokenOwner: tokenOwner,
                     reason: args.reason,
                 });
-                await glassUploadsRepository.delete(uploadId).toPromise();
-                console.log("deleted the upload with uploadId: " + uploadId);
-                deleteDocumentInfoByUploadIdUseCase.execute(uploadId);
-                //console.log("deleted the file with fileId: " + fileId);//
+                await deleteDocumentInfoByUploadIdUseCase.execute(uploadId).toPromise();
+                console.log("deleted the upload and its documents, uploadId: " + uploadId);
             } catch (error) {
                 console.error(`Error thrown while trying to delete Document: ${error}`);
             }

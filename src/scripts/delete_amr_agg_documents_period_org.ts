@@ -155,11 +155,10 @@ function main() {
                         tokenOwner: changedBy,
                         reason: args.reason,
                     });
-                    await glassUploadsRepository.delete(upload.id).toPromise();
-                    deleteDocumentInfoByUploadIdUseCase.execute(upload.id);
+                    await deleteDocumentInfoByUploadIdUseCase.execute(upload.id).toPromise();
                 }
 
-                setSubmissionStatus.execute(dataSubmissionId.id, "NOT_COMPLETED", changedBy).toPromise();
+                await setSubmissionStatus.execute(dataSubmissionId.id, "NOT_COMPLETED", changedBy).toPromise();
             } catch (error) {
                 console.error(`Error thrown while trying to delete Document: ${error}`);
             }

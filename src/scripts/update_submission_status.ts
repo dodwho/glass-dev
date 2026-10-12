@@ -76,9 +76,9 @@ function main() {
             //1: Get the directory
 
             try {
-                setSubmissionStatus.execute("fHLfaB7MSst", "UPDATE_REQUEST_ACCEPTED", changedBy).toPromise();
+                await setSubmissionStatus.execute("fHLfaB7MSst", "UPDATE_REQUEST_ACCEPTED", changedBy).toPromise();
             } catch (error) {
-                console.error(`Error thrown while trying to delete Document: ${error}`);
+                console.error(`Error thrown while trying to update the submission status: ${error}`);
             }
         },
     });

@@ -403,7 +403,6 @@ function validateFile(file: File, dataRepository: any): Promise<FileData> {
                 console.error("An error occurred during validation:", {
                     errorMessage: error.message || error,
                     stack: error.stack,
-                    errorObject: error,
                 });
                 errorMessages.push(enhancedError.message);
                 reject(enhancedError);
@@ -749,11 +748,12 @@ async function retryWithBackoff<T>(
         try {
             return await operation();
         } catch (error: any) {
-            console.error(`Error in attempt ${attempt} of ${maxRetries}:`, error);
+            // Message only: a d2-api error object carries the request headers, including the access token.
+            console.error(`Error in attempt ${attempt} of ${maxRetries}: ${error}`);
 
             if (String(error).includes("Import Ignored")) {
                 console.warn("The server returned Import Ignored. No reason to retry.");
-                log(error, LogLevel.ERROR);
+                log(String(error), LogLevel.ERROR);
                 break;
             }
 
