@@ -30,7 +30,7 @@ export class DeleteAMCSubstanceLevelData {
     public delete(
         arrayBuffer: ArrayBuffer,
         upload: GlassUploads,
-        asyncDeleteChunkSize: Maybe<number>
+        asyncDeleteChunkSize: Maybe<number> // Unused since the 1.6.45 parallel deletes (cleanup list)
     ): FutureData<ImportSummary> {
         const deleteBLTemplateEventProgram = new DeleteBLTemplateEventProgram(
             this.options.excelRepository,

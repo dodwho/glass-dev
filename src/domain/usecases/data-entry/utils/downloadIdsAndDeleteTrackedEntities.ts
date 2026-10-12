@@ -1,6 +1,6 @@
 import { Future, FutureData } from "../../../entities/Future";
 import { ImportStrategy } from "../../../entities/data-entry/DataValuesSaveSummary";
-import { ImportSummary, joinAllImportSummaries } from "../../../entities/data-entry/ImportSummary";
+import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { TrackerRepository } from "../../../repositories/TrackerRepository";
@@ -11,7 +11,7 @@ import { GlassUploadsRepository } from "../../../repositories/GlassUploadsReposi
 import { GlassUploads } from "../../../entities/GlassUploads";
 import { TrackerTrackedEntity } from "../../../entities/TrackedEntityInstance";
 import { Maybe } from "../../../../utils/ts-utils";
-import { importOrDeleteTrackedEntitiesInChunks } from "./importOrDeleteTrackedEntitiesInChunks";
+import { deleteTrackedEntities, getDeleteImportSummary } from "./deleteTrackerData";
 import consoleLogger from "../../../../utils/consoleLogger";
 
 export const downloadIdsAndDeleteTrackedEntities = (
@@ -68,15 +68,15 @@ export const downloadIdsAndDeleteTrackedEntities = (
 
 export const downloadIdsAndDeleteTrackedEntitiesUsingFileBlob = (
     upload: GlassUploads,
-    glassModuleName: string,
+    _glassModuleName: string, // Unused since the 1.6.45 parallel deletes (cleanup list)
     programId: Id,
-    action: ImportStrategy,
+    _action: ImportStrategy, // Unused since the 1.6.45 parallel deletes (cleanup list)
     trackedEntityType: string,
-    asyncDeleteChunkSize: Maybe<number>,
+    _asyncDeleteChunkSize: Maybe<number>, // Unused since the 1.6.45 parallel deletes (cleanup list)
     repositories: {
         glassDocumentsRepository: GlassDocumentsRepository;
         trackerRepository: TrackerRepository;
-        metadataRepository: MetadataRepository;
+        metadataRepository: MetadataRepository; // Unused since the 1.6.45 parallel deletes (cleanup list)
         glassUploadsRepository: GlassUploadsRepository;
     }
 ): FutureData<ImportSummary> => {
@@ -114,55 +114,25 @@ export const downloadIdsAndDeleteTrackedEntitiesUsingFileBlob = (
                             });
                         }
 
-                        const trackedEntities = existingTrackedEntitiesIds.map(id => {
-                            const trackedEntity: TrackerTrackedEntity = {
-                                orgUnit: orgUnitId,
-                                trackedEntity: id,
-                                trackedEntityType: trackedEntityType,
-                                attributes: [],
-                                enrollments: [],
-                            };
-                            return trackedEntity;
-                        });
+                        return deleteTrackedEntities(
+                            existingTrackedEntitiesIds,
+                            { orgUnit: orgUnitId, trackedEntityType },
+                            ids => repositories.trackerRepository.getExistingTrackedEntitiesIdsByIds(ids, programId),
+                            repositories.trackerRepository
+                        ).flatMap(result => {
+                            const importSummary = getDeleteImportSummary(result);
+                            if (importSummary.status !== "SUCCESS") {
+                                consoleLogger.error(
+                                    `Errors occurred while deleting tracked entities for upload ${uploadId}`
+                                );
+                                return Future.success(importSummary);
+                            }
 
-                        if (!asyncDeleteChunkSize) {
-                            consoleLogger.debug(
-                                `Deleting all tracked entities in a single request for upload ${uploadId}`
-                            );
-                            return repositories.trackerRepository
-                                .import({ trackedEntities: trackedEntities }, { action: action, async: true })
-                                .flatMap(response => {
-                                    return mapToImportSummary(
-                                        response,
-                                        "trackedEntity",
-                                        repositories.metadataRepository
-                                    ).flatMap(({ importSummary }) => {
-                                        if (importSummary.status === "SUCCESS") {
-                                            consoleLogger.debug(
-                                                `Successfully deleted all tracked entities for upload ${uploadId}`
-                                            );
-                                            return repositories.glassUploadsRepository
-                                                .setEventListDataDeleted(uploadId)
-                                                .flatMap(() => {
-                                                    return Future.success(importSummary);
-                                                });
-                                        } else {
-                                            consoleLogger.error(
-                                                `Errors occurred while deleting tracked entities for upload ${uploadId}`
-                                            );
-                                            return Future.success(importSummary);
-                                        }
-                                    });
-                                });
-                        } else {
-                            return deleteTrackedEntitiesInChunks(
-                                uploadId,
-                                trackedEntities,
-                                glassModuleName,
-                                asyncDeleteChunkSize,
-                                repositories
-                            );
-                        }
+                            consoleLogger.debug(`Successfully deleted all tracked entities for upload ${uploadId}`);
+                            return repositories.glassUploadsRepository
+                                .setEventListDataDeleted(uploadId)
+                                .map(() => importSummary);
+                        });
                     });
             });
         });
@@ -186,36 +156,3 @@ export const downloadIdsAndDeleteTrackedEntitiesUsingFileBlob = (
         });
     }
 };
-
-function deleteTrackedEntitiesInChunks(
-    uploadId: Id,
-    trackedEntities: TrackerTrackedEntity[],
-    glassModuleName: string,
-    uploadChunkSize: number,
-    repositories: {
-        glassUploadsRepository: GlassUploadsRepository;
-        trackerRepository: TrackerRepository;
-        metadataRepository: MetadataRepository;
-    }
-): FutureData<ImportSummary> {
-    consoleLogger.debug(`Deleting tracked entities in chunks of ${uploadChunkSize} for upload ${uploadId}`);
-
-    return importOrDeleteTrackedEntitiesInChunks({
-        trackedEntities: trackedEntities,
-        chunkSize: uploadChunkSize,
-        glassModuleName: glassModuleName,
-        action: "DELETE",
-        trackerRepository: repositories.trackerRepository,
-        metadataRepository: repositories.metadataRepository,
-        async: true,
-    }).flatMap(({ allImportSummaries }) => {
-        const importSummary = joinAllImportSummaries(allImportSummaries);
-        if (importSummary.status === "SUCCESS") {
-            return repositories.glassUploadsRepository.setEventListDataDeleted(uploadId).flatMap(() => {
-                return Future.success(importSummary);
-            });
-        } else {
-            return Future.success(importSummary);
-        }
-    });
-}

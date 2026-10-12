@@ -18,6 +18,7 @@ import consoleLogger from "../../../../utils/consoleLogger";
 
 const TRACKED_ENTITY_IMPORT_SUMMARY_TYPE = "trackedEntity";
 
+/** @deprecated Unused since the 1.6.45 parallel deletes (cleanup list) */
 export function importOrDeleteTrackedEntitiesInChunks(params: {
     trackedEntities: TrackerTrackedEntity[];
     chunkSize?: number;

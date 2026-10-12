@@ -1,136 +1,71 @@
-import _ from "lodash";
-
 import { EventsRepository } from "../../repositories/EventsRepository";
-import {
-    getDefaultErrorImportSummary,
-    ImportSummary,
-    joinAllImportSummaries,
-} from "../../entities/data-entry/ImportSummary";
+import { ImportSummary, joinAllImportSummaries } from "../../entities/data-entry/ImportSummary";
 import { Future, FutureData } from "../../entities/Future";
 import { ExcelRepository } from "../../repositories/ExcelRepository";
 import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepository";
 import { MetadataRepository } from "../../repositories/MetadataRepository";
-import * as templates from "../../entities/data-entry/program-templates";
 import { InstanceRepository } from "../../repositories/InstanceRepository";
 import { getStringFromFileBlob } from "./utils/fileToString";
-import { mapToImportSummary, readTemplate } from "./ImportBLTemplateEventProgram";
 import { GlassUploads } from "../../entities/GlassUploads";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
 import { Id } from "../../entities/Ref";
 import { TrackerRepository } from "../../repositories/TrackerRepository";
-import { TrackerEvent } from "../../entities/TrackedEntityInstance";
 import { Maybe } from "../../../utils/ts-utils";
 import consoleLogger from "../../../utils/consoleLogger";
+import { deleteEvents, getDeleteImportSummary } from "./utils/deleteTrackerData";
 
 // NOTICE: code adapted for node environment from ImportBLTemplateEventProgram.ts (only DELETE)
 export class DeleteBLTemplateEventProgram {
     constructor(
+        // Unused since the 1.6.45 faster event deletes (cleanup list)
         private excelRepository: ExcelRepository,
+        // Unused since the 1.6.45 faster event deletes (cleanup list)
         private instanceRepository: InstanceRepository,
         private glassDocumentsRepository: GlassDocumentsRepository,
+        // Unused since the 1.6.45 parallel deletes (cleanup list)
         private dhis2EventsDefaultRepository: EventsRepository,
+        // Unused since the 1.6.45 parallel deletes (cleanup list)
         private metadataRepository: MetadataRepository,
         private glassUploadsRepository: GlassUploadsRepository,
         private trackerRepository: TrackerRepository
     ) {}
 
     public delete(params: {
+        /** Unused since the 1.6.45 faster event deletes (cleanup list) */
         arrayBuffer: ArrayBuffer;
         programId: string;
         upload: GlassUploads;
+        /** Unused since the 1.6.45 parallel deletes (cleanup list) */
         asyncDeleteChunkSize?: number;
         calculatedProgramId?: Id;
     }): FutureData<ImportSummary> {
-        const { arrayBuffer, programId, upload, asyncDeleteChunkSize, calculatedProgramId } = params;
-        return this.excelRepository.loadTemplateFromArrayBuffer(arrayBuffer, programId).flatMap(_templateId => {
-            const template = _.values(templates)
-                .map(TemplateClass => new TemplateClass())
-                .filter(t => t.id === "PROGRAM_GENERATED_v4")[0];
-            return this.instanceRepository.getProgram(programId).flatMap(program => {
-                if (template) {
-                    return readTemplate(
-                        template,
-                        program,
-                        this.excelRepository,
-                        this.instanceRepository,
-                        programId
-                    ).flatMap(dataPackage => {
-                        if (dataPackage) {
-                            return this.buildEventsPayload(upload, programId, calculatedProgramId).flatMap(
-                                ({ events, calculatedEvents }) => {
-                                    consoleLogger.debug(
-                                        `Deleting ${events.length} events for upload ${upload.id}${
-                                            calculatedProgramId
-                                                ? ` and ${calculatedEvents.length} calculated events`
-                                                : ""
-                                        }.`
-                                    );
-                                    return this.deleteAllDataEvents(upload.id, events, asyncDeleteChunkSize).flatMap(
-                                        importSummary => {
-                                            if (importSummary.status === "SUCCESS") {
-                                                consoleLogger.debug(
-                                                    `All events for upload ${upload.id} deleted successfully.`
-                                                );
-                                                return this.deleteAllCalculatedEvents(
-                                                    upload.id,
-                                                    calculatedEvents,
-                                                    asyncDeleteChunkSize
-                                                ).flatMap(importSummaryCalculatedEvents => {
-                                                    return Future.success({
-                                                        ...importSummaryCalculatedEvents,
-                                                        importCount: {
-                                                            imported:
-                                                                importSummary.importCount.imported +
-                                                                importSummaryCalculatedEvents.importCount.imported,
-                                                            updated:
-                                                                importSummary.importCount.updated +
-                                                                importSummaryCalculatedEvents.importCount.updated,
-                                                            ignored:
-                                                                importSummary.importCount.ignored +
-                                                                importSummaryCalculatedEvents.importCount.ignored,
-                                                            deleted:
-                                                                importSummary.importCount.deleted +
-                                                                importSummaryCalculatedEvents.importCount.deleted,
-                                                            total:
-                                                                importSummary.importCount.total +
-                                                                importSummaryCalculatedEvents.importCount.total,
-                                                        },
-                                                        nonBlockingErrors: [
-                                                            ...importSummary.nonBlockingErrors,
-                                                            ...importSummaryCalculatedEvents.nonBlockingErrors,
-                                                        ],
-                                                        blockingErrors: [
-                                                            ...importSummary.blockingErrors,
-                                                            ...importSummaryCalculatedEvents.blockingErrors,
-                                                        ],
-                                                    });
-                                                });
-                                            } else {
-                                                consoleLogger.error(
-                                                    `Some events for upload ${upload.id} could not be deleted.`
-                                                );
-                                                return Future.success(importSummary);
-                                            }
-                                        }
-                                    );
-                                }
-                            );
-                        } else {
-                            return Future.error("Unknown template");
-                        }
-                    });
-                } else {
-                    return Future.error("Unknown template");
-                }
-            });
-        });
+        const { programId, upload, calculatedProgramId } = params;
+
+        // The events to delete are the ids saved when the file was imported: the file itself is not read.
+        return this.buildEventsPayload(upload, programId, calculatedProgramId).flatMap(
+            ({ events, calculatedEvents }) => {
+                consoleLogger.debug(
+                    `Deleting ${events.length} events for upload ${upload.id}${
+                        calculatedProgramId ? ` and ${calculatedEvents.length} calculated events` : ""
+                    }.`
+                );
+                return this.deleteAllDataEvents(upload.id, events, programId).flatMap(importSummary => {
+                    if (importSummary.status !== "SUCCESS") {
+                        consoleLogger.error(`Some events for upload ${upload.id} could not be deleted.`);
+                        return Future.success(importSummary);
+                    }
+
+                    consoleLogger.debug(`All events for upload ${upload.id} deleted successfully.`);
+                    return this.deleteAllCalculatedEvents(upload.id, calculatedEvents, calculatedProgramId).map(
+                        importSummaryCalculatedEvents =>
+                            joinAllImportSummaries([importSummary, importSummaryCalculatedEvents])
+                    );
+                });
+            }
+        );
     }
 
-    private deleteAllDataEvents(
-        uploadId: Id,
-        events: TrackerEvent[],
-        asyncDeleteChunkSize: Maybe<number>
-    ): FutureData<ImportSummary> {
+    private deleteAllDataEvents(uploadId: Id, events: Id[], programId: Id): FutureData<ImportSummary> {
         if (!events.length) {
             const summary: ImportSummary = {
                 status: "SUCCESS",
@@ -149,7 +84,7 @@ export class DeleteBLTemplateEventProgram {
             });
         }
 
-        return this.deleteAllEvents(events, asyncDeleteChunkSize).flatMap(importSummary => {
+        return this.deleteAllEvents(events, programId).flatMap(importSummary => {
             if (importSummary.status === "SUCCESS") {
                 consoleLogger.debug(`All events to DELETE for upload ${uploadId} processed successfully.`);
                 return this.glassUploadsRepository.setEventListDataDeleted(uploadId).flatMap(() => {
@@ -164,10 +99,10 @@ export class DeleteBLTemplateEventProgram {
 
     private deleteAllCalculatedEvents(
         uploadId: Id,
-        calculatedEvents: TrackerEvent[],
-        asyncDeleteChunkSize: Maybe<number>
+        calculatedEvents: Id[],
+        calculatedProgramId: Maybe<Id>
     ): FutureData<ImportSummary> {
-        if (!calculatedEvents.length) {
+        if (!calculatedEvents.length || !calculatedProgramId) {
             const summary: ImportSummary = {
                 status: "SUCCESS",
                 importCount: {
@@ -185,7 +120,7 @@ export class DeleteBLTemplateEventProgram {
             });
         }
 
-        return this.deleteAllEvents(calculatedEvents, asyncDeleteChunkSize).flatMap(importSummary => {
+        return this.deleteAllEvents(calculatedEvents, calculatedProgramId).flatMap(importSummary => {
             if (importSummary.status === "SUCCESS") {
                 consoleLogger.debug(`All calculated events to DELETE for upload ${uploadId} processed successfully.`);
                 return this.glassUploadsRepository.setCalculatedEventListDataDeleted(uploadId).flatMap(() => {
@@ -198,63 +133,12 @@ export class DeleteBLTemplateEventProgram {
         });
     }
 
-    private deleteAllEvents(events: TrackerEvent[], asyncDeleteChunkSize: Maybe<number>): FutureData<ImportSummary> {
-        if (!asyncDeleteChunkSize) {
-            return this.deleteEventsInBulk(events);
-        } else {
-            return this.deleteEventsInChunks(events, asyncDeleteChunkSize);
-        }
-    }
-
-    private deleteEventsInBulk(events: TrackerEvent[]): FutureData<ImportSummary> {
-        return this.dhis2EventsDefaultRepository.import({ events }, "DELETE").flatMap(result => {
-            return mapToImportSummary(result, "event", this.metadataRepository).flatMap(({ importSummary }) => {
-                return Future.success(importSummary);
-            });
-        });
-    }
-
-    private deleteEventsInChunks(events: TrackerEvent[], asyncDeleteChunkSize: number): FutureData<ImportSummary> {
-        const chunkedEvents = _(events).chunk(asyncDeleteChunkSize).value();
-
-        const $deleteEvents = chunkedEvents.map((eventChunk, index) => {
-            consoleLogger.debug(`Chunk ${index + 1}/${chunkedEvents.length} of events to DELETE.`);
-
-            return this.deleteEventsInBulk(eventChunk)
-                .mapError(error => {
-                    consoleLogger.error(`Error deleting events: ${error}`);
-                    const errorImportSummary = getDefaultErrorImportSummary({
-                        blockingErrors: [{ error: error, count: 1 }],
-                    });
-
-                    return errorImportSummary;
-                })
-                .map(importSummary => {
-                    consoleLogger.debug(`Chunk ${index + 1}/${chunkedEvents.length} of events to DELETE processed.`);
-                    return importSummary;
-                });
-        });
-
-        return Future.sequentialWithAccumulation($deleteEvents, {
-            stopOnError: true,
-        })
-            .flatMap(result => {
-                if (result.type === "error") {
-                    const errorImportSummary = result.error;
-                    const messageErrors = errorImportSummary.blockingErrors.map(error => error.error).join(", ");
-
-                    consoleLogger.error(`Error deleting some events: ${messageErrors}`);
-
-                    const accumulatedImportSummaries = result.data;
-
-                    return Future.success(joinAllImportSummaries([...accumulatedImportSummaries, errorImportSummary]));
-                } else {
-                    consoleLogger.debug(`SUCCESS - All chunks of events to DELETE processed.`);
-                    const importSummary = joinAllImportSummaries(result.data);
-                    return Future.success(importSummary);
-                }
-            })
-            .mapError(() => `- Unknown error while deleting events in chunks.`);
+    private deleteAllEvents(eventIds: Id[], programId: Id): FutureData<ImportSummary> {
+        return deleteEvents(
+            eventIds,
+            ids => this.trackerRepository.getExistingEventsIdsByIds(ids, programId),
+            this.trackerRepository
+        ).map(getDeleteImportSummary);
     }
 
     private buildEventsPayload(
@@ -262,8 +146,8 @@ export class DeleteBLTemplateEventProgram {
         programId: Id,
         calculatedProgramId?: Id
     ): FutureData<{
-        events: TrackerEvent[];
-        calculatedEvents: TrackerEvent[];
+        events: Id[];
+        calculatedEvents: Id[];
     }> {
         const { eventListFileId, eventListDataDeleted, calculatedEventListFileId, calculatedEventListDataDeleted } =
             upload;
@@ -284,27 +168,11 @@ export class DeleteBLTemplateEventProgram {
         });
     }
 
-    private getEventsFromListFileId(listFileId: string, programId: Id): FutureData<TrackerEvent[]> {
+    private getEventsFromListFileId(listFileId: string, programId: Id): FutureData<Id[]> {
         return this.glassDocumentsRepository.download(listFileId).flatMap(eventListFileBlob => {
             return getStringFromFileBlob(eventListFileBlob).flatMap(_events => {
                 const eventIdList: Id[] = JSON.parse(_events);
-                return this.trackerRepository
-                    .getExistingEventsIdsByIds(eventIdList, programId)
-                    .flatMap(existingEventsIds => {
-                        const events: TrackerEvent[] = existingEventsIds.map(eventId => {
-                            return {
-                                event: eventId,
-                                program: "",
-                                programStage: "",
-                                status: "COMPLETED",
-                                orgUnit: "",
-                                occurredAt: "",
-                                attributeOptionCombo: "",
-                                dataValues: [],
-                            };
-                        });
-                        return Future.success(events);
-                    });
+                return this.trackerRepository.getExistingEventsIdsByIds(eventIdList, programId);
             });
         });
     }

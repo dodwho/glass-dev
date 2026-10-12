@@ -52,6 +52,9 @@ class FakeDhis2 implements Partial<TrackerRepository> {
     rejectImportCall?: number;
     failImportCall?: number;
     failDeletes = false;
+    /** A tracked entity DHIS2 commits only after the first lookup, as when an import request is still committing. */
+    lateTrackedEntity?: { id: Id; orgUnit: Id };
+    lookups = 0;
 
     import(req: TrackerPostRequest, options: { action: string }): FutureData<TrackerImportResult> {
         const entities = req.trackedEntities ?? [];
@@ -80,6 +83,9 @@ class FakeDhis2 implements Partial<TrackerRepository> {
     }
 
     getExistingTrackedEntities(ids: Id[]): FutureData<{ trackedEntity: Id; orgUnit: Id }[]> {
+        if (++this.lookups === 2 && this.lateTrackedEntity) {
+            this.trackedEntities.set(this.lateTrackedEntity.id, this.lateTrackedEntity.orgUnit);
+        }
         return Future.success(
             ids.flatMap(id => {
                 const orgUnit = this.trackedEntities.get(id);
@@ -295,6 +301,21 @@ describe("AsyncImportRISIndividualFungalFile", () => {
         expect(recovered).toEqual([]);
         expect(dhis2.trackedEntities.size).toBe(2);
         expect(progress.records.get(UPLOAD_ID)?.state).toBe("UNDO_REQUIRED");
+    });
+
+    it("keeps the record when a recorded tracked entity appears while the undo is deleting", async () => {
+        const { dhis2, progress, repositories } = setup([]);
+        dhis2.trackedEntities.set("mine0000001", ORG_UNIT);
+        dhis2.lateTrackedEntity = { id: "late0000001", orgUnit: ORG_UNIT };
+        progress.ids.set(`${UPLOAD_ID}-0`, ["mine0000001", "late0000001"]);
+        progress.records.set(UPLOAD_ID, record({ state: "UNDO_REQUIRED" }));
+
+        expect(await recoverInterruptedAsyncUploads(repositories).toPromise()).toEqual([]);
+        expect(progress.records.get(UPLOAD_ID)?.state).toBe("UNDO_REQUIRED");
+
+        expect(await recoverInterruptedAsyncUploads(repositories).toPromise()).toEqual([UPLOAD_ID]);
+        expect(dhis2.trackedEntities.size).toBe(0);
+        expect(progress.records.size).toBe(0);
     });
 
     it("undoes an import whose run stopped updating its record, but not one still running", async () => {

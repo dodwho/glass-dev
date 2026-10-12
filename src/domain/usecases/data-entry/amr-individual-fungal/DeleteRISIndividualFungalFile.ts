@@ -25,7 +25,7 @@ export class DeleteRISIndividualFungalFile {
         upload: GlassUploads,
         programId: Id | undefined,
         currentModuleName: string,
-        asyncDeleteChunkSize: Maybe<number>
+        asyncDeleteChunkSize: Maybe<number> // Unused since the 1.6.45 parallel deletes (cleanup list)
     ): FutureData<ImportSummary> {
         const AMRIProgramIDl = programId || AMRIProgramID;
         return downloadIdsAndDeleteTrackedEntitiesUsingFileBlob(

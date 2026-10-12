@@ -1,15 +1,16 @@
 import _ from "lodash";
 
-import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
+import { ImportSummary, joinAllImportSummaries } from "../../../entities/data-entry/ImportSummary";
 import { Future, FutureData } from "../../../entities/Future";
 import { ExcelRepository } from "../../../repositories/ExcelRepository";
 import * as templates from "../../../entities/data-entry/program-templates";
 import { TrackerRepository } from "../../../repositories/TrackerRepository";
 import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
-import { mapToImportSummary, readTemplate } from "../ImportBLTemplateEventProgram";
+import { readTemplate } from "../ImportBLTemplateEventProgram";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { AMCSubstanceDataRepository } from "../../../repositories/data-entry/AMCSubstanceDataRepository";
 import { downloadIdsAndDeleteTrackedEntitiesUsingFileBlob } from "../utils/downloadIdsAndDeleteTrackedEntities";
+import { deleteEvents, getDeleteImportSummary } from "../utils/deleteTrackerData";
 import { getStringFromFileBlob } from "../utils/fileToString";
 import { InstanceRepository } from "../../../repositories/InstanceRepository";
 import { AMC_PRODUCT_REGISTER_PROGRAM_ID, AMR_GLASS_AMC_TET_PRODUCT_REGISTER } from "./ImportAMCProductLevelData";
@@ -29,7 +30,7 @@ export class DeleteAMCProductLevelData {
             trackerRepository: TrackerRepository;
             glassDocumentsRepository: GlassDocumentsRepository;
             metadataRepository: MetadataRepository;
-            amcSubstanceDataRepository: AMCSubstanceDataRepository;
+            amcSubstanceDataRepository: AMCSubstanceDataRepository; // Unused since the 1.6.45 parallel deletes (cleanup list)
             glassUploadsRepository: GlassUploadsRepository;
         }
     ) {}
@@ -37,7 +38,7 @@ export class DeleteAMCProductLevelData {
     public delete(
         arrayBuffer: ArrayBuffer,
         upload: GlassUploads,
-        asyncDeleteChunkSize: Maybe<number>
+        asyncDeleteChunkSize: Maybe<number> // Unused since the 1.6.45 parallel deletes (cleanup list)
     ): FutureData<ImportSummary> {
         const { id: uploadId, calculatedEventListFileId, calculatedEventListDataDeleted } = upload;
         return this.options.excelRepository
@@ -84,8 +85,7 @@ export class DeleteAMCProductLevelData {
                                     return this.deleteCalculatedSubstanceConsumptionData(
                                         uploadId,
                                         deleteProductSummary,
-                                        calculatedEventListFileId,
-                                        asyncDeleteChunkSize
+                                        calculatedEventListFileId
                                     );
                                 } else {
                                     return Future.success(deleteProductSummary);
@@ -99,84 +99,30 @@ export class DeleteAMCProductLevelData {
     private deleteCalculatedSubstanceConsumptionData(
         uploadId: Id,
         deleteProductSummary: ImportSummary,
-        calculatedSubstanceConsumptionListFileId: string,
-        asyncDeleteChunkSize: Maybe<number>
+        calculatedSubstanceConsumptionListFileId: string
     ): FutureData<ImportSummary> {
+        const { trackerRepository, glassUploadsRepository } = this.options;
+        const getExistingIds = (ids: Id[]) =>
+            trackerRepository.getExistingEventsIdsByIds(ids, AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID);
+
         return this.options.glassDocumentsRepository
             .download(calculatedSubstanceConsumptionListFileId)
-            .flatMap(eventListFileBlob => {
-                return getStringFromFileBlob(eventListFileBlob).flatMap(_events => {
-                    const calculatedConsumptionIds: Id[] = JSON.parse(_events);
+            .flatMap(eventListFileBlob => getStringFromFileBlob(eventListFileBlob))
+            .flatMap(_events => getExistingIds(JSON.parse(_events)))
+            .flatMap(existingEventsIds => {
+                if (!existingEventsIds.length) {
+                    return glassUploadsRepository
+                        .setCalculatedEventListDataDeleted(uploadId)
+                        .map(() => deleteProductSummary);
+                }
 
-                    return this.options.trackerRepository
-                        .getExistingEventsIdsByIds(
-                            calculatedConsumptionIds,
-                            AMC_SUBSTANCE_CALCULATED_CONSUMPTION_PROGRAM_ID
-                        )
-                        .flatMap(existingEventsIds => {
-                            if (!existingEventsIds.length) {
-                                return this.options.glassUploadsRepository
-                                    .setCalculatedEventListDataDeleted(uploadId)
-                                    .flatMap(() => {
-                                        return Future.success(deleteProductSummary);
-                                    });
-                            }
+                return deleteEvents(existingEventsIds, getExistingIds, trackerRepository).flatMap(result => {
+                    const deleteCalculatedSummary = getDeleteImportSummary(result);
+                    const mergedSummary = joinAllImportSummaries([deleteProductSummary, deleteCalculatedSummary]);
 
-                            return this.options.amcSubstanceDataRepository
-                                .deleteCalculatedSubstanceConsumptionDataById(existingEventsIds, asyncDeleteChunkSize)
-                                .flatMap(deleteCalculatedSubstanceConsumptionResponse => {
-                                    return mapToImportSummary(
-                                        deleteCalculatedSubstanceConsumptionResponse,
-                                        "event",
-                                        this.options.metadataRepository
-                                    ).flatMap(deleteCalculatedSubstanceConsumptionSummary => {
-                                        const mergedSummary: ImportSummary = {
-                                            ...deleteCalculatedSubstanceConsumptionSummary.importSummary,
-                                            importCount: {
-                                                imported:
-                                                    deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                        .importCount.imported +
-                                                    deleteProductSummary.importCount.imported,
-                                                updated:
-                                                    deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                        .importCount.updated + deleteProductSummary.importCount.updated,
-                                                ignored:
-                                                    deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                        .importCount.ignored + deleteProductSummary.importCount.ignored,
-                                                deleted:
-                                                    deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                        .importCount.deleted + deleteProductSummary.importCount.deleted,
-                                                total:
-                                                    deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                        .importCount.total + deleteProductSummary.importCount.total,
-                                            },
-                                            nonBlockingErrors: [
-                                                ...deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                    .nonBlockingErrors,
-                                                ...deleteProductSummary.nonBlockingErrors,
-                                            ],
-                                            blockingErrors: [
-                                                ...deleteCalculatedSubstanceConsumptionSummary.importSummary
-                                                    .blockingErrors,
-                                                ...deleteProductSummary.blockingErrors,
-                                            ],
-                                        };
-
-                                        if (
-                                            deleteCalculatedSubstanceConsumptionSummary.importSummary.status ===
-                                            "SUCCESS"
-                                        ) {
-                                            return this.options.glassUploadsRepository
-                                                .setCalculatedEventListDataDeleted(uploadId)
-                                                .flatMap(() => {
-                                                    return Future.success(mergedSummary);
-                                                });
-                                        } else {
-                                            return Future.success(mergedSummary);
-                                        }
-                                    });
-                                });
-                        });
+                    return deleteCalculatedSummary.status === "SUCCESS"
+                        ? glassUploadsRepository.setCalculatedEventListDataDeleted(uploadId).map(() => mergedSummary)
+                        : Future.success(mergedSummary);
                 });
             });
     }
