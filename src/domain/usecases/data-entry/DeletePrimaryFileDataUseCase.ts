@@ -64,7 +64,7 @@ export class DeletePrimaryFileDataUseCase implements UseCase {
             }
 
             case "AMC": {
-                return new DeleteAMCProductLevelData(this.options).delete(arrayBuffer, upload, asyncDeleteChunkSize);
+                return new DeleteAMCProductLevelData(this.options).delete(upload, asyncDeleteChunkSize);
             }
 
             default: {
