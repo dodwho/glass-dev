@@ -319,6 +319,9 @@ function createReadableInput(fileOrBlob: Blob | File): File | NodeJS.ReadableStr
                 }
             },
         });
+        // Emit text decoded as one UTF-8 stream: papaparse would otherwise decode each 1 MB chunk on its own,
+        // garbling a multi-byte character (e.g. "µ") that falls across a chunk boundary.
+        readable.setEncoding("utf8");
         return readable;
     } else if (!(fileOrBlob instanceof global.File)) {
         throw new Error("In browser environment, input must be a File.");

@@ -1,5 +1,34 @@
-import { getDateValue, toNumberOrUndefined } from "../CSVUtils";
+import { Blob as NodeBlob } from "buffer";
+import { getDateValue, parseCsvBlobInChunks, toNumberOrUndefined } from "../CSVUtils";
 import { Row } from "../../../../domain/repositories/SpreadsheetXlsxRepository";
+
+describe("parseCsvBlobInChunks", () => {
+    it("keeps a multi-byte character intact across the 1 MB read boundary", async () => {
+        // Node reads the blob in 1 MB (1,048,576-byte) slices. With a 73-byte header and 100-byte rows
+        // ("µ" is two bytes in UTF-8, at offset 2 in each row), row 10485 starts at byte 1,048,573, so its
+        // "µ" is split across the first two slices.
+        const header = `DISKLOAD,FILL${"_".repeat(59)}\n`;
+        const line = `30µg,${"x".repeat(93)}\n`;
+        expect([Buffer.byteLength(header), Buffer.byteLength(line)]).toEqual([73, 100]);
+        const rowCount = 10_600;
+        // jest's jsdom Blob has no arrayBuffer(); Node's Blob does, like a browser File.
+        const blob = new NodeBlob([header + line.repeat(rowCount)]) as unknown as Blob;
+        const values: unknown[] = [];
+
+        await parseCsvBlobInChunks<Array<{ value: unknown }>>(
+            [{ key: "DISKLOAD", type: "string" }],
+            blob,
+            50_000,
+            async chunk => {
+                chunk.forEach(row => values.push(row[0]?.value));
+                return true;
+            }
+        );
+
+        expect(values).toHaveLength(rowCount);
+        expect(values.filter(value => value !== "30µg")).toEqual([]);
+    });
+});
 
 function row(value: unknown): Row<string> {
     return { SAMPLE_DATE: value } as unknown as Row<string>;
