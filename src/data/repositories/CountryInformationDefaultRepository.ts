@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { D2Api, MetadataPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, MetadataPick } from "@eyeseetea/d2-api/2.41";
 import {
     CountryInformation,
     ENROLMENT_MODULE_ATTRIBUTE_ID,

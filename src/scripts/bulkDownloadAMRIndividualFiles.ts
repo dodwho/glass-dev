@@ -36,7 +36,7 @@ Architecture ("event-page-first", chosen over a country/year attribute pre-pass)
      page. Peak memory is bounded to ~one page, not the dataset.
 */
 
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import dotenv from "dotenv";
 import _ from "lodash";
 import { writeFileSync, appendFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from "node:fs";

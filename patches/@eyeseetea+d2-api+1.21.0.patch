@@ -1,0 +1,13 @@
+diff --git a/node_modules/@eyeseetea/d2-api/data/FetchHttpClientRepository.js b/node_modules/@eyeseetea/d2-api/data/FetchHttpClientRepository.js
+index 467c9e6..a1b1a48 100644
+--- a/node_modules/@eyeseetea/d2-api/data/FetchHttpClientRepository.js
++++ b/node_modules/@eyeseetea/d2-api/data/FetchHttpClientRepository.js
+@@ -104,7 +104,7 @@ var FetchHttpClientRepository = /** @class */ (function () {
+             }); })
+                 .catch(function (error) {
+                 var msg = "[d2-api:request] " + method + " " + fullUrl;
+-                console.debug(msg + " \n" + JSON.stringify(error, null, 4));
++                console.debug(msg);
+                 if (error.request)
+                     throw error;
+                 throw new HttpClientRepository_1.HttpError(error.toString(), { request: options });

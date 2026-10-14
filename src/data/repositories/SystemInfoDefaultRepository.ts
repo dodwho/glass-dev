@@ -1,6 +1,6 @@
 import { Future, FutureData } from "../../domain/entities/Future";
 import { SystemInfoRepository } from "../../domain/repositories/SystemInfoRepository";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { apiToFuture } from "../../utils/futures";
 
 export class SystemInfoDefaultRepository implements SystemInfoRepository {

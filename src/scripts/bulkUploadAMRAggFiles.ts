@@ -1,4 +1,4 @@
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 import path from "path";

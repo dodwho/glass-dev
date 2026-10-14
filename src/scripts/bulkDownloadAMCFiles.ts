@@ -39,7 +39,7 @@ bulkDownloadAMRIndividualFiles.ts, which needs it for a far larger dataset.
 Run with:  yarn bulk-download-amc-files
 */
 
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import dotenv from "dotenv";
 import { appendFileSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";

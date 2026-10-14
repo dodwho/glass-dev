@@ -1,4 +1,4 @@
-import { D2Api, MetadataResponse } from "@eyeseetea/d2-api/2.34";
+import { D2Api, MetadataResponse } from "@eyeseetea/d2-api/2.41";
 import FormData from "form-data";
 import { Future, FutureData } from "../../domain/entities/Future";
 import { GlassDocuments } from "../../domain/entities/GlassDocuments";

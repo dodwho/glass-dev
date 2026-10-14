@@ -1,7 +1,7 @@
 import { boolean, command, flag, option, run } from "cmd-ts";
 import dotenv from "dotenv";
 import _ from "lodash";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { describeAuth, getEnvVars, getInstance, StringsSeparatedByCommas, warmUpSession } from "./common";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { Id } from "../domain/entities/Ref";

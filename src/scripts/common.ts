@@ -69,17 +69,8 @@ export function getInstance(args: D2ApiArgs): Instance {
 }
 
 function createD2ApiWithToken(baseUrl: string, token: string): D2Api {
-    // Dummy auth forces credentials:"omit"; ApiToken header overrides Basic auth (extraHeaders win in FetchHttpClientRepository)
-    const api = new D2Api({ baseUrl, auth: { username: "_", password: "_" } });
-    patchWithApiToken(api.baseConnection, token);
-    patchWithApiToken(api.apiConnection, token);
-    return api;
-}
-
-function patchWithApiToken(connection: any, token: string): void {
-    const original = connection.request.bind(connection);
-    connection.request = (options: any) =>
-        original({ ...options, headers: { ...options.headers, Authorization: `ApiToken ${token}` } });
+    // d2-api's token auth adds the header at send time, so the token is not kept in request options or error output
+    return new D2Api({ baseUrl, auth: { type: "personalToken", token } });
 }
 
 /**

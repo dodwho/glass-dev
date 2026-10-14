@@ -1,4 +1,4 @@
-import { D2Api, D2DataElementSchema, D2TrackedEntityType, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, D2DataElementSchema, D2TrackedEntityType, SelectedPick } from "@eyeseetea/d2-api/2.41";
 import { Id } from "../../../domain/entities/Ref";
 import { Instance } from "../../entities/Instance";
 import { getD2APiFromInstance } from "../../../utils/d2-api";
@@ -141,7 +141,7 @@ const EGASPProgramFields = {
         repeatable: true,
     },
     programTrackedEntityAttributes: { trackedEntityAttribute: { id: true, name: true } },
-    access: true,
+    access: { read: true, write: true },
     programType: true,
     trackedEntityType: { id: true, featureType: true },
 } as const;

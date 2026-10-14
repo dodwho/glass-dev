@@ -11,5 +11,6 @@ export type {
 } from "@eyeseetea/d2-api/api/trackerEvents";
 export type { AttributeToPost, D2TrackedEntityInstanceToPost } from "@eyeseetea/d2-api/api/trackerTrackedEntities";
 export type { D2TrackerEnrollmentToPost } from "@eyeseetea/d2-api/api/trackerEnrollments";
+export type { D2ApiOptions } from "@eyeseetea/d2-api/api/d2Api";
 
-export * from "@eyeseetea/d2-api/2.34";
+export * from "@eyeseetea/d2-api/2.41";

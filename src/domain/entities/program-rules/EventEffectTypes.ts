@@ -3,7 +3,7 @@ import {
     D2ProgramRuleVariable,
     D2TrackedEntityAttribute,
     MetadataPick,
-} from "@eyeseetea/d2-api/2.34";
+} from "@eyeseetea/d2-api/2.41";
 import { Id } from "../Ref";
 import { EventStatus } from "../EventStatus";
 import { ConsistencyError } from "../data-entry/ImportSummary";
@@ -73,16 +73,9 @@ export const metadataQuery = {
 
 type MetadataQuery = typeof metadataQuery;
 type BaseMetadata = MetadataPick<MetadataQuery>;
-type D2ProgramRuleVariableBase = BaseMetadata["programRuleVariables"][number];
 type D2DataElement = BaseMetadata["dataElements"][number];
 
-interface D2ProgramRuleVariableWithValueType extends D2ProgramRuleVariableBase {
-    // Present from2.38
-    valueType?: string;
-}
-
 export interface BulkLoadMetadata extends MetadataPick<MetadataQuery> {
-    programRuleVariables: D2ProgramRuleVariableWithValueType[];
     dataElementsById: Record<Id, D2DataElement>;
 }
 

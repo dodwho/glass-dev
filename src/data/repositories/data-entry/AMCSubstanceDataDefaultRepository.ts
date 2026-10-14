@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { D2Api, D2Program, D2ProgramStageDataElement, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, D2Program, D2ProgramStageDataElement, SelectedPick } from "@eyeseetea/d2-api/2.41";
 import { Future, FutureData } from "../../../domain/entities/Future";
 import { Id, generateId } from "../../../domain/entities/Ref";
 import { AMCSubstanceDataRepository } from "../../../domain/repositories/data-entry/AMCSubstanceDataRepository";

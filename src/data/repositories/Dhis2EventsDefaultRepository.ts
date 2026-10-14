@@ -4,7 +4,7 @@ import { Future, FutureData } from "../../domain/entities/Future";
 import { EGASP_PROGRAM_ID } from "./program-rule/ProgramRulesMetadataDefaultRepository";
 import { D2TrackerEventSchema, TrackerEventsResponse } from "@eyeseetea/d2-api/api/trackerEvents";
 import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
-import { D2Api, Id, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, Id, SelectedPick } from "@eyeseetea/d2-api/2.41";
 import { apiToFuture } from "../../utils/futures";
 import { AMCDataQuestionnaire } from "../../domain/entities/Questionnaire";
 import { AMR_GLASS_AMC_DET_DS_PERIOD } from "../../domain/usecases/data-entry/amc/ImportAMCQuestionnaireData";

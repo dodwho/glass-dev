@@ -2,7 +2,7 @@ import { apiToFuture } from "../../../utils/futures";
 import { CancelableResponse } from "@eyeseetea/d2-api/repositories/CancelableResponse";
 import { TrackerPostRequest as D2TrackerPostRequest, TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
 import { ImportStrategy } from "../../../domain/entities/data-entry/DataValuesSaveSummary";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { trackerPostResponseDefaultError } from "./TrackerPostResponseDefaultError";
 import { FutureData } from "../../../domain/entities/Future";
 import {

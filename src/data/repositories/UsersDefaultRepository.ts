@@ -1,4 +1,4 @@
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { Future, FutureData } from "../../domain/entities/Future";
 import { UsersRepository } from "../../domain/repositories/UsersRepository";
 import { apiToFuture } from "../../utils/futures";
@@ -49,7 +49,8 @@ export class UsersDefaultRepository implements UsersRepository {
                 },
             })
         ).flatMap(currentUser => {
-            currentUser.userCredentials.password = password;
+            // The 2.41 schema selects no typed fields for userCredentials with $owner; DHIS2 still accepts the password there.
+            (currentUser.userCredentials as { password?: string }).password = password;
             return apiToFuture(
                 this.api.metadata.post({
                     users: [currentUser],

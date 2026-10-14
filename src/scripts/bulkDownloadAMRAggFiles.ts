@@ -49,7 +49,8 @@ A unit is only written once it has been parsed in full, so a failed unit is retr
 of duplicated or half-written rows.
 */
 
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
+import fetch from "cross-fetch";
 import dotenv from "dotenv";
 import _ from "lodash";
 import Papa from "papaparse";
@@ -710,12 +711,10 @@ type Dhis2DataValueRecord = Partial<Record<typeof DHIS2_CSV_COLUMNS[number], str
 /**
  * Adapts a fetch response body to a Node stream for papaparse, backpressure intact.
  *
- * Which shape arrives depends on where `fetch` comes from, and this repo currently gets BOTH cases
- * wrong if you assume one: on Node 16 there is no global fetch, and d2-api installs
- * `cross-fetch/polyfill` (node-fetch) as a side effect of being imported — its body is already a Node
- * Readable. Node 18+ would instead supply undici, whose body is a web ReadableStream with `getReader`.
- * Both are handled so a Node upgrade does not silently break this script (and so it does not depend on
- * d2-api's polyfill happening to have been loaded first in some other runtime).
+ * `fetch` is imported from cross-fetch (node-fetch on Node), whose body is already a Node Readable. Node 16
+ * has no global fetch, and d2-api stopped installing a global polyfill in 1.20. The web ReadableStream
+ * branch (undici's `getReader`) is kept so the script still works if it is ever switched to Node's
+ * built-in fetch.
  *
  * The web-stream branch is written against the reader protocol rather than `Readable.fromWeb`, which
  * this project's @types/node does not declare, and pulls one chunk per `read()` so the response is

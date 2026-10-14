@@ -69,4 +69,7 @@ export type DataElementType =
     | "AGE"
     | "URL"
     | "FILE_RESOURCE"
-    | "IMAGE";
+    | "IMAGE"
+    | "GEOJSON"
+    | "MULTI_TEXT"
+    | "REFERENCE";

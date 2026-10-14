@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { D2Api, D2Program, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, D2Program, SelectedPick } from "@eyeseetea/d2-api/2.41";
 import {
     BuilderMetadata,
     DownloadTemplateRepository,
@@ -559,7 +559,7 @@ export async function getRelationshipMetadata(
 ): Promise<RelationshipMetadata> {
     const {
         trackedEntityTypes,
-        relationshipTypes: allRelationshipTypes,
+        relationshipTypes: relationshipTypesResponse,
         programs,
     } = await api.metadata
         .get({
@@ -575,6 +575,11 @@ export async function getRelationshipMetadata(
             programs: { fields: { id: true, name: true, programStages: { id: true, name: true } } },
         })
         .getData();
+
+    // The 2.41 schema types an embedded object selected with `true` as a bare Ref; DHIS2 returns the whole constraint.
+    const allRelationshipTypes = relationshipTypesResponse as unknown as Array<
+        NamedRef & { fromConstraint: D2RelationshipConstraint; toConstraint: D2RelationshipConstraint }
+    >;
 
     const relationshipTypesWithTeis = await promiseMap(allRelationshipTypes, async relType => {
         const isProgramAssociatedWithSomeConstraint =

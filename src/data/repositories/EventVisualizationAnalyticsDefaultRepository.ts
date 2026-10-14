@@ -1,7 +1,7 @@
 import _ from "lodash";
 
 import { FutureData, Future } from "../../domain/entities/Future";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { apiToFuture } from "../../utils/futures";
 import { EventVisualizationAnalyticsRepository } from "../../domain/repositories/EventVisualizationAnalyticsRepository";
 import { Id, Ref } from "../../domain/entities/Ref";

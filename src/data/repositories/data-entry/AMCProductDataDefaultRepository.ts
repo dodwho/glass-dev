@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { D2Api, MetadataPick, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, MetadataPick, SelectedPick } from "@eyeseetea/d2-api/2.41";
 import { Future, FutureData } from "../../../domain/entities/Future";
 import { SpreadsheetXlsxDataSource } from "../SpreadsheetXlsxDefaultRepository";
 import { Spreadsheet, Row } from "../../../domain/repositories/SpreadsheetXlsxRepository";

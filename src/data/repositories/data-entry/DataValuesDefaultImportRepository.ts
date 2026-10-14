@@ -3,7 +3,7 @@
 import { apiToFuture } from "../../../utils/futures";
 import { DataValue } from "../../../domain/entities/data-entry/DataValue";
 import { DataValuesSaveSummary, ImportStrategy } from "../../../domain/entities/data-entry/DataValuesSaveSummary";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { DataValuesImportRepository } from "../../../domain/repositories/data-entry/DataValuesImportRepository";
 
 export class DataValuesDefaultImportRepository implements DataValuesImportRepository {

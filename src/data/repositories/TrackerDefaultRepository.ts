@@ -2,7 +2,7 @@ import _ from "lodash";
 import { getD2APiFromInstance } from "../../utils/d2-api";
 import { Instance } from "../entities/Instance";
 import { Future, FutureData } from "../../domain/entities/Future";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { TrackerRepository } from "../../domain/repositories/TrackerRepository";
 import { ImportStrategy } from "../../domain/entities/data-entry/DataValuesSaveSummary";
 import { apiToFuture } from "../../utils/futures";

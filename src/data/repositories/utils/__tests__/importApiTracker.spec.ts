@@ -1,6 +1,6 @@
 import { CancelableResponse } from "@eyeseetea/d2-api/repositories/CancelableResponse";
 import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
-import { D2Api } from "@eyeseetea/d2-api/2.34";
+import { D2Api } from "@eyeseetea/d2-api/2.41";
 import { importApiTracker } from "../importApiTracker";
 
 const errorReport = {

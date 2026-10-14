@@ -1,4 +1,4 @@
-import { D2Api, MetadataPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, MetadataPick } from "@eyeseetea/d2-api/2.41";
 import { Future, FutureData } from "../../domain/entities/Future";
 import { Notification } from "../../domain/entities/Notifications";
 import { Id, Ref } from "../../domain/entities/Ref";

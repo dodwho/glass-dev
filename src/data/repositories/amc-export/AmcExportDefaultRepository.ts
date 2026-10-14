@@ -36,7 +36,7 @@ FETCH SHAPE — and why each choice is what it is
   potentially the largest part of the response, and no exported column uses it.
 */
 
-import { D2Api, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, SelectedPick } from "@eyeseetea/d2-api/2.41";
 import { D2TrackerEventSchema } from "@eyeseetea/d2-api/api/trackerEvents";
 import { D2TrackerTrackedEntitySchema } from "@eyeseetea/d2-api/api/trackerTrackedEntities";
 import moment from "moment";

@@ -1,4 +1,4 @@
-import { D2Api, D2DataElementSchema, D2TrackedEntityType, SelectedPick } from "@eyeseetea/d2-api/2.34";
+import { D2Api, D2DataElementSchema, D2TrackedEntityType, SelectedPick } from "@eyeseetea/d2-api/2.41";
 
 import _ from "lodash";
 import { DataElement, DataForm } from "../../domain/entities/DataForm";
@@ -347,10 +347,8 @@ export class InstanceDefaultRepository implements InstanceRepository {
                 attributeValues,
                 name: displayName ?? name,
                 periodType: "Daily",
-                //@ts-ignore https://github.com/EyeSeeTea/d2-api/issues/43
-                readAccess: access.data?.read,
-                //@ts-ignore https://github.com/EyeSeeTea/d2-api/issues/43
-                writeAccess: access.data?.write,
+                readAccess: access.data.read,
+                writeAccess: access.data.write,
                 dataElements: programStages.flatMap(({ programStageDataElements }) =>
                     programStageDataElements.map(({ dataElement }) => formatDataElement(dataElement))
                 ),
@@ -472,7 +470,7 @@ const programFields = {
         repeatable: true,
     },
     programTrackedEntityAttributes: { trackedEntityAttribute: { id: true, name: true, valueType: true } },
-    access: true,
+    access: { read: true, write: true, data: { read: true, write: true } },
     programType: true,
     trackedEntityType: { id: true, featureType: true },
 } as const;
