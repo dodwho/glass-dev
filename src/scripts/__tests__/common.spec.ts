@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { getEnvVars, getTokenMismatchWarning } from "../common";
 
 const tokenVars = [
@@ -19,12 +20,12 @@ describe("getEnvVars", () => {
 
     beforeEach(() => {
         tokenVars.forEach(name => delete process.env[name]);
-        jest.spyOn(console, "warn").mockImplementation(() => undefined);
+        vi.spyOn(console, "warn").mockImplementation(() => undefined);
     });
 
     afterEach(() => {
         process.env = { ...saved };
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
     });
 
     it("keeps the original order: prod, preprod, training, then the generic token", () => {

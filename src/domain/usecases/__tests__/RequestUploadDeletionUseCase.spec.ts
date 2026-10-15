@@ -1,10 +1,11 @@
+import { vi } from "vitest";
 import { Future } from "../../entities/Future";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
 import { RequestUploadDeletionUseCase } from "../RequestUploadDeletionUseCase";
 
 describe("RequestUploadDeletionUseCase", () => {
     function buildRepository() {
-        const requestDeletion = jest.fn(() => Future.success(undefined));
+        const requestDeletion = vi.fn(() => Future.success(undefined));
         const repository = { requestDeletion } as unknown as GlassUploadsRepository;
         return { repository, requestDeletion };
     }

@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, Plugin } from "vite";
 import checker from "vite-plugin-checker";
@@ -12,7 +13,11 @@ export default defineConfig(({ mode }) => {
     return {
         // DHIS2 serves the app from /api/apps/glass/, so every asset path must be relative.
         base: "",
-        plugins: [react(), nodePolyfills(), checker({ typescript: true }), dhis2Proxy(), devOnlyHtml()],
+        // Unit tests run in Node with its real modules: the browser polyfills and the dev tools are not for them.
+        plugins:
+            mode === "test"
+                ? [react()]
+                : [react(), nodePolyfills(), checker({ typescript: true }), dhis2Proxy(), devOnlyHtml()],
         resolve: {
             // PapaParse's browser entry is its pre-minified file. Vite's minifier renames the variables in it in a
             // way that breaks the Web Worker PapaParse builds from its own source: every parsed CSV row comes back
@@ -21,6 +26,11 @@ export default defineConfig(({ mode }) => {
         },
         build: { outDir: "build" },
         server: { port: Number(process.env.PORT) || 3000 },
+        test: {
+            environment: "jsdom",
+            include: ["src/**/*.{spec,test}.{ts,tsx}"],
+            globals: true,
+        },
     };
 });
 

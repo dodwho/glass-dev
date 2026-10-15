@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { TrackerImportResult } from "../../../../entities/data-entry/TrackerImportResult";
 import { AsyncUploadProgress, ASYNC_UPLOAD_STALE_AFTER_MS } from "../../../../entities/AsyncUploadProgress";
 import { CustomDataColumns } from "../../../../entities/data-entry/amr-individual-fungal-external/RISIndividualFungalData";
@@ -209,11 +210,11 @@ const sixRows = [1, 2, 3, 4, 5, 6].map(index => row(index));
 
 describe("AsyncImportRISIndividualFungalFile", () => {
     beforeEach(() => {
-        jest.spyOn(console, "error").mockImplementation(() => {});
-        jest.spyOn(console, "debug").mockImplementation(() => {});
-        jest.spyOn(console, "log").mockImplementation(() => {});
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.spyOn(console, "debug").mockImplementation(() => {});
+        vi.spyOn(console, "log").mockImplementation(() => {});
     });
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     it("imports a valid file and keeps a COMPLETED record until the final status is saved", async () => {
         const { dhis2, progress, saved, run } = setup(sixRows);

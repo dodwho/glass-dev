@@ -1,21 +1,22 @@
+import { vi, type Mock } from "vitest";
 import { initLogger } from "@eyeseetea/d2-logger";
 import { Instance } from "../../data/entities/Instance";
 import { logger, setupLogger } from "../logger";
 
-jest.mock("@eyeseetea/d2-logger", () => ({ initLogger: jest.fn() }));
+vi.mock("@eyeseetea/d2-logger", () => ({ initLogger: vi.fn() }));
 
-const mockedInitLogger = initLogger as jest.Mock;
+const mockedInitLogger = initLogger as Mock;
 
 describe("setupLogger", () => {
     afterEach(() => {
-        jest.restoreAllMocks();
+        vi.restoreAllMocks();
         mockedInitLogger.mockReset();
     });
 
     it("reports a failed write to the logs program instead of rejecting", async () => {
         const failingWrite = () => Promise.reject(new Error("409 Conflict"));
         mockedInitLogger.mockResolvedValue({ info: failingWrite, error: failingWrite, batchLog: failingWrite });
-        const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+        const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
         await setupLogger(new Instance({ url: "https://dhis2.test", username: "user", password: "pass" }));
 

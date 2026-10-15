@@ -1,3 +1,4 @@
+import { vi, type Mock } from "vitest";
 import { D2Api } from "../../../types/d2-api";
 import { GlassUploads } from "../../../domain/entities/GlassUploads";
 import { GlassUploadsProgramRepository, uploadsDHIS2Ids } from "../GlassUploadsProgramRepository";
@@ -29,8 +30,8 @@ function buildEvent(overrides: { event?: string; deleted?: boolean; dataValues?:
 }
 
 function buildRepository(events: ReturnType<typeof buildEvent>[]) {
-    const post = jest.fn((_params: unknown, _body: { events: PostedEvent[] }) => response({ status: "OK" }));
-    const get = jest.fn((_params: Record<string, unknown>) => response({ instances: events, page: 1, pageCount: 1 }));
+    const post = vi.fn((_params: unknown, _body: { events: PostedEvent[] }) => response({ status: "OK" }));
+    const get = vi.fn((_params: Record<string, unknown>) => response({ instances: events, page: 1, pageCount: 1 }));
     const api = {
         tracker: {
             events: { getById: (id: string) => response(events.find(event => event.event === id)), get },
@@ -41,7 +42,7 @@ function buildRepository(events: ReturnType<typeof buildEvent>[]) {
     return { repository: new GlassUploadsProgramRepository(api, {} as UploadsFormDataBuilder), post, get };
 }
 
-function postedValues(post: jest.Mock): Record<string, string | null> {
+function postedValues(post: Mock): Record<string, string | null> {
     const [, body] = post.mock.calls[0] as [unknown, { events: PostedEvent[] }];
     const event = body.events[0];
     return Object.fromEntries((event?.dataValues ?? []).map(dv => [dv.dataElement, dv.value]));

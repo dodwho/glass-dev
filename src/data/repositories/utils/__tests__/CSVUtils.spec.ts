@@ -1,4 +1,4 @@
-import { Blob as NodeBlob } from "buffer";
+import { Blob as NodeBlob } from "node:buffer";
 import { getDateValue, parseCsvBlobInChunks, toNumberOrUndefined } from "../CSVUtils";
 import { Row } from "../../../../domain/repositories/SpreadsheetXlsxRepository";
 
@@ -11,7 +11,7 @@ describe("parseCsvBlobInChunks", () => {
         const line = `30µg,${"x".repeat(93)}\n`;
         expect([Buffer.byteLength(header), Buffer.byteLength(line)]).toEqual([73, 100]);
         const rowCount = 10_600;
-        // jest's jsdom Blob has no arrayBuffer(); Node's Blob does, like a browser File.
+        // The jsdom Blob has no arrayBuffer(); Node's Blob does, like a browser File.
         const blob = new NodeBlob([header + line.repeat(rowCount)]) as unknown as Blob;
         const values: unknown[] = [];
 

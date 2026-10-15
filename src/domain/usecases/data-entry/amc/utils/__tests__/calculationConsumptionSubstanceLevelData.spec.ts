@@ -1,4 +1,3 @@
-/// <reference types="jest" />
 import { RawSubstanceConsumptionData } from "../../../../../entities/data-entry/amc/RawSubstanceConsumptionData";
 import { calculateConsumptionSubstanceLevelData } from "../calculationConsumptionSubstanceLevelData";
 import rawSubstanceConsumptionDataBasic from "./data/rawSubstanceConsumptionDataBasic.json";

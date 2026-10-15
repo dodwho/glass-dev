@@ -1,11 +1,11 @@
-import { TextDecoder } from "util";
+import { TextDecoder } from "node:util";
 import * as XLSX from "xlsx";
 import { SpreadsheetXlsxDataSource } from "../SpreadsheetXlsxDefaultRepository";
 
-// jest's jsdom environment has no TextDecoder; browsers and Node do.
+// The jsdom environment has no TextDecoder; browsers and Node do.
 Object.assign(global, { TextDecoder });
 
-// XLSX.read auto-detects a Node Buffer reliably under jest's jsdom env, whereas a bare ArrayBuffer
+// XLSX.read auto-detects a Node Buffer reliably under the jsdom env, whereas a bare ArrayBuffer
 // is not picked up there (a SheetJS environment-detection quirk; the real browser app passes a
 // File.arrayBuffer() that works fine). readFromArrayBuffer forwards its argument straight to
 // XLSX.read, so handing it a Buffer exercises the same code path.

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { CancelableResponse } from "@eyeseetea/d2-api/repositories/CancelableResponse";
 import { TrackerPostResponse } from "@eyeseetea/d2-api/api/tracker";
 import { D2Api } from "@eyeseetea/d2-api/2.41";
@@ -54,11 +55,11 @@ function runImport(api: D2Api, retryTransientErrors = false) {
 
 describe("importApiTracker (synchronous)", () => {
     beforeEach(() => {
-        jest.spyOn(console, "error").mockImplementation(() => {});
-        jest.spyOn(console, "log").mockImplementation(() => {});
-        jest.spyOn(Math, "random").mockReturnValue(0); // no backoff wait between retries
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.spyOn(console, "log").mockImplementation(() => {});
+        vi.spyOn(Math, "random").mockReturnValue(0); // no backoff wait between retries
     });
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     it("returns the import report when DHIS2 answers 409 with it", async () => {
         const api = apiRespondingWith(() => Promise.reject(httpError(409, errorReport)));

@@ -20,19 +20,17 @@ Now in your browser, go to `http://localhost:8081`.
 
 Notes:
 
--   Requests to DHIS2 will be transparently proxied (see `src/setupProxy.js`) from `http://localhost:8081/dhis2/path` to `http://localhost:8080/path` to avoid CORS and cross-domain problems.
+-   Requests to DHIS2 will be transparently proxied (see `config/dhis2-proxy.js`, plugged into `vite.config.ts`) from `http://localhost:8081/dhis2/path` to `http://localhost:8080/path` to avoid CORS and cross-domain problems.
 
--   The optional environment variable `DHIS2_AUTH=USERNAME:PASSWORD` (or a token in `DHIS2_TOKEN`) forces some credentials to be used by the proxy. This variable is usually not set, so the app has the same user logged in at `REACT_APP_DHIS2_BASE_URL`. Secrets must not start with `REACT_APP_`, because Create React App copies every `REACT_APP_*` variable into the built app, where anyone can read it. The old `REACT_APP_DHIS2_AUTH` / `REACT_APP_DHIS2_TOKEN*` names are deprecated: they are still read, with a warning, so rename them in your `.env.local` (git-ignored; `.env` is tracked, never put secrets in it).
+-   The optional environment variable `DHIS2_AUTH=USERNAME:PASSWORD` (or a token in `DHIS2_TOKEN`) forces some credentials to be used by the proxy. This variable is usually not set, so the app has the same user logged in at `REACT_APP_DHIS2_BASE_URL`. Secrets must not start with `REACT_APP_`, because the old Create React App build copied every `REACT_APP_*` variable into the built app, where anyone can read it (Vite only copies `VITE_*` variables, and the app uses none). The old `REACT_APP_DHIS2_AUTH` / `REACT_APP_DHIS2_TOKEN*` names are deprecated: they are still read, with a warning, so rename them in your `.env.local` (git-ignored; `.env` is tracked, never put secrets in it).
 
 -   The optional environment variable `REACT_APP_PROXY_LOG_LEVEL` can be helpful to debug the proxyfied requests (accepts: "warn" | "debug" | "info" | "error" | "silent")
 
 -   Create a file `.env.local` (copy it from `.env`) to customize environment variables so you can simply run `yarn start`.
 
--   [why-did-you-render](https://github.com/welldone-software/why-did-you-render) is installed, but it does not work when using standard react scripts (`yarn start`). Instead, use `yarn start-profiling` to debug re-renders with WDYR. Note that hot reloading does not work out-of-the-box with [craco](https://github.com/gsoft-inc/craco).
-
 ## Tests
 
-### Unit tests
+### Unit tests (Vitest)
 
 ```
 $ yarn test
@@ -53,21 +51,6 @@ $ yarn e2e:dev    # also uploads, imports and deletes test files in every module
 -   **Accuracy.** After each import, what DHIS2 stores is compared with the file, value by value, and with a golden file in `e2e/golden` that records what a trusted build wrote. Only rewrite golden files (`E2E_UPDATE_GOLDEN=1 yarn e2e:dev`) on a build whose output has been checked.
 -   Failed tests keep a trace (`npx playwright show-trace <zip>`) and the HTML report is in `e2e/.report`. Traces include a DHIS2 session cookie for the test user: keep them within the team.
 
-### Integration tests (Cypress)
-
-Create the required users for testing (`cypress/support/App.ts`) in your instance and run:
-
-```
-$ export CYPRESS_EXTERNAL_API="http://localhost:8080"
-$ export CYPRESS_ROOT_URL=http://localhost:8081
-
-# non-interactive
-$ yarn cy:e2e:run
-
-# interactive UI
-$ yarn cy:e2e:open
-```
-
 ## Build app ZIP
 
 ```
@@ -76,7 +59,7 @@ $ yarn build
 
 ## AMC data consumption recalculations
 
-The app provides a server-side AMC recalculations script that runs in the background. The script requires the Node version in `.nvmrc` (v16).
+The app provides a server-side AMC recalculations script that runs in the background. The script requires the Node version in `.nvmrc` (v24).
 
 1. Build and generates glass-dev-amc-recalculate-server.zip file:
 
@@ -230,7 +213,7 @@ $ yarn amr-agg-data-reset-ris --orgUnit ORG_UNIT_ID --period 2023 --batchId BATC
 -   `src/types`: `.d.ts` file types for modules without TS definitions.
 -   `src/utils`: Misc utilities.
 -   `src/locales`: Auto-generated, do not update or add to the version control.
--   `cypress/integration/`: Cypress integration tests.
+-   `e2e/`: Playwright browser tests.
 
 ### i18n
 

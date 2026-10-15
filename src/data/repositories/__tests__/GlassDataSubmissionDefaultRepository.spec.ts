@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { Future } from "../../../domain/entities/Future";
 import { GlassDataSubmission } from "../../../domain/entities/GlassDataSubmission";
 import { DataStoreClient } from "../../data-store/DataStoreClient";
@@ -11,7 +12,7 @@ describe("GlassDataSubmissionsDefaultRepository.setStatus", () => {
     }
 
     it("stores who changed the status in the status history", async () => {
-        const saveObject = jest.fn(() => Future.success(undefined));
+        const saveObject = vi.fn(() => Future.success(undefined));
         const dataStoreClient = {
             listCollection: () => Future.success([buildSubmission()]),
             saveObject,
