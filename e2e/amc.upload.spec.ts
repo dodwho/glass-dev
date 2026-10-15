@@ -7,10 +7,16 @@ import { expectGolden } from "./support/golden";
 
 // AMC takes one file per submission, product or substance level; consumption is calculated on import.
 
-/** The summary shows before the consumption calculation has finished; it ends by linking its events to the upload. */
+/**
+ * The summary shows before the consumption calculation has finished. It ends by linking its events to the upload,
+ * and the app marks the upload VALIDATED just after that: the golden files hold the finished state.
+ */
 async function waitForCalculation() {
-    const calculatedList = async () => (await getUploads("AMC")).find(isTestUpload)?.values.calculatedEventList;
-    await expect.poll(calculatedList, { timeout: 10 * 60_000 }).toBeTruthy();
+    const finished = async () => {
+        const upload = (await getUploads("AMC")).find(isTestUpload);
+        return Boolean(upload?.values.calculatedEventList) && upload?.values.status === "VALIDATED";
+    };
+    await expect.poll(finished, { timeout: 10 * 60_000 }).toBe(true);
 }
 
 test.describe.serial("AMC", () => {

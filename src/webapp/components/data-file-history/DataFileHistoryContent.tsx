@@ -1,3 +1,4 @@
+import _ from "lodash";
 import styled from "styled-components";
 import { Typography } from "@material-ui/core";
 import i18n from "@eyeseetea/d2-ui-components/locales";

@@ -1,4 +1,3 @@
-import "./webapp/utils/wdyr";
 import { Provider } from "@dhis2/app-runtime";
 import i18n from "@dhis2/d2-i18n";
 import { init } from "d2";
@@ -20,7 +19,7 @@ const isDev = process.env.NODE_ENV === "development";
 
 async function getBaseUrl() {
     if (isDev) {
-        return "/dhis2"; // See src/setupProxy.js
+        return "/dhis2"; // See vite.config.ts
     } else {
         const response = await fetch("manifest.webapp");
         if (!response.ok) throw new Error(`Could not load manifest.webapp (${response.status})`);

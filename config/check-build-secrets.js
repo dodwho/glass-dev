@@ -1,6 +1,6 @@
-/* Fails the build when a secret has ended up in the browser bundle. Create React App copies every
-   REACT_APP_* variable (and, where code reads process.env as a whole, the whole set) into the built files,
-   so anything found here would be readable by every user of the app.
+/* Fails the build when a secret has ended up in the browser bundle. The build tool copies the
+   variables with its public prefix (VITE_*, and REACT_APP_* in the old Create React App build) into the built
+   files, so anything found here would be readable by every user of the app.
 
    Only the file and the variable name are printed, never the value. */
 const fs = require("fs");
@@ -11,11 +11,11 @@ const patterns = [
     { description: "a DHIS2 personal access token", regex: /d2p(?:at)?_[A-Za-z0-9]{20,}/ },
     {
         description: "a secret variable with a value",
-        regex: /\b((?:REACT_APP_|DHIS2_)[A-Z0-9_]*(?:TOKEN|AUTH|PASSWORD|SECRET)[A-Z0-9_]*)["']?\s*:\s*(["'])(?!\2)/,
+        regex: /\b((?:VITE_|REACT_APP_|DHIS2_)[A-Z0-9_]*(?:TOKEN|AUTH|PASSWORD|SECRET)[A-Z0-9_]*)["']?\s*:\s*(["'])(?!\2)/,
     },
     {
         description: "a URL with a username or password in it",
-        regex: /\b(REACT_APP_[A-Z0-9_]*)["']?\s*:\s*["']https?:\/\/[^"'/@\s]+@/,
+        regex: /\b((?:VITE_|REACT_APP_)[A-Z0-9_]*)["']?\s*:\s*["']https?:\/\/[^"'/@\s]+@/,
     },
 ];
 
@@ -39,7 +39,7 @@ for (const file of listFiles(buildDir)) {
 if (findings.length > 0) {
     console.error("Build stopped: secrets found in the browser bundle:\n  " + findings.join("\n  "));
     console.error(
-        "Secret variables must not start with REACT_APP_. Rename them (e.g. DHIS2_TOKEN_PROD) in the .env files."
+        "Secret variables must not start with VITE_ or REACT_APP_. Rename them (e.g. DHIS2_TOKEN_PROD) in the .env files."
     );
     process.exit(1);
 }

@@ -68,10 +68,9 @@
         "@typescript-eslint/eslint-plugin": "4.29.0",
         "@typescript-eslint/parser": "4.29.0",
         "@vercel/ncc": "^0.38.1",
-        "@welldone-software/why-did-you-render": "^6.2.3",
+        "@vitejs/plugin-react": "6.1.1",
         "babel-eslint": "10.1.0",
         "cmd-ts": "^0.7.0",
-        "craco": "^0.0.3",
         "cross-env": "^7.0.3",
         "cypress": "8.1.0",
         "cypress-xpath": "1.6.2",
@@ -95,7 +94,10 @@
         "prettier": "2.6.1",
         "shx": "^0.3.4",
         "ts-node": "10.9.2",
-        "typescript": "5.9.3"
+        "typescript": "5.9.3",
+        "vite": "8.3.1",
+        "vite-plugin-checker": "0.14.5",
+        "vite-plugin-node-polyfills": "0.28.0"
     },
     "resolutions": {
         "**/@eyeseetea/d2-api/axios": "1.20.0",
@@ -109,16 +111,14 @@
         "ua-parser-js": "0.7.41"
     },
     "scripts": {
-        "start": "react-scripts start",
-        "start-profiling": "craco start",
+        "start": "vite",
         "postinstall": "patch-package && yarn localize",
         "prebuild": "yarn localize && yarn test",
-        "build-folder": "rm -rf build/ && REACT_APP_DHIS2_TOKEN= REACT_APP_DHIS2_TOKEN_PROD= REACT_APP_DHIS2_TOKEN_PREPROD= REACT_APP_DHIS2_TOKEN_TRAINING= REACT_APP_DHIS2_AUTH= react-scripts build && node config/check-build-secrets.js && yarn run manifest && cp -r i18n icon.png build",
+        "build-folder": "rm -rf build/ && vite build && node config/check-build-secrets.js && yarn run manifest && cp -r i18n icon.png build",
         "build-app": "yarn build-folder && rm -f ${npm_package_name}-${npm_package_version}.zip && cd build && zip --quiet -r ../${npm_package_name}-${npm_package_version}.zip *",
         "build": "yarn build-app && yarn build-amc-recalculate && yarn build-async-deletions && yarn build-async-uploads",
         "test": "jest --passWithNoTests",
         "lint": "eslint src cypress e2e --ext .js,.jsx,.ts,.tsx",
-        "eject": "react-scripts eject",
         "prettify": "prettier \"./**/*.{js,jsx,json,css,ts,tsx}\" --write",
         "extract-pot": "d2-i18n-extract -p src/ -o i18n/",
         "localize": "yarn update-po && d2-i18n-generate -n glass -p ./i18n/ -o ./src/locales/",
@@ -177,5 +177,8 @@
     "keywords": [],
     "bugs": {
         "url": "https://github.com/EyeSeeTea/glass-dev/issues"
+    },
+    "engines": {
+        "node": ">=24"
     }
 }

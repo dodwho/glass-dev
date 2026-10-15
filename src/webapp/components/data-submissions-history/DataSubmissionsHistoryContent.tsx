@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { DataSubmissionsTable } from "./DataSubmissionsTable";
 import { ContentLoader } from "../content-loader/ContentLoader";
 import { Backdrop } from "@material-ui/core";

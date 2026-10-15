@@ -42,7 +42,6 @@ const SidebarNavMenuGroup: React.FC<SidebarNavProps> = ({ menu, groupName, class
                 className={clsx(classes.root, className)}
                 onClick={toggleExpanded}
                 disableGutters
-                data-current-module={module}
                 data-current-group-name={menu.title}
                 style={{ paddingLeft: menu.level * 8 }}
             >
