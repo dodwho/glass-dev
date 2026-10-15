@@ -5,3 +5,8 @@ node_modules
 .vs
 snyk-results.json
 snyk-report.html
+e2e/.fixtures
+e2e/.report
+e2e/.results
+e2e/.snapshots
+e2e/golden

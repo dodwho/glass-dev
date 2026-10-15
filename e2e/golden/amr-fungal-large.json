@@ -1,0 +1,13 @@
+{
+  "uploads": {
+    "count": 1,
+    "sha256": "48ace6321f7756d29347b601db1b630261b2897f3187f300c69fb053a9e5d739",
+    "lines": [
+      "RIS Fungal | VALIDATED | 5104 | E2E_TEST_KOR_{YEAR}_Fungal_RIS_large.csv | DS1"
+    ]
+  },
+  "records": {
+    "count": 5104,
+    "sha256": "a186d26eefb9696c1789aebbfd3fb38be6690bf6fa6546cfab22573eab2e44c6"
+  }
+}

@@ -38,6 +38,21 @@ Notes:
 $ yarn test
 ```
 
+### Browser tests (Playwright)
+
+The tests in `e2e/` run a built app (`build/`, or the folder in `E2E_BUILD_DIR`) in Microsoft Edge (`E2E_BROWSER_CHANNEL` picks another installed browser), against the DHIS2 instance in `.env.local`. They need Node 20 or newer.
+
+```
+$ yarn build-folder
+$ yarn e2e        # read-only: a tour of every page, compared with screenshots of a reference build
+$ yarn e2e:dev    # also uploads, imports and deletes test files in every module; DEV only
+```
+
+-   **Page tour.** Every page is opened through the side menu and must load without an uncaught error and look like the reference build. Record the reference screenshots once from a trusted build with `E2E_BUILD_DIR=<reference build> yarn e2e --update-snapshots` (they stay in `e2e/.snapshots`, not in git). Writes to DHIS2 are refused during the tour.
+-   **Upload tests** (`*.upload.spec.ts`) only run with `yarn e2e:dev` and refuse any instance other than DEV. They use the previous calendar year in the Republic of Korea (Uganda for EGASP, whose data must come from clinics), which must hold no other data for that module and year. Files are generated from code-only seeds (`e2e/fixtures/seeds`) with made-up identifiers, ages and dates. Large files are imported and deleted by running one cycle of the async-uploads and async-deletions servers from source; the run stops if those queues hold anything that is not a test upload.
+-   **Accuracy.** After each import, what DHIS2 stores is compared with the file, value by value, and with a golden file in `e2e/golden` that records what a trusted build wrote. Only rewrite golden files (`E2E_UPDATE_GOLDEN=1 yarn e2e:dev`) on a build whose output has been checked.
+-   Failed tests keep a trace (`npx playwright show-trace <zip>`) and the HTML report is in `e2e/.report`. Traces include a DHIS2 session cookie for the test user: keep them within the team.
+
 ### Integration tests (Cypress)
 
 Create the required users for testing (`cypress/support/App.ts`) in your instance and run:

@@ -1,0 +1,13 @@
+{
+  "uploads": {
+    "count": 1,
+    "sha256": "869d466b80e879dd316f770550ab397707e9fcbecc536af9a7ec4ee5a36fa96b",
+    "lines": [
+      "RIS Individual | VALIDATED | 5101 | E2E_TEST_KOR_{YEAR}_Individual_RIS_large.csv | DS1"
+    ]
+  },
+  "records": {
+    "count": 5101,
+    "sha256": "b18db3cecc7722f296358fb1a7ed778ba4c2d581fadff489874d2a47510229d6"
+  }
+}

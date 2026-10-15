@@ -68,3 +68,9 @@ snyk-results.json
 /AMU_upload_*
 *.checkpoint
 *.checkpoint.*
+
+# browser tests (e2e/)
+/e2e/.fixtures/
+/e2e/.report/
+/e2e/.results/
+/e2e/.snapshots/
