@@ -270,7 +270,7 @@ export class CustomValidationForEventProgram {
                             duplicatesByOU.some(pg => filePatientIDs.some(fp => pg?.eventId === fp?.eventId))
                         ) {
                             if (duplicatesByOU[0]) {
-                                const [patientId, eventDate] = duplicatesByOU[0]?.patientIdAndDate.split(",");
+                                const [patientId, eventDate] = duplicatesByOU[0].patientIdAndDate.split(",");
                                 return {
                                     error: i18n.t(
                                         `This date is already associated to the same Patient-ID. Please check if the current information has already been entered. If not, please check whether the Patient-ID or this date are correct.
