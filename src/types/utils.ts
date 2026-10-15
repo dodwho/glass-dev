@@ -53,7 +53,7 @@ export function fromPairs<Key extends string, Value>(pairs: Array<[Key, Value]>)
 }
 
 export function getKeys<T>(obj: T): Array<keyof T> {
-    return Object.keys(obj) as Array<keyof T>;
+    return Object.keys(obj as object) as Array<keyof T>;
 }
 
 /* Define only the value type of an object and infer the keys:

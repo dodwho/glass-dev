@@ -304,7 +304,7 @@ function createReadableInput(fileOrBlob: Blob | File): File | NodeJS.ReadableStr
                     const end = Math.min(position + chunkSize, fileSize);
                     const slice = fileOrBlob.slice(position, end);
                     const arrayBuffer = await slice.arrayBuffer();
-                    let buffer = Buffer.from(arrayBuffer);
+                    let buffer: Buffer = Buffer.from(arrayBuffer);
 
                     // Remove UTF-8 BOM once, if present
                     if (isFirstChunk) {

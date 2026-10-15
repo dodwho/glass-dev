@@ -80,7 +80,7 @@ export class ExcelPopulateDefaultRepository extends ExcelRepository {
         const workbook = await this.getWorkbook(id);
         // Request uint8array explicitly: outputAsync() defaults to "blob" in browser
         // environments (process.browser === true), and Blob has no .buffer property.
-        const data = (await workbook.outputAsync({ type: "uint8array" })) as unknown as Uint8Array;
+        const data = (await workbook.outputAsync({ type: "uint8array" })) as unknown as Uint8Array<ArrayBuffer>;
         return new Blob([data], {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         });

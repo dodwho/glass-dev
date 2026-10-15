@@ -49,7 +49,7 @@ export const ReportPageContent: React.FC = React.memo(() => {
                                     color="primary"
                                     onClick={() => downloadAllData(lineListing)}
                                 >
-                                    {i18n.t(`Download ${lineListing.name}` ?? "Download All Data")}
+                                    {i18n.t(`Download ${lineListing.name}`)}
                                 </Button>
                             );
                         })
