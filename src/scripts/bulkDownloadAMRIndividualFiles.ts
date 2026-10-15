@@ -271,24 +271,9 @@ function log(message: string, level: LogLevel = LogLevel.INFO): void {
 
 /*
 ================================================================
-Auth / node globals — mirrors bulkDownloadAMUFiles.ts
+Auth — mirrors bulkDownloadAMUFiles.ts
 ================================================================
 */
-
-async function setupNodeGlobals(): Promise<void> {
-    const g = globalThis as any;
-
-    if (typeof g.Blob !== "function" || typeof g.File !== "function" || typeof g.FormData !== "function") {
-        const { Blob: PBlob, File: PFile, FormData: PFormData } = await import("formdata-node");
-        if (typeof g.Blob !== "function") g.Blob = PBlob;
-        if (typeof g.File !== "function") g.File = PFile;
-        if (typeof g.FormData !== "function") g.FormData = PFormData;
-    }
-    if (typeof g._ === "undefined") {
-        const lodashModule = await import("lodash");
-        g._ = (lodashModule as any).default ?? lodashModule;
-    }
-}
 
 function isAuthError(error: unknown): boolean {
     const text = (error instanceof Error ? error.message : String(error)).toLowerCase();
@@ -1217,7 +1202,6 @@ main()
 async function main(): Promise<void> {
     const startTime = Date.now();
 
-    await setupNodeGlobals();
     const instance = getInstance(getEnvVars());
     api = getD2APiFromInstance(instance);
     baseUrl = process.env.REACT_APP_DHIS2_BASE_URL ?? "";

@@ -282,29 +282,6 @@ interface BatchMetaData {
     existingUploads: GlassUploads[];
 }
 
-/**
- * The AMC import/calculation use cases create Blob/File objects (for the event-id list files) and
- * build multipart uploads with FormData. Node 16 has none of these as globals, so provide them from
- * formdata-node. Using the AsBuffer import variants means no localStorage shim is needed.
- */
-async function setupNodeGlobals(): Promise<void> {
-    const g = globalThis as any;
-
-    if (typeof g.Blob !== "function" || typeof g.File !== "function" || typeof g.FormData !== "function") {
-        const { Blob: PBlob, File: PFile, FormData: PFormData } = await import("formdata-node");
-        if (typeof g.Blob !== "function") g.Blob = PBlob;
-        if (typeof g.File !== "function") g.File = PFile;
-        if (typeof g.FormData !== "function") g.FormData = PFormData;
-    }
-
-    // Some shared use cases (e.g. CustomValidationForEventProgram) reference lodash as a global `_`
-    // without importing it — this works in the browser bundle but not in Node. Provide it globally.
-    if (typeof g._ === "undefined") {
-        const lodashModule = await import("lodash");
-        g._ = (lodashModule as any).default ?? lodashModule;
-    }
-}
-
 function getUploadFileTypeLabel(fileType: AmuFileType): string {
     // Match the labels the UI stores on the upload record (moduleProperties primary/secondary
     // file types) so downstream dashboards and filters see identical data.
@@ -1881,7 +1858,6 @@ async function main() {
     console.info(`Progress report (CSV, one line per file, updated live): ${progressFilePath}`);
 
     try {
-        await setupNodeGlobals();
         await initializeGlobals();
 
         // Keep the DHIS2 session warm across this long-running job (see reauthenticate).

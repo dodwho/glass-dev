@@ -50,7 +50,6 @@ of duplicated or half-written rows.
 */
 
 import { D2Api } from "@eyeseetea/d2-api/2.41";
-import fetch from "cross-fetch";
 import dotenv from "dotenv";
 import _ from "lodash";
 import Papa from "papaparse";
@@ -58,6 +57,7 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { rename } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
 import { DataStoreClient } from "../data/data-store/DataStoreClient";
 import { GlassModuleDefaultRepository } from "../data/repositories/GlassModuleDefaultRepository";
@@ -708,44 +708,6 @@ const DHIS2_CSV_COLUMNS = ["dataelement", "period", "categoryoptioncombo", "attr
 
 type Dhis2DataValueRecord = Partial<Record<typeof DHIS2_CSV_COLUMNS[number], string>>;
 
-/**
- * Adapts a fetch response body to a Node stream for papaparse, backpressure intact.
- *
- * `fetch` is imported from cross-fetch (node-fetch on Node), whose body is already a Node Readable. Node 16
- * has no global fetch, and d2-api stopped installing a global polyfill in 1.20. The web ReadableStream
- * branch (undici's `getReader`) is kept so the script still works if it is ever switched to Node's
- * built-in fetch.
- *
- * The web-stream branch is written against the reader protocol rather than `Readable.fromWeb`, which
- * this project's @types/node does not declare, and pulls one chunk per `read()` so the response is
- * consumed at the speed it is parsed.
- */
-function toNodeStream(body: unknown): Readable {
-    const candidate = body as {
-        pipe?: unknown;
-        getReader?: () => { read(): Promise<{ done: boolean; value?: Uint8Array }> };
-    };
-
-    if (typeof candidate.pipe === "function") return body as Readable;
-
-    if (typeof candidate.getReader !== "function") {
-        throw new Error(
-            "The fetch response body is neither a Node stream nor a web ReadableStream, so the dataValueSets " +
-                "response cannot be streamed. Check which fetch implementation is in use."
-        );
-    }
-
-    const reader = candidate.getReader();
-    return new Readable({
-        read() {
-            reader.read().then(
-                ({ done, value }) => this.push(done || !value ? null : Buffer.from(value)),
-                error => this.destroy(error instanceof Error ? error : new Error(String(error)))
-            );
-        },
-    });
-}
-
 class HttpError extends Error {
     constructor(public readonly status: number, message: string) {
         super(message);
@@ -772,7 +734,8 @@ async function streamDataValues(
     const body = response.body;
 
     await new Promise<void>((resolve, reject) => {
-        const stream = toNodeStream(body);
+        // Node's built-in fetch returns a web stream; papaparse reads Node streams (backpressure intact).
+        const stream = Readable.fromWeb(body as unknown as NodeReadableStream<Uint8Array>);
         let headersChecked = false;
         Papa.parse<Dhis2DataValueRecord>(stream, {
             header: true,
