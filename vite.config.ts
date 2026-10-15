@@ -14,10 +14,18 @@ export default defineConfig(({ mode }) => {
         // DHIS2 serves the app from /api/apps/glass/, so every asset path must be relative.
         base: "",
         // Unit tests run in Node with its real modules: the browser polyfills and the dev tools are not for them.
+        // No browser copy of Node's crypto: only unused library paths import it (password-encrypted workbooks in
+        // xlsx-populate, libsodium's Node branch, elliptic's random source), and it carried known vulnerabilities.
         plugins:
             mode === "test"
                 ? [react()]
-                : [react(), nodePolyfills(), checker({ typescript: true }), dhis2Proxy(), devOnlyHtml()],
+                : [
+                      react(),
+                      nodePolyfills({ exclude: ["crypto"] }),
+                      checker({ typescript: true }),
+                      dhis2Proxy(),
+                      devOnlyHtml(),
+                  ],
         resolve: {
             // PapaParse's browser entry is its pre-minified file. Vite's minifier renames the variables in it in a
             // way that breaks the Web Worker PapaParse builds from its own source: every parsed CSV row comes back
