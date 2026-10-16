@@ -122,8 +122,7 @@ describe("AMR aggregate file checks", () => {
             ]);
         });
 
-        // Current behaviour, recorded on purpose: the RIS readers turn a blank number cell into 0, so this check
-        // never sees null for a real file and a row with every result blank is accepted as zeros.
+        // The reader gives null for a blank cell (review decision D1); zeros typed in the file are real results.
         it("does not block a row whose AST results are all 0", () => {
             const zeros = {
                 RESISTANT: 0,

@@ -207,6 +207,39 @@ describe("ImportRISFile", () => {
         );
     });
 
+    it("blocks a row whose six AST results are all blank, before saving anything", async () => {
+        const blank = {
+            RESISTANT: null,
+            INTERMEDIATE: null,
+            NONSUSCEPTIBLE: null,
+            SUSCEPTIBLE: null,
+            UNKNOWN_NO_AST: null,
+            UNKNOWN_NO_BREAKPOINTS: null,
+        };
+        const { run, save } = setup([risRow(), risRow({ ANTIBIOTIC: "CIP", ...blank })]);
+
+        const summary = await run();
+
+        expect(save).not.toHaveBeenCalled();
+        expect(summary.blockingErrors).toEqual([
+            { error: "The AST results provided are not valid (they are all empty)", count: 1, lines: [2] },
+        ]);
+    });
+
+    // Until the epidemiologists decide column by column (review decision D1), a blank result is stored as 0.
+    it("stores a blank result as 0 when the row has other results", async () => {
+        const { run, save } = setup([risRow({ RESISTANT: null })]);
+
+        await run();
+
+        const values = save.mock.calls[0]?.[0].map(({ dataElement, value }) => [dataElement, value]);
+        expect(values).toEqual([
+            ["de-res", "0"],
+            ["de-sus", "10"],
+            ["de-abc", "ABCLASS Missing"],
+        ]);
+    });
+
     it("blocks a result that is not a whole number 0 or higher, before saving anything", async () => {
         const { run, save } = setup([risRow(), risRow({ ANTIBIOTIC: "CIP", INTERMEDIATE: NaN })]);
 

@@ -19,7 +19,7 @@ import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import _ from "lodash";
 
 import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
-import { RISData } from "../../../entities/data-entry/amr-external/RISData";
+import { RISData, toAMRAggDataValue } from "../../../entities/data-entry/amr-external/RISData";
 import { ExternalData } from "../../../entities/data-entry/amr-external/ExternalData";
 import { DataValuesImportRepository } from "../../../repositories/data-entry/DataValuesImportRepository";
 
@@ -89,7 +89,7 @@ export class AMRAggDataValuesImportHelper {
                     ),
                 ]);
 
-                const value = data[dataElement.code as keyof ExternalData]?.toString() || "";
+                const value = toAMRAggDataValue(data[dataElement.code as keyof ExternalData]);
 
                 if (!value) {
                     throw new Error(`Invalid value for dataElement: ${dataElement.id} at index: ${index}`);

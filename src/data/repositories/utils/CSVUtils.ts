@@ -20,6 +20,12 @@ export function getNumberValue(row: Row<string>, column: string): number {
     return THOUSANDS_SEPARATED_WHOLE_NUMBER.test(text) ? +text.replace(/,/g, "") : +(value || 0);
 }
 
+/** As getNumberValue, but a blank or missing cell is null instead of 0. */
+export function getNumberOrNull(row: Row<string>, column: string): number | null {
+    const value = row[column];
+    return value === undefined || value === null || String(value).trim() === "" ? null : getNumberValue(row, column);
+}
+
 /**
  * Parses a numeric cell, keeping "no value" distinct from zero: a blank or non-numeric cell yields
  * `undefined`, never a fabricated 0 or a NaN. Both spreadsheet readers (the streaming CSV parser and
