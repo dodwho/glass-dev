@@ -5,13 +5,15 @@ import { DataValuesRepository } from "../../../repositories/data-entry/DataValue
 import { SampleDataRepository } from "../../../repositories/data-entry/SampleDataRepository";
 import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
 import { CategoryCombo } from "../../../entities/metadata/CategoryCombo";
-import { GlassModule } from "../../../entities/GlassModule";
 import { GlassModuleRepository } from "../../../repositories/GlassModuleRepository";
 import _ from "lodash";
 import { AMRAggDataValuesImportHelper } from "./AMRAggDataValuesImportHelper";
 import { DataSet } from "../../../entities/metadata/DataSet";
 import { DataValuesImportRepository } from "../../../repositories/data-entry/DataValuesImportRepository";
 import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
+import { checkCountry } from "../utils/checkCountry";
+import { checkDuplicateRowsSAMPLE } from "../utils/checkDuplicateRows";
+import { checkYear } from "../utils/checkYear";
 
 export class SampleDatasetImportHelper extends AMRAggDataValuesImportHelper {
     private static sampleMetadataCache: {
@@ -72,7 +74,8 @@ export class SampleDatasetImportHelper extends AMRAggDataValuesImportHelper {
         year: string,
         action: ImportStrategy,
         orgUnitId: string,
-        dryRun: boolean
+        dryRun: boolean,
+        countryCode: string
     ): Promise<ImportSummary> {
         try {
             const sampleDataItems = await this.sampleDataRepository.get(inputFile).toPromise();
@@ -89,7 +92,7 @@ export class SampleDatasetImportHelper extends AMRAggDataValuesImportHelper {
                     orgUnitId,
                     10
                 ),
-                this.runPreImportConsistencyChecks(sampleDataItems, AMRAggDataValuesImportHelper.metadataCache.module),
+                this.runPreImportConsistencyChecks(sampleDataItems, year, countryCode),
             ]);
 
             const { values, blockingErrors } = dataValuesResult;
@@ -119,22 +122,16 @@ export class SampleDatasetImportHelper extends AMRAggDataValuesImportHelper {
         }
     }
 
+    // The batch check of ImportSampleFile is not run for historical loads.
     private async runPreImportConsistencyChecks(
         sampleDataItems: SampleData[],
-        module: GlassModule
+        year: string,
+        countryCode: string
     ): Promise<ConsistencyError[]> {
-        const errors: ConsistencyError[] = [];
-
-        /*const batchIdErrors = checkBatchId(sampleDataItems, batchId);
-        const yearErrors = checkYear(sampleDataItems, year);
-        const countryErrors = checkCountry(sampleDataItems, countryCode);
-        const duplicateRowErrors = checkDuplicateRowsSAMPLE(sampleDataItems);*/
-
-        const batchIdErrors = errors;
-        const yearErrors = errors;
-        const countryErrors = errors;
-        const duplicateRowErrors = errors;
-        const allErrors = [...batchIdErrors, ...yearErrors, ...countryErrors, ...duplicateRowErrors];
-        return allErrors;
+        return [
+            ...checkYear(sampleDataItems, year),
+            ...checkCountry(sampleDataItems, countryCode),
+            ...checkDuplicateRowsSAMPLE(sampleDataItems),
+        ];
     }
 }

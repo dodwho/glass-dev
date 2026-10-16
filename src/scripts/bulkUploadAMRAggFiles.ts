@@ -490,6 +490,7 @@ async function uploadDataValues(fileMetaData: FileMetaData) {
             importSummary = await risDataSetImportHelper.importRISDataValues({
                 inputFile: fileMetaData.file,
                 year: fileMetaData.batchMetaData.dataSubmission.period,
+                countryCode: fileMetaData.batchMetaData.orgUnitCode,
                 action: CREATE_AND_UPDATE,
                 dryRun: false,
                 orgUnitId: fileMetaData.batchMetaData.dataSubmission.orgUnit,
@@ -510,7 +511,8 @@ async function uploadDataValues(fileMetaData: FileMetaData) {
                 fileMetaData.batchMetaData.dataSubmission.period,
                 CREATE_AND_UPDATE,
                 fileMetaData.batchMetaData.dataSubmission.orgUnit,
-                false
+                false,
+                fileMetaData.batchMetaData.orgUnitCode
             );
         }
 
