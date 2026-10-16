@@ -6,6 +6,7 @@ import { Row } from "../../../domain/repositories/SpreadsheetXlsxRepository";
 import { SpreadsheetXlsxDataSource } from "../SpreadsheetXlsxDefaultRepository";
 import {
     doesColumnExist,
+    getNumberOrNull,
     getNumberValue,
     getRowCountAndSelectDistinctFromCsv,
     getTextValue,
@@ -40,12 +41,12 @@ export class RISDataCSVDefaultRepository implements RISDataRepository {
                 ORIGIN: getTextValue(row, "ORIGIN"),
                 AGEGROUP: getTextValue(row, "AGEGROUP"),
                 ANTIBIOTIC: getTextValue(row, "ANTIBIOTIC"),
-                RESISTANT: getNumberValue(row, "RESISTANT"),
-                INTERMEDIATE: getNumberValue(row, "INTERMEDIATE"),
-                NONSUSCEPTIBLE: getNumberValue(row, "NONSUSCEPTIBLE"),
-                SUSCEPTIBLE: getNumberValue(row, "SUSCEPTIBLE"),
-                UNKNOWN_NO_AST: getNumberValue(row, "UNKNOWN_NO_AST"),
-                UNKNOWN_NO_BREAKPOINTS: getNumberValue(row, "UNKNOWN_NO_BREAKPOINTS"),
+                RESISTANT: getNumberOrNull(row, "RESISTANT"),
+                INTERMEDIATE: getNumberOrNull(row, "INTERMEDIATE"),
+                NONSUSCEPTIBLE: getNumberOrNull(row, "NONSUSCEPTIBLE"),
+                SUSCEPTIBLE: getNumberOrNull(row, "SUSCEPTIBLE"),
+                UNKNOWN_NO_AST: getNumberOrNull(row, "UNKNOWN_NO_AST"),
+                UNKNOWN_NO_BREAKPOINTS: getNumberOrNull(row, "UNKNOWN_NO_BREAKPOINTS"),
                 BATCHIDDS: getTextValue(row, "BATCHID"),
                 ABCLASS: this.validateABCLASS(getTextValue(row, "ABCLASS")),
             };

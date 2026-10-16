@@ -20,7 +20,7 @@ import {
 import { includeBlockingErrors } from "../utils/includeBlockingErrors";
 import { groupLineErrors } from "../utils/groupLineErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
-import { RISData, RIS_RESULT_COLUMNS } from "../../../entities/data-entry/amr-external/RISData";
+import { RISData, RIS_RESULT_COLUMNS, toAMRAggDataValue } from "../../../entities/data-entry/amr-external/RISData";
 import { checkDuplicateRowsRIS } from "../utils/checkDuplicateRows";
 import { checkWholeNumbers } from "../utils/checkWholeNumbers";
 
@@ -78,7 +78,7 @@ export class ImportRISFile {
                     .map((risData, index) => {
                         return dataSet.dataElements.map(dataElement => {
                             const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                risData[category.code as keyof RISData].toString()
+                                String(risData[category.code as keyof RISData])
                             );
 
                             const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
@@ -93,7 +93,7 @@ export class ImportRISFile {
                             if (ccoBlockingError !== "")
                                 blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
 
-                            const value = risData[dataElement.code as keyof RISData]?.toString() || "";
+                            const value = toAMRAggDataValue(risData[dataElement.code as keyof RISData]);
 
                             const dataValue = {
                                 orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",

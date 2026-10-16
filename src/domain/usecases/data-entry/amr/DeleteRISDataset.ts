@@ -9,7 +9,7 @@ import {
     getCategoryOptionComboByOptionCodes,
 } from "../utils/getCategoryOptionCombo";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
-import { RISData } from "../../../entities/data-entry/amr-external/RISData";
+import { RISData, toAMRAggDataValue } from "../../../entities/data-entry/amr-external/RISData";
 import { AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID } from "./amrAggMetadataIds";
 import { Maybe } from "../../../../utils/ts-utils";
 import { deleteDataValues } from "../utils/deleteDataValues";
@@ -49,7 +49,7 @@ export class DeleteRISDataset {
                     .map((risData, index) => {
                         return dataSet.dataElements.map(dataElement => {
                             const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                risData[category.code as keyof RISData].toString()
+                                String(risData[category.code as keyof RISData])
                             );
 
                             const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
@@ -64,7 +64,7 @@ export class DeleteRISDataset {
                             if (ccoBlockingError !== "")
                                 blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
 
-                            const value = risData[dataElement.code as keyof RISData]?.toString() || "";
+                            const value = toAMRAggDataValue(risData[dataElement.code as keyof RISData]);
 
                             const dataValue = {
                                 orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
