@@ -14,6 +14,7 @@ import {
     getCategoryOptionComboByOptionCodes,
 } from "../utils/getCategoryOptionCombo";
 import { includeBlockingErrors } from "../utils/includeBlockingErrors";
+import { groupLineErrors } from "../utils/groupLineErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import { SampleDataRepository } from "../../../repositories/data-entry/SampleDataRepository";
 import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
@@ -95,13 +96,8 @@ export class ImportSampleFile {
                     })
                     .flat();
 
-                const blockingCategoryOptionConsistencyErrors: ConsistencyError[] = _(
-                    blockingCategoryOptionErrors.map(error => {
-                        return { error: error.error, count: 1, lines: [error.line] };
-                    })
-                )
-                    .uniqBy("error")
-                    .value();
+                const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
+                    groupLineErrors(blockingCategoryOptionErrors);
 
                 const allBlockingErrors =
                     action === "DELETE" //If delete, ignore consistency checks
