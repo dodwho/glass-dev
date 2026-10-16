@@ -588,8 +588,9 @@ export const mapToImportSummary = (
                     importTime: new Date(),
                 };
 
+                // WARNING means DHIS2 saved the data with warnings: those ids are needed to delete the upload later.
                 const eventIdList =
-                    result.status === "OK"
+                    result.status === "OK" || result.status === "WARNING"
                         ? type === "event"
                             ? (result.bundleReport?.typeReportMap?.EVENT?.objectReports ?? []).map(report => report.uid)
                             : (result.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports ?? []).map(
