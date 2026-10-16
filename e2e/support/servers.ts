@@ -10,6 +10,11 @@ import { get, getTestUploadIds } from "./dhis2";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { root, getInstance, writesAllowed } = require("../env");
 
+/* The servers run from this checkout with the Node that runs the tests. E2E_SERVER_ROOT and E2E_SERVER_NODE run them from
+   another checkout with another Node instead (for example the 1.6.45 release on Node 16, as production runs it). */
+const serverRoot = process.env.E2E_SERVER_ROOT ?? root;
+const serverNode = process.env.E2E_SERVER_NODE ?? process.execPath;
+
 const servers = {
     uploads: { script: "src/scripts/cliAsyncUploads.ts", queue: "async-uploads" },
     deletions: { script: "src/scripts/cliAsyncDeletions.ts", queue: "async-deletions" },
@@ -60,9 +65,9 @@ export async function runServerCycle(server: keyof typeof servers, testInfo: Tes
     otherInstanceTokens.forEach(name => delete env[name]);
 
     const output: string[] = [];
-    const tsNode = path.join(root, "node_modules", "ts-node", "dist", "bin.js");
+    const tsNode = path.join(serverRoot, "node_modules", "ts-node", "dist", "bin.js");
     const exitCode = await new Promise<number | null>((resolve, reject) => {
-        const child = spawn(process.execPath, [tsNode, "--transpile-only", script], { cwd: root, env });
+        const child = spawn(serverNode, [tsNode, "--transpile-only", script], { cwd: serverRoot, env });
         child.stdout.on("data", chunk => output.push(String(chunk)));
         child.stderr.on("data", chunk => output.push(String(chunk)));
         child.on("error", reject);
