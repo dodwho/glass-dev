@@ -3,6 +3,11 @@ import { Id } from "./Ref";
 
 export type GlassUploadsStatus = "UPLOADED" | "IMPORTED" | "VALIDATED" | "COMPLETED" | "DELETED";
 
+/** IMPORTED means DHIS2 reported errors after the data was saved: such an upload must be deleted, not completed. */
+export function canCompleteUpload(status: GlassUploadsStatus): boolean {
+    return status === "VALIDATED";
+}
+
 export interface DeletionRequest {
     requestedBy: string;
     requestedAt: string;

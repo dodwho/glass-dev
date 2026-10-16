@@ -19,6 +19,8 @@ import { Validations } from "../current-data-submission/Validations";
 import { useQuestionnaires } from "../current-data-submission/Questionnaires";
 import { QuestionnaireBase } from "../../../domain/entities/Questionnaire";
 import { StyledLoaderContainer } from "./ConsistencyChecks";
+import { BlockingErrors } from "./BlockingErrors";
+import { canCompleteUpload } from "../../../domain/entities/GlassUploads";
 
 interface ReviewDataSummaryProps {
     changeStep: (step: number) => void;
@@ -98,6 +100,12 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
         };
     }, [setRefetch]);
 
+    const importSummary = fileType === "primary" ? primaryFileImportSummary : secondaryFileImportSummary;
+    const hasBlockingErrors = [primaryFileImportSummary, secondaryFileImportSummary].some(
+        summary => (summary?.blockingErrors.length ?? 0) > 0
+    );
+    const dataWasSaved = (importSummary?.importCount.imported ?? 0) + (importSummary?.importCount.updated ?? 0) > 0;
+
     const goToFinalStep = useCallback(() => {
         const primaryUploadId = primaryFile ? localStorage.getItem("primaryUploadId") : null;
         const secondaryUploadId = secondaryFile ? localStorage.getItem("secondaryUploadId") : null;
@@ -105,10 +113,7 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
         if (primaryUploadId) {
             return compositionRoot.glassUploads.getById(primaryUploadId).run(
                 primaryUpload => {
-                    if (
-                        (currentModuleAccess.moduleName === "AMC" && primaryUpload.status === "VALIDATED") ||
-                        currentModuleAccess.moduleName !== "AMC"
-                    ) {
+                    if (canCompleteUpload(primaryUpload.status)) {
                         return compositionRoot.glassUploads
                             .setStatus({ id: primaryUpload.id, status: "COMPLETED" })
                             .run(
@@ -182,21 +187,23 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                                 }
                             );
                     } else {
-                        changeStep(4);
+                        snackbar.error(
+                            i18n.t(
+                                "This upload has errors, so it cannot be completed. Delete it in the Data File History, correct the file and upload it again."
+                            )
+                        );
                         setIsLoading(false);
                     }
                 },
                 error => {
                     snackbar.error(error);
+                    setIsLoading(false);
                 }
             );
         } else if (secondaryUploadId) {
             return compositionRoot.glassUploads.getById(secondaryUploadId).run(
                 secondaryUpload => {
-                    if (
-                        (currentModuleAccess.moduleName === "AMC" && secondaryUpload.status === "VALIDATED") ||
-                        currentModuleAccess.moduleName !== "AMC"
-                    ) {
+                    if (canCompleteUpload(secondaryUpload.status)) {
                         return compositionRoot.glassUploads
                             .setStatus({ id: secondaryUpload.id, status: "COMPLETED" })
                             .run(
@@ -255,12 +262,17 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                                 }
                             );
                     } else {
-                        changeStep(4);
+                        snackbar.error(
+                            i18n.t(
+                                "This upload has errors, so it cannot be completed. Delete it in the Data File History, correct the file and upload it again."
+                            )
+                        );
                         setIsLoading(false);
                     }
                 },
                 error => {
                     snackbar.error(error);
+                    setIsLoading(false);
                 }
             );
         }
@@ -310,6 +322,23 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                         </Button>
                     </div>
                 )}
+            {hasBlockingErrors && (
+                <Section className="summary">
+                    <h3>{i18n.t("Errors found after the import")}</h3>
+                    <SectionCard className="wrong">
+                        <Typography>
+                            {dataWasSaved
+                                ? i18n.t(
+                                      "The data of this file was saved in DHIS2, but DHIS2 then reported the errors below. This upload cannot be completed. To remove the saved data, delete this upload in the Data File History, correct the file and upload it again."
+                                  )
+                                : i18n.t(
+                                      "DHIS2 reported the errors below. This upload cannot be completed: correct the file and upload it again."
+                                  )}
+                        </Typography>
+                    </SectionCard>
+                    <BlockingErrors rows={importSummary?.blockingErrors ?? []} />
+                </Section>
+            )}
             <Section className="summary">
                 <h3>{i18n.t("Summary")}</h3>
                 <SectionCard className="wrong">
@@ -371,7 +400,7 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                         endIcon={<ChevronRightIcon />}
                         onClick={goToFinalStepEffect}
                         disableElevation
-                        disabled={isRunningCalculation}
+                        disabled={isRunningCalculation || hasBlockingErrors}
                     >
                         {i18n.t("Continue")}
                     </Button>

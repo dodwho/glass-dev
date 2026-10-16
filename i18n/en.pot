@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-16T07:09:41.910Z\n"
-"PO-Revision-Date: 2026-10-16T07:09:41.911Z\n"
+"POT-Creation-Date: 2026-10-16T13:28:38.667Z\n"
+"PO-Revision-Date: 2026-10-16T13:28:38.667Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -779,6 +779,21 @@ msgid "Continue"
 msgstr ""
 
 msgid "Non-blocking warnings"
+msgstr ""
+
+msgid ""
+"This upload has errors, so it cannot be completed. Delete it in the Data "
+"File History, correct the file and upload it again."
+msgstr ""
+
+msgid "Errors found after the import"
+msgstr ""
+
+msgid ""
+"The data of this file was saved in DHIS2, but DHIS2 then reported the "
+"errors below. This upload cannot be completed. To remove the saved data, "
+"delete this upload in the Data File History, correct the file and upload it "
+"again."
 msgstr ""
 
 msgid "Summary"
