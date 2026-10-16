@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-07T12:56:50.803Z\n"
-"PO-Revision-Date: 2026-10-07T12:56:50.803Z\n"
+"POT-Creation-Date: 2026-10-16T07:09:41.910Z\n"
+"PO-Revision-Date: 2026-10-16T07:09:41.911Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -329,6 +329,15 @@ msgid "State"
 msgstr ""
 
 msgid "Data Submission status has errors..."
+msgstr ""
+
+msgid "The status was updated but the user groups could not be notified"
+msgstr ""
+
+msgid "The data submission status could not be updated"
+msgstr ""
+
+msgid "The AMR data submission status could not be updated"
 msgstr ""
 
 msgid "There are no questionnaries for this module"
