@@ -16,6 +16,8 @@ import { EventsRepository } from "../../domain/repositories/EventsRepository";
 
 export type { EventStatus } from "../../domain/entities/EventStatus";
 
+const EGASP_EVENTS_PAGE_SIZE = 250;
+
 export class Dhis2EventsDefaultRepository implements EventsRepository {
     private api: D2Api;
 
@@ -30,25 +32,20 @@ export class Dhis2EventsDefaultRepository implements EventsRepository {
                 program: EGASP_PROGRAM_ID,
                 orgUnit,
                 ouMode: "DESCENDANTS",
-                totalPages: true,
-                pageSize: 250,
+                pageSize: EGASP_EVENTS_PAGE_SIZE,
                 page,
             })
             .getData();
     }
 
+    /** Every EGASP event of the org unit: pages are read until one comes back short (no total count needed). */
     async getEGASPEventsByOrgUnitAsync(orgUnit: string): Promise<D2TrackerEvent[]> {
         const eventsByOU: D2TrackerEvent[] = [];
-        let page = 1;
-        let result;
-
-        do {
-            result = await this.getEGASPEvents(orgUnit, page);
+        for (let page = 1; ; page++) {
+            const result = await this.getEGASPEvents(orgUnit, page);
             eventsByOU.push(...result.instances);
-            page++;
-        } while (result.page >= page);
-
-        return eventsByOU;
+            if (result.instances.length < EGASP_EVENTS_PAGE_SIZE) return eventsByOU;
+        }
     }
 
     getEGASPEventsByOrgUnit(orgUnit: string): FutureData<TrackerEvent[]> {
