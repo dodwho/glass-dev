@@ -60,6 +60,9 @@ import consoleLogger from "../utils/consoleLogger";
 import { getUploadsFormDataBuilder } from "../utils/getUploadsFormDataBuilder";
 
 const DEFAULT_MAX_ATTEMPS_FOR_ASYNC_UPLOADS = 3;
+// A failing upload does not stop the queue, but this many failures in a row do: the cause is probably DHIS2, and
+// trying the rest would use up one of their attempts each.
+const MAX_UPLOAD_FAILURES_IN_A_ROW = 2;
 
 async function main() {
     const cmd = command({
@@ -666,7 +669,7 @@ function uploadDatasets(
     glassModules: GlassModule[],
     allCountries: Country[]
 ): FutureData<void> {
-    return Future.sequential(
+    return Future.sequentialUntilConsecutiveFailures(
         uploadsToAsyncUpload.map(asyncUpload => {
             try {
                 return Future.fromPromise(new Promise(resolve => setTimeout(resolve, 500)))
@@ -768,8 +771,19 @@ function uploadDatasets(
                     return Future.error(String(e));
                 });
             }
-        })
-    ).toVoid();
+        }),
+        MAX_UPLOAD_FAILURES_IN_A_ROW
+    ).flatMap(({ errors, notRun }) =>
+        errors.length === 0
+            ? Future.success<void, string>(undefined)
+            : Future.error<string, void>(
+                  `${errors.length} of ${uploadsToAsyncUpload.length} uploads failed${
+                      notRun > 0
+                          ? `, and ${notRun} were not tried because ${MAX_UPLOAD_FAILURES_IN_A_ROW} failed in a row (DHIS2 may be down)`
+                          : ""
+                  }: ${errors.join("; ")}`
+              )
+    );
 }
 
 main();

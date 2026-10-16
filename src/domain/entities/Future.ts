@@ -158,6 +158,41 @@ export class Future<E, D> {
         return processSequentially(futures);
     }
 
+    /**
+     * Runs the futures one after another. A failure does not stop the others, but `maxFailuresInARow` failures in a row
+     * do (most likely the server is down, not the items): the rest are not run and are counted in `notRun`.
+     */
+    static sequentialUntilConsecutiveFailures<E, D>(
+        futures: Array<Future<E, D>>,
+        maxFailuresInARow: number
+    ): Future<E, { successes: D[]; errors: E[]; notRun: number }> {
+        const run = (
+            index: number,
+            failuresInARow: number,
+            successes: D[],
+            errors: E[]
+        ): Future<never, { successes: D[]; errors: E[]; notRun: number }> => {
+            const future = futures[index];
+            if (!future) return Future.success({ successes, errors, notRun: 0 });
+            if (failuresInARow >= maxFailuresInARow) {
+                return Future.success({ successes, errors, notRun: futures.length - index });
+            }
+
+            return future
+                .map(data => ({ successes: [...successes, data], errors, failuresInARow: 0 }))
+                .flatMapError(error =>
+                    Future.success<{ successes: D[]; errors: E[]; failuresInARow: number }, never>({
+                        successes,
+                        errors: [...errors, error],
+                        failuresInARow: failuresInARow + 1,
+                    })
+                )
+                .flatMap(next => run(index + 1, next.failuresInARow, next.successes, next.errors));
+        };
+
+        return run(0, 0, [], []);
+    }
+
     static parallelWithAccumulation<E, D>(
         futures: Array<Future<E, D>>,
         options: { maxConcurrency?: number; stopOnError?: boolean } = {}
