@@ -6,7 +6,10 @@ import { DataSet } from "../../../entities/metadata/DataSet";
 import { RISDataRepository } from "../../../repositories/data-entry/RISDataRepository";
 import { GlassModuleRepository } from "../../../repositories/GlassModuleRepository";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
+import { checkCountry } from "../utils/checkCountry";
+import { checkDuplicateRowsRIS } from "../utils/checkDuplicateRows";
 import { checkSpecimenPathogen } from "../utils/checkSpecimenPathogen";
+import { checkYear } from "../utils/checkYear";
 import _ from "lodash";
 import { AMRAggDataValuesImportHelper } from "./AMRAggDataValuesImportHelper";
 import { RISData } from "../../../entities/data-entry/amr-external/RISData";
@@ -72,12 +75,14 @@ export class RISDataSetImportHelper extends AMRAggDataValuesImportHelper {
     public async importRISDataValues({
         inputFile,
         year,
+        countryCode,
         action,
         dryRun,
         orgUnitId,
     }: {
         inputFile: File;
         year: string;
+        countryCode: string;
         action: ImportStrategy;
         dryRun: boolean;
         orgUnitId: string;
@@ -92,7 +97,12 @@ export class RISDataSetImportHelper extends AMRAggDataValuesImportHelper {
                     orgUnitId,
                     10
                 ),
-                this.runPreImportConsistencyChecks(risDataItems, AMRAggDataValuesImportHelper.metadataCache.module),
+                this.runPreImportConsistencyChecks(
+                    risDataItems,
+                    AMRAggDataValuesImportHelper.metadataCache.module,
+                    year,
+                    countryCode
+                ),
             ]);
 
             const { values, blockingErrors } = dataValuesResult;
@@ -119,29 +129,22 @@ export class RISDataSetImportHelper extends AMRAggDataValuesImportHelper {
         }
     }
 
-    private runPreImportConsistencyChecks(risDataItems: RISData[], module: GlassModule): ConsistencyError[] {
-        const errors: ConsistencyError[] = [];
+    // The batch and "all AST results empty" checks of ImportRISFile are not run for historical loads.
+    private runPreImportConsistencyChecks(
+        risDataItems: RISData[],
+        module: GlassModule,
+        year: string,
+        countryCode: string
+    ): ConsistencyError[] {
         const specimenPathogenErrors = module?.consistencyChecks?.specimenPathogen
             ? checkSpecimenPathogen(risDataItems, module.consistencyChecks.specimenPathogen)
             : [];
-        /*const astResultsErrors = checkASTResults(risDataItems);
-        const batchIdErrors = checkBatchId(risDataItems, batchId);
-        const yearErrors = checkYear(risDataItems, year);
-        const countryErrors = checkCountry(risDataItems, countryCode);
-        const duplicateRowErrors = checkDuplicateRowsRIS(risDataItems);*/
-        const astResultsErrors = errors;
-        const batchIdErrors = errors;
-        const yearErrors = errors;
-        const countryErrors = errors;
-        const duplicateRowErrors = errors;
 
         return [
             ...specimenPathogenErrors,
-            ...astResultsErrors,
-            ...batchIdErrors,
-            ...yearErrors,
-            ...countryErrors,
-            ...duplicateRowErrors,
+            ...checkYear(risDataItems, year),
+            ...checkCountry(risDataItems, countryCode),
+            ...checkDuplicateRowsRIS(risDataItems),
         ];
     }
 }
