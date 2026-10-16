@@ -20,8 +20,9 @@ import {
 import { includeBlockingErrors } from "../utils/includeBlockingErrors";
 import { groupLineErrors } from "../utils/groupLineErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
-import { RISData } from "../../../entities/data-entry/amr-external/RISData";
+import { RISData, RIS_RESULT_COLUMNS } from "../../../entities/data-entry/amr-external/RISData";
 import { checkDuplicateRowsRIS } from "../utils/checkDuplicateRows";
+import { checkWholeNumbers } from "../utils/checkWholeNumbers";
 
 import { AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID } from "./amrAggMetadataIds";
 
@@ -71,6 +72,7 @@ export class ImportRISFile {
                 const countryErrors = checkCountry(risDataItems, countryCode);
                 const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
                 const duplicateRowErrors = checkDuplicateRowsRIS(risDataItems);
+                const wholeNumberErrors = checkWholeNumbers(risDataItems, [...RIS_RESULT_COLUMNS]);
 
                 const dataValues = risDataItems
                     .map((risData, index) => {
@@ -121,6 +123,7 @@ export class ImportRISFile {
                               ...yearErrors,
                               ...countryErrors,
                               ...duplicateRowErrors,
+                              ...wholeNumberErrors,
                           ];
 
                 if (allBlockingErrors.length > 0) {

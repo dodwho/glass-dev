@@ -208,6 +208,21 @@ describe("ImportRISFile", () => {
         );
     });
 
+    it("blocks a result that is not a whole number 0 or higher, before saving anything", async () => {
+        const { run, save } = setup([risRow(), risRow({ ANTIBIOTIC: "CIP", INTERMEDIATE: NaN })]);
+
+        const summary = await run();
+
+        expect(save).not.toHaveBeenCalled();
+        expect(summary.blockingErrors).toEqual([
+            {
+                error: "INTERMEDIATE must be a whole number 0 or higher, such as 0, 25 or 1,234",
+                count: 1,
+                lines: [2],
+            },
+        ]);
+    });
+
     it("blocks duplicate rows", async () => {
         const { run, save } = setup([risRow(), risRow()]);
 

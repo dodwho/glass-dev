@@ -11,3 +11,12 @@ export interface RISData extends ExternalData {
     UNKNOWN_NO_BREAKPOINTS: number;
     ABCLASS: string;
 }
+
+export const RIS_RESULT_COLUMNS = [
+    "RESISTANT",
+    "INTERMEDIATE",
+    "NONSUSCEPTIBLE",
+    "SUSCEPTIBLE",
+    "UNKNOWN_NO_AST",
+    "UNKNOWN_NO_BREAKPOINTS",
+] as const;

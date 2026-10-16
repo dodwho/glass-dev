@@ -10,6 +10,7 @@ import { checkBatchId } from "../checkBatchId";
 import { checkCountry } from "../checkCountry";
 import { checkDuplicateRowsRIS, checkDuplicateRowsSAMPLE } from "../checkDuplicateRows";
 import { checkSpecimenPathogen } from "../checkSpecimenPathogen";
+import { checkWholeNumbers } from "../checkWholeNumbers";
 import { checkYear } from "../checkYear";
 import { getCategoryOptionComboByDataElement, getCategoryOptionComboByOptionCodes } from "../getCategoryOptionCombo";
 import { includeBlockingErrors } from "../includeBlockingErrors";
@@ -133,6 +134,37 @@ describe("AMR aggregate file checks", () => {
                 UNKNOWN_NO_BREAKPOINTS: 0,
             };
             expect(checkASTResults([risRow(zeros)])).toEqual([]);
+        });
+    });
+
+    describe("checkWholeNumbers", () => {
+        const columns = ["RESISTANT", "SUSCEPTIBLE"] as const;
+
+        it("accepts whole numbers 0 or higher", () => {
+            const rows = [risRow({ RESISTANT: 0 }), risRow({ RESISTANT: 1567, SUSCEPTIBLE: 1e6 })];
+            expect(checkWholeNumbers(rows, [...columns])).toEqual([]);
+        });
+
+        // DHIS2 ignores these values (INTEGER_ZERO_OR_POSITIVE) after the rest of the file has been saved.
+        it("reports text, negative and decimal values by column, with their lines", () => {
+            const rows = [risRow({ RESISTANT: NaN }), risRow(), risRow({ RESISTANT: -1, SUSCEPTIBLE: 2.5 })];
+            expect(checkWholeNumbers(rows, [...columns])).toEqual([
+                {
+                    error: "RESISTANT must be a whole number 0 or higher, such as 0, 25 or 1,234",
+                    count: 2,
+                    lines: [1, 3],
+                },
+                {
+                    error: "SUSCEPTIBLE must be a whole number 0 or higher, such as 0, 25 or 1,234",
+                    count: 1,
+                    lines: [3],
+                },
+            ]);
+        });
+
+        it("leaves a blank cell (null) to the other checks", () => {
+            const rows = [risRow({ RESISTANT: null as unknown as number })];
+            expect(checkWholeNumbers(rows, [...columns])).toEqual([]);
         });
     });
 
