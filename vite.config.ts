@@ -38,6 +38,13 @@ export default defineConfig(({ mode }) => {
             environment: "jsdom",
             include: ["src/**/*.{spec,test}.{ts,tsx}"],
             globals: true,
+            // `yarn test:coverage`: report in coverage/ (git-ignored).
+            coverage: {
+                provider: "v8",
+                include: ["src/**/*.{ts,tsx}"],
+                exclude: ["src/**/__tests__/**", "src/**/*.{spec,test}.{ts,tsx}", "src/locales/**", "src/**/*.d.ts"],
+                reporter: ["text-summary", "json-summary", "json", "html"],
+            },
         },
     };
 });
