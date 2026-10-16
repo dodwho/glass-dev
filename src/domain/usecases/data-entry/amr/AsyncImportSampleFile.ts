@@ -14,11 +14,12 @@ import {
     getCategoryOptionComboByDataElement,
     getCategoryOptionComboByOptionCodes,
 } from "../utils/getCategoryOptionCombo";
-import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
+import { SAMPLE_COUNT_COLUMNS, SampleData } from "../../../entities/data-entry/amr-external/SampleData";
 import { checkBatchId } from "../utils/checkBatchId";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkDuplicateRowsSAMPLE } from "../utils/checkDuplicateRows";
+import { checkWholeNumbers } from "../utils/checkWholeNumbers";
 import { checkYear } from "../utils/checkYear";
 import { includeBlockingErrors } from "../utils/includeBlockingErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
@@ -75,6 +76,7 @@ export class AsyncImportSampleFile {
                 const countryErrors = checkCountry(risDataItems, countryCode);
                 const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
                 const duplicateRowErrors = checkDuplicateRowsSAMPLE(risDataItems);
+                const wholeNumberErrors = checkWholeNumbers(risDataItems, [...SAMPLE_COUNT_COLUMNS]);
 
                 const dataValues: DataValue[] = risDataItems
                     .map((risData, index) => {
@@ -125,6 +127,7 @@ export class AsyncImportSampleFile {
                     ...yearErrors,
                     ...countryErrors,
                     ...duplicateRowErrors,
+                    ...wholeNumberErrors,
                 ];
 
                 if (allBlockingErrors.length > 0) {

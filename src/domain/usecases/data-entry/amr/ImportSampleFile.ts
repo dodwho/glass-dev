@@ -17,8 +17,9 @@ import { includeBlockingErrors } from "../utils/includeBlockingErrors";
 import { groupLineErrors } from "../utils/groupLineErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import { SampleDataRepository } from "../../../repositories/data-entry/SampleDataRepository";
-import { SampleData } from "../../../entities/data-entry/amr-external/SampleData";
+import { SAMPLE_COUNT_COLUMNS, SampleData } from "../../../entities/data-entry/amr-external/SampleData";
 import { checkDuplicateRowsSAMPLE } from "../utils/checkDuplicateRows";
+import { checkWholeNumbers } from "../utils/checkWholeNumbers";
 
 import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
 
@@ -60,6 +61,7 @@ export class ImportSampleFile {
                 const countryErrors = checkCountry(risDataItems, countryCode);
                 const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
                 const duplicateRowErrors = checkDuplicateRowsSAMPLE(risDataItems);
+                const wholeNumberErrors = checkWholeNumbers(risDataItems, [...SAMPLE_COUNT_COLUMNS]);
 
                 const dataValues = risDataItems
                     .map((risData, index) => {
@@ -108,6 +110,7 @@ export class ImportSampleFile {
                               ...yearErrors,
                               ...countryErrors,
                               ...duplicateRowErrors,
+                              ...wholeNumberErrors,
                           ];
 
                 if (allBlockingErrors.length > 0) {

@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-17T15:22:08.426Z\n"
-"PO-Revision-Date: 2026-10-17T15:22:08.426Z\n"
+"POT-Creation-Date: 2026-10-17T20:49:00.389Z\n"
+"PO-Revision-Date: 2026-10-17T20:49:00.389Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -145,6 +145,9 @@ msgid "Invalid strata values selected. TOT / GLOB values must not overlap"
 msgstr ""
 
 msgid "The AST results provided are not valid (they are all empty)"
+msgstr ""
+
+msgid "{{column}} must be a whole number 0 or higher, such as 0, 25 or 1,234"
 msgstr ""
 
 msgid "Import Ignored"

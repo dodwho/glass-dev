@@ -123,6 +123,21 @@ describe("ImportSampleFile", () => {
         ]);
     });
 
+    it("blocks a count that is not a whole number 0 or higher, before saving anything", async () => {
+        const { run, save } = setup([sampleRow({ NUMSAMPLEDPATIENTS: NaN })]);
+
+        const summary = await run();
+
+        expect(save).not.toHaveBeenCalled();
+        expect(summary.blockingErrors).toEqual([
+            {
+                error: "NUMSAMPLEDPATIENTS must be a whole number 0 or higher, such as 0, 25 or 1,234",
+                count: 1,
+                lines: [1],
+            },
+        ]);
+    });
+
     it("blocks wrong country, year, batch and duplicate rows and writes nothing", async () => {
         const { run, save } = setup([
             sampleRow({ COUNTRY: "JPN" }),
