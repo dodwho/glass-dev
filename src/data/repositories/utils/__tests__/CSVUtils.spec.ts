@@ -1,6 +1,35 @@
 import { Blob as NodeBlob } from "node:buffer";
-import { getDateValue, parseCsvBlobInChunks, toNumberOrUndefined } from "../CSVUtils";
+import { getDateValue, getNumberValue, parseCsvBlobInChunks, toNumberOrUndefined } from "../CSVUtils";
 import { Row } from "../../../../domain/repositories/SpreadsheetXlsxRepository";
+
+describe("getNumberValue", () => {
+    const cell = (value: unknown) => ({ RESISTANT: value } as unknown as Row<string>);
+
+    it("reads numbers typed as text and numeric cells", () => {
+        expect(getNumberValue(cell("174"), "RESISTANT")).toBe(174);
+        expect(getNumberValue(cell(" 12 "), "RESISTANT")).toBe(12);
+        expect(getNumberValue(cell(7038), "RESISTANT")).toBe(7038);
+    });
+
+    // Australia's 2024 RIS file has counts such as "1,567"; GLASS before 1.6.45 stored them as 1567.
+    it("reads a whole number written with comma thousands separators", () => {
+        expect(getNumberValue(cell("1,567"), "RESISTANT")).toBe(1567);
+        expect(getNumberValue(cell(" 1,234,567 "), "RESISTANT")).toBe(1234567);
+    });
+
+    // Before 1.6.45 "1,5" was read as 15: anything that is not exactly in thousands groups stays invalid.
+    it("does not guess at other uses of a comma", () => {
+        for (const value of ["1,5", "12,34", "1,2345", ",123", "1,234.5"]) {
+            expect(getNumberValue(cell(value), "RESISTANT")).toBeNaN();
+        }
+    });
+
+    // Current behaviour, recorded on purpose: a blank cell is read as 0.
+    it("reads a blank or missing cell as 0", () => {
+        expect(getNumberValue(cell(""), "RESISTANT")).toBe(0);
+        expect(getNumberValue({} as Row<string>, "RESISTANT")).toBe(0);
+    });
+});
 
 describe("parseCsvBlobInChunks", () => {
     it("keeps a multi-byte character intact across the 1 MB read boundary", async () => {

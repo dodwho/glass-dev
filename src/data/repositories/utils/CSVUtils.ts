@@ -10,8 +10,14 @@ export function getTextValue(row: Row<string>, column: string): string {
     return row[column] || "";
 }
 
+// Cells are read as typed (READ_OPTIONS_NOTE), so a count like "1,567" arrives as text. Only exact thousands
+// groups are accepted: before 1.6.45 the reader also turned "1,5" into 15.
+const THOUSANDS_SEPARATED_WHOLE_NUMBER = /^\d{1,3}(,\d{3})+$/;
+
 export function getNumberValue(row: Row<string>, column: string): number {
-    return +(row[column] || 0);
+    const value = row[column];
+    const text = typeof value === "string" ? value.trim() : "";
+    return THOUSANDS_SEPARATED_WHOLE_NUMBER.test(text) ? +text.replace(/,/g, "") : +(value || 0);
 }
 
 /**
