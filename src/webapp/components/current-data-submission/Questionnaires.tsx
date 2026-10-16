@@ -49,6 +49,11 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
         year
     );
     const { captureAccessGroup } = useCurrentUserGroupsAccess();
+    const snackbar = useSnackbar();
+    const showError = useCallback(
+        (message: string, error: string) => snackbar.error(`${message}: ${error}`),
+        [snackbar]
+    );
     const currentDataSubmissionStatus = useStatusDataSubmission(
         { id: currentModuleAccess.moduleId, name: currentModuleAccess.moduleName },
         orgUnit.id,
@@ -72,13 +77,18 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
                         .send(notificationText, notificationText, userGroupsIds, orgUnit.path)
                         .run(
                             () => {},
-                            () => {}
+                            error =>
+                                showError(
+                                    i18n.t("The status was updated but the user groups could not be notified"),
+                                    error
+                                )
                         );
                 }
             },
-            () => {}
+            error => showError(i18n.t("The data submission status could not be updated"), error)
         );
     }, [
+        showError,
         changedBy,
         captureAccessGroup,
         compositionRoot.notifications,
@@ -114,7 +124,7 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
                         //If AMR-I completes the questionnaire, change status for AMR-agg
                         compositionRoot.glassDataSubmission.setStatus(amrDataSubmissionId, "COMPLETE", changedBy).run(
                             () => {},
-                            () => {}
+                            error => showError(i18n.t("The AMR data submission status could not be updated"), error)
                         );
                     }
                 }
@@ -128,18 +138,19 @@ export const Questionnaires: React.FC<QuestionnairesProps> = ({ setRefetchStatus
                             //Triggerring relaod of status in parent
                             setRefetchStatus("NOT_COMPLETED");
                         },
-                        () => {}
+                        error => showError(i18n.t("The data submission status could not be updated"), error)
                     );
                 } else if (currentModuleAccess.moduleName === "AMR - Individual") {
                     //If AMR-I completes the questionnaire, change status for AMR-agg
                     compositionRoot.glassDataSubmission.setStatus(amrDataSubmissionId, "NOT_COMPLETED", changedBy).run(
                         () => {},
-                        () => {}
+                        error => showError(i18n.t("The AMR data submission status could not be updated"), error)
                     );
                 }
             }
         },
         [
+            showError,
             changedBy,
             amrDataSubmissionId,
             compositionRoot.glassDataSubmission,
