@@ -206,7 +206,10 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
 
                         compositionRoot.glassUploads.saveImportSummaryErrorsOfFiles(params).run(
                             () => {},
-                            () => {}
+                            error =>
+                                snackbar.error(
+                                    `${i18n.t("The list of errors found in the file could not be saved")}: ${error}`
+                                )
                         );
 
                         if (
@@ -220,7 +223,7 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                                 })
                                 .run(
                                     () => {},
-                                    () => {}
+                                    error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                 );
                     }
 
@@ -272,7 +275,7 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                                     })
                                     .run(
                                         () => {},
-                                        () => {}
+                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                     );
                         }
                         setImportLoading(false);
@@ -306,6 +309,7 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
         changeStep,
         setSecondaryFileImportSummary,
         currentModuleProperties?.isDryRunReq,
+        snackbar,
     ]);
 
     const returnToDatasetsTab = useCallback(() => {
@@ -332,6 +336,19 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
         [compositionRoot.glassUploads, returnToDatasetsTab, snackbar]
     );
 
+    const showLinkFilesError = useCallback(
+        (error: string) => {
+            snackbar.error(
+                `Error updating ${moduleProperties.get(moduleName)?.secondaryUploadLabel} file with ${
+                    moduleProperties.get(moduleName)?.primaryUploadLabel
+                } file, error : ${error} `
+            );
+            console.error(error);
+            setImportLoading(false);
+        },
+        [moduleName, snackbar]
+    );
+
     const handleAsyncUploads = useCallback(() => {
         const primaryUploadId = localStorage.getItem("primaryUploadId") ?? undefined;
         const secondaryUploadId =
@@ -343,25 +360,16 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
             //AMR: update the secondary file with primary file upload id.
             if (secondaryUploadId && primaryUploadId) {
                 setImportLoading(true);
-                compositionRoot.glassDocuments.updateSecondaryFileWithPrimaryId(secondaryUploadId, primaryUploadId).run(
-                    () => {
+                compositionRoot.glassDocuments
+                    .updateSecondaryFileWithPrimaryId(secondaryUploadId, primaryUploadId)
+                    .run(() => {
                         setToAsyncUploads(primaryUploadId, secondaryUploadId);
-                    },
-                    error => {
-                        snackbar.error(
-                            `Error updating ${moduleProperties.get(moduleName)?.secondaryUploadLabel} file with ${
-                                moduleProperties.get(moduleName)?.primaryUploadLabel
-                            } file, error : ${error} `
-                        );
-                        console.error(error);
-                        setImportLoading(false);
-                    }
-                );
+                    }, showLinkFilesError);
             }
         } else {
             setToAsyncUploads(primaryUploadId, secondaryUploadId);
         }
-    }, [compositionRoot.glassDocuments, hasSecondaryFile, moduleName, setToAsyncUploads, snackbar]);
+    }, [compositionRoot.glassDocuments, hasSecondaryFile, moduleName, setToAsyncUploads, showLinkFilesError]);
 
     const isAsyncUploadsEnabled = useMemo(() => {
         return !!(
@@ -390,14 +398,9 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                 if (secondaryUploadId && primaryUploadId)
                     compositionRoot.glassDocuments
                         .updateSecondaryFileWithPrimaryId(secondaryUploadId, primaryUploadId)
-                        .run(
-                            () => {
-                                uploadFileSubmissions();
-                            },
-                            () => {
-                                console.debug("Error updating datastore");
-                            }
-                        );
+                        .run(() => {
+                            uploadFileSubmissions();
+                        }, showLinkFilesError);
             }
         }
     };

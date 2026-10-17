@@ -53,6 +53,9 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
         setFileType(fileType);
     };
 
+    const showErrorListNotSaved = (error: string) =>
+        snackbar.error(`${i18n.t("The list of errors found in the file could not be saved")}: ${error}`);
+
     const downloadErrorsClick = useCallback(() => {
         const csvContent = [
             Object.keys(primaryFileImportSummary?.blockingErrors[0] ?? {}).join(","),
@@ -98,8 +101,8 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                     changeStep(3);
                                     setImportLoading(false);
                                 },
-                                () => {
-                                    snackbar.error(i18n.t("Failed to set upload status"));
+                                error => {
+                                    snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`);
                                     setImportLoading(false);
                                 }
                             );
@@ -108,8 +111,8 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                         setImportLoading(false);
                     }
                 },
-                () => {
-                    snackbar.error(i18n.t("Failed to set upload status"));
+                error => {
+                    snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`);
                     setImportLoading(false);
                 }
             );
@@ -147,7 +150,8 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
             () => {
                 setUploadStatus(primaryUploadId, secondaryUploadId, status);
             },
-            () => {
+            error => {
+                showErrorListNotSaved(error);
                 setUploadStatus(primaryUploadId, secondaryUploadId, status);
             }
         );
@@ -175,9 +179,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                     })
                                     .run(
                                         () => {},
-                                        () => {
-                                            console.error("Failed to set upload status to VALIDATED");
-                                        }
+                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                     );
                             } else {
                                 snackbar.error(i18n.t("Failed to calculate consumption data"));
@@ -190,9 +192,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                     })
                                     .run(
                                         () => {},
-                                        () => {
-                                            console.error("Failed to set upload status to IMPORTED");
-                                        }
+                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                     );
                             }
                             console.debug(importSummary);
@@ -213,9 +213,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                 })
                                 .run(
                                     () => {},
-                                    () => {
-                                        console.error("Failed to set upload status to IMPORTED");
-                                    }
+                                    error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                 );
                         }
                     );
@@ -239,9 +237,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                     })
                                     .run(
                                         () => {},
-                                        () => {
-                                            console.error("Failed to set upload status to VALIDATED");
-                                        }
+                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                     );
                             } else {
                                 snackbar.error(i18n.t("Failed to calculate consumption data"));
@@ -254,9 +250,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                     })
                                     .run(
                                         () => {},
-                                        () => {
-                                            console.error("Failed to set upload status to IMPORTED");
-                                        }
+                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                     );
                             }
                             console.debug(importSummary);
@@ -277,9 +271,7 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                 })
                                 .run(
                                     () => {},
-                                    () => {
-                                        console.error("Failed to set upload status to IMPORTED");
-                                    }
+                                    error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                 );
                         }
                     );
@@ -403,10 +395,9 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                 },
                             };
 
-                            compositionRoot.glassUploads.saveImportSummaryErrorsOfFiles(params).run(
-                                () => {},
-                                () => {}
-                            );
+                            compositionRoot.glassUploads
+                                .saveImportSummaryErrorsOfFiles(params)
+                                .run(() => {}, showErrorListNotSaved);
 
                             if (importSecondaryFileSummary.blockingErrors.length === 0 && secondaryUploadId) {
                                 compositionRoot.glassUploads
@@ -416,7 +407,8 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                             changeStep(3);
                                             setImportLoading(false);
                                         },
-                                        () => {
+                                        error => {
+                                            snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`);
                                             setImportLoading(false);
                                         }
                                     );
@@ -428,7 +420,8 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                                             () => {
                                                 setImportLoading(false);
                                             },
-                                            () => {
+                                            error => {
+                                                snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`);
                                                 setImportLoading(false);
                                             }
                                         );

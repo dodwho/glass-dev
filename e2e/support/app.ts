@@ -89,7 +89,7 @@ async function openUploadPage(page: Page, module: ModuleKey, fileType?: string) 
 }
 
 /** Picks an option in the page's drop-down (file type or batch): their labels are not linked to them. */
-async function choose(page: Page, option: string) {
+export async function choose(page: Page, option: string) {
     // The header's country selector is a drop-down too: skip it.
     await page.locator('[aria-haspopup="listbox"]:not(header [aria-haspopup="listbox"])').first().click();
     await page.getByRole("option", { name: option, exact: true }).click();

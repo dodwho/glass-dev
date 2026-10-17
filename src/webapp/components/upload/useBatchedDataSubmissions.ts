@@ -85,34 +85,25 @@ export function useBatchedDataSubmissions(props: UsePreviousDataSubmissionsProps
             const secondaryUploadId = localStorage.getItem("secondaryUploadId");
             setBatchId(batchId);
 
-            const upload = (id: string, type: "primary" | "secondary") =>
-                compositionRoot.glassUploads.setBatchId({ id, batchId }).mapError(() => {
-                    console.debug(`error occurred while updating batch id to ${type} upload in datastore`);
-                    setLoading(false);
-                });
+            const upload = (id: string) => compositionRoot.glassUploads.setBatchId({ id, batchId });
+            const showError = (error: string) => {
+                snackbar.error(`${i18n.t("The Batch ID could not be saved")}: ${error}`);
+                setLoading(false);
+            };
 
             if (primaryUploadId) {
                 setLoading(true);
-                upload(primaryUploadId, "primary").run(
-                    () => {
-                        if (secondaryUploadId) {
-                            upload(secondaryUploadId, "secondary").run(
-                                () => setLoading(false),
-                                () => {}
-                            );
-                        } else setLoading(false);
-                    },
-                    () => {}
-                );
+                upload(primaryUploadId).run(() => {
+                    if (secondaryUploadId) {
+                        upload(secondaryUploadId).run(() => setLoading(false), showError);
+                    } else setLoading(false);
+                }, showError);
             } else if (secondaryUploadId) {
                 setLoading(true);
-                upload(secondaryUploadId, "secondary").run(
-                    () => setLoading(false),
-                    () => {}
-                );
+                upload(secondaryUploadId).run(() => setLoading(false), showError);
             }
         },
-        [compositionRoot.glassUploads, setLoading, setBatchId]
+        [compositionRoot.glassUploads, setLoading, setBatchId, snackbar]
     );
 
     useEffect(() => {
