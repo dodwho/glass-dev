@@ -5,6 +5,7 @@ import { GlassUploadsState } from "../../hooks/useGlassUploads";
 import { ContentLoader } from "../content-loader/ContentLoader";
 import { UploadsDataItem } from "../../entities/uploads";
 import i18n from "@eyeseetea/d2-ui-components/locales";
+import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import { Button, CircularProgress, Typography } from "@material-ui/core";
 import { NavLink } from "react-router-dom";
 import { useStatusDataSubmission } from "../../hooks/useStatusDataSubmission";
@@ -46,6 +47,7 @@ interface ListOfDatasetsProps {
 
 export const ListOfDatasets: React.FC<ListOfDatasetsProps> = ({ setRefetchStatus }) => {
     const { compositionRoot, currentUser } = useAppContext();
+    const snackbar = useSnackbar();
     const changedBy = useMemo(() => ({ id: currentUser.id, username: currentUser.username }), [currentUser]);
     const { currentPeriod } = useCurrentPeriodContext();
     const {
@@ -114,7 +116,7 @@ export const ListOfDatasets: React.FC<ListOfDatasetsProps> = ({ setRefetchStatus
                     //Triggerring relaod of status in parent
                     setRefetchStatus("NOT_COMPLETED");
                 },
-                () => {}
+                error => snackbar.error(`${i18n.t("The data submission status could not be updated")}: ${error}`)
             );
         }
     }, [
@@ -132,6 +134,7 @@ export const ListOfDatasets: React.FC<ListOfDatasetsProps> = ({ setRefetchStatus
         currentDataSubmissionStatus,
         setRefetchStatus,
         questionnaires,
+        snackbar,
     ]);
 
     return (

@@ -4,7 +4,7 @@ import { glassColors } from "../../pages/app/themes/dhis2.theme";
 import styled from "styled-components";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import { DataSubmissionStatusTypes } from "../../../domain/entities/GlassDataSubmission";
-import { ConfirmationDialog } from "@eyeseetea/d2-ui-components";
+import { ConfirmationDialog, useSnackbar } from "@eyeseetea/d2-ui-components";
 import { useAppContext } from "../../contexts/app-context";
 import { useCurrentDataSubmissionId } from "../../hooks/useCurrentDataSubmissionId";
 import { useCurrentOrgUnitContext } from "../../contexts/current-orgUnit-context";
@@ -19,6 +19,7 @@ interface SubmissionProps {
 
 export const Submission: React.FC<SubmissionProps> = ({ setRefetchStatus, setCurrentStep }) => {
     const { compositionRoot, currentUser } = useAppContext();
+    const snackbar = useSnackbar();
     const changedBy = { id: currentUser.id, username: currentUser.username };
     const [open, setOpen] = React.useState(false);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -64,14 +65,20 @@ export const Submission: React.FC<SubmissionProps> = ({ setRefetchStatus, setCur
                         .send(notificationText, notificationText, userGroupsIds, currentOrgUnitAccess.orgUnitPath)
                         .run(
                             () => {},
-                            () => {}
+                            error =>
+                                snackbar.error(
+                                    `${i18n.t(
+                                        "The status was updated but the user groups could not be notified"
+                                    )}: ${error}`
+                                )
                         );
                 }
                 setIsLoading(false);
                 setOpen(false);
                 setCurrentStep(0);
             },
-            () => {
+            error => {
+                snackbar.error(`${i18n.t("The data submission status could not be updated")}: ${error}`);
                 setIsLoading(false);
                 setOpen(false);
             }

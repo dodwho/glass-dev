@@ -11,6 +11,7 @@ import { DataSubmissionStatusTypes } from "../../../domain/entities/GlassDataSub
 import { CircularProgress } from "material-ui";
 import { useCurrentUserGroupsAccess } from "../../hooks/useCurrentUserGroupsAccess";
 import { useCurrentPeriodContext } from "../../contexts/current-period-context";
+import { useSnackbar } from "@eyeseetea/d2-ui-components";
 
 interface AdvancedButtonsProps {
     setRefetchStatus: Dispatch<SetStateAction<DataSubmissionStatusTypes | undefined>>;
@@ -18,6 +19,7 @@ interface AdvancedButtonsProps {
 }
 export const AdvancedButtons: React.FC<AdvancedButtonsProps> = ({ setRefetchStatus, setCurrentStep }) => {
     const { compositionRoot, currentUser } = useAppContext();
+    const snackbar = useSnackbar();
     const changedBy = { id: currentUser.id, username: currentUser.username };
     const { currentOrgUnitAccess } = useCurrentOrgUnitContext();
     const { currentModuleAccess } = useCurrentModuleContext();
@@ -51,13 +53,19 @@ export const AdvancedButtons: React.FC<AdvancedButtonsProps> = ({ setRefetchStat
                         .send(notificationText, notificationText, userGroupsIds, currentOrgUnitAccess.orgUnitPath)
                         .run(
                             () => {},
-                            () => {}
+                            error =>
+                                snackbar.error(
+                                    `${i18n.t(
+                                        "The status was updated but the user groups could not be notified"
+                                    )}: ${error}`
+                                )
                         );
                 }
                 setCurrentStep(0);
                 setLoading(false);
             },
-            () => {
+            error => {
+                snackbar.error(`${i18n.t("The data submission status could not be updated")}: ${error}`);
                 setLoading(false);
             }
         );
