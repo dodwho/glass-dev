@@ -6,9 +6,12 @@ import {
     defaultAMCQuestionnaireOptionsContextState,
 } from "../contexts/amc-questionnaire-options-context";
 import { Future } from "../../domain/entities/Future";
+import i18n from "@eyeseetea/d2-ui-components/locales";
+import { useSnackbar } from "@eyeseetea/d2-ui-components";
 
 export const AMCQuestionnaireOptionsContextProvider: React.FC = ({ children }) => {
     const { compositionRoot } = useAppContext();
+    const snackbar = useSnackbar();
     const [amcQuestionnaireOptions, setAMCQuestionnaireOptions] = useState<AMCQuestionnaireOptionsContextState>(
         defaultAMCQuestionnaireOptionsContextState
     );
@@ -30,11 +33,9 @@ export const AMCQuestionnaireOptionsContextProvider: React.FC = ({ children }) =
             options => {
                 setAMCQuestionnaireOptions(options);
             },
-            error => {
-                console.error("Error fetching AMC questionnaire options", error);
-            }
+            error => snackbar.error(`${i18n.t("Error fetching AMC questionnaire options")}: ${error}`)
         );
-    }, [compositionRoot.amcQuestionnaires]);
+    }, [compositionRoot.amcQuestionnaires, snackbar]);
 
     return (
         <AMCQuestionnaireOptionsContext.Provider value={amcQuestionnaireOptions}>

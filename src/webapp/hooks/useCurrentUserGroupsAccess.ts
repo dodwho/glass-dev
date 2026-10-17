@@ -3,11 +3,14 @@ import { useCurrentModuleContext } from "../contexts/current-module-context";
 import { GlassState } from "./State";
 import { useAppContext } from "../contexts/app-context";
 import { UserGroup } from "../../domain/entities/User";
+import i18n from "@eyeseetea/d2-ui-components/locales";
+import { useSnackbar } from "@eyeseetea/d2-ui-components";
 
 export type GlassModuleState = GlassState<UserGroup[]>;
 
 export function useCurrentUserGroupsAccess() {
     const { compositionRoot } = useAppContext();
+    const snackbar = useSnackbar();
     const { currentModuleAccess } = useCurrentModuleContext();
 
     const [approveAccessGroup, setApproveAccessGroup] = React.useState<GlassModuleState>({ kind: "loading" });
@@ -34,9 +37,9 @@ export function useCurrentUserGroupsAccess() {
                     setConfidentialAccessGroup({ kind: "loaded", data: glassModule.userGroups.confidentialAccess });
                 }
             },
-            () => {}
+            error => snackbar.error(`${i18n.t("The user groups of this module could not be loaded")}: ${error}`)
         );
-    }, [compositionRoot, currentModuleAccess]);
+    }, [compositionRoot, currentModuleAccess, snackbar]);
 
     return { approveAccessGroup, captureAccessGroup, readAccessGroup, confidentialAccessGroup };
 }

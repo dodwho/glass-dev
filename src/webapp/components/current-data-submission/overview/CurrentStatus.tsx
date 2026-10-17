@@ -64,7 +64,7 @@ export const CurrentStatus: React.FC<StatusProps> = ({
                                 questionnairesData => {
                                     setQuestionnaires(questionnairesData);
                                 },
-                                () => {}
+                                error => snackbar.error(`${i18n.t("Error fetching questionnaires.")} ${error}`)
                             );
                     },
                     () => {

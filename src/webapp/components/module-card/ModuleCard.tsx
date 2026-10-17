@@ -71,7 +71,7 @@ export const ModuleCard: React.FC<ModuleCardProps> = ({ period, module }) => {
                             questionnairesData => {
                                 setQuestionnaires(questionnairesData);
                             },
-                            () => {}
+                            error => snackbar.error(`${i18n.t("Error fetching questionnaires.")} ${error}`)
                         );
                 },
                 () => {

@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-17T15:22:04.310Z\n"
-"PO-Revision-Date: 2026-10-17T15:22:04.310Z\n"
+"POT-Creation-Date: 2026-10-17T15:22:08.426Z\n"
+"PO-Revision-Date: 2026-10-17T15:22:08.426Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -520,6 +520,9 @@ msgstr ""
 msgid "Complete"
 msgstr ""
 
+msgid "Error downloading file"
+msgstr ""
+
 msgid "Error occurred when removing async uploads"
 msgstr ""
 
@@ -941,7 +944,13 @@ msgstr ""
 msgid "Enable message SMS notifications"
 msgstr ""
 
+msgid "Error fetching AMC questionnaire options"
+msgstr ""
+
 msgid "Error fetching user Modules"
+msgstr ""
+
+msgid "The user groups of this module could not be loaded"
 msgstr ""
 
 msgid "Country Information"
