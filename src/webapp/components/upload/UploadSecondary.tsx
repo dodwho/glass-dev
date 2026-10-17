@@ -107,6 +107,10 @@ export const UploadSecondary: React.FC<UploadSecondaryProps> = ({
                                     error => {
                                         console.error(`Error in file upload: ${error}`);
                                         snackbar.error(i18n.t(`Error in file upload: ${error}`));
+                                        // Without its upload record the file must not be imported: its data could
+                                        // then not be found or deleted.
+                                        setSecondaryFile(null);
+                                        setSecondaryFileTotalRows(undefined);
                                         setIsLoading(false);
                                     }
                                 );

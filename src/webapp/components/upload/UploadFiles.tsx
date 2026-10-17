@@ -591,7 +591,8 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                     variant="contained"
                     color={isValidated ? "primary" : "default"}
                     disabled={
-                        isValidated
+                        // While a file's upload record is being saved, its upload id is not known yet.
+                        isValidated && !isLoadingPrimary && !isLoadingSecondary
                             ? isAsyncUploadsEnabled &&
                               !localStorage.getItem("primaryUploadId") &&
                               !localStorage.getItem("secondaryUploadId")

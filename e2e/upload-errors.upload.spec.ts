@@ -1,6 +1,8 @@
-/* When DHIS2 refuses to save an upload record, the upload screens must say so and must not hang. The browser makes
-   every save of an upload record fail (POST /api/tracker: the AMR aggregate data itself goes to dataValueSets), at
-   one step at a time, and the test uploads are deleted at the end. */
+/* When DHIS2 refuses to save an upload record, the upload screens must say so, must not hang, and must not import a
+   file that has no upload record. The browser makes every save of an upload record fail (POST /api/tracker: the AMR
+   aggregate data itself goes to dataValueSets), or the save of the file itself, at one step at a time, and the test
+   uploads are deleted at the end. */
+import path from "path";
 import { expect, Page, test } from "@playwright/test";
 import { attachFiles, choose, continueButton, deleteTestUploads, waitForIdle } from "./support/app";
 import { getUploads, isTestUpload } from "./support/dhis2";
@@ -65,6 +67,24 @@ test.describe.serial("AMR: upload records that cannot be saved", () => {
         // Nothing was imported: the uploads can go before the next test.
         await page.unrouteAll();
         await deleteTestUploads(page, module);
+    });
+
+    test("step 1 does not let a file be imported when its upload record cannot be saved", async ({ page }) => {
+        await recordMessages(page);
+        // The file is saved before its upload record: refusing it stops the upload before anything is created.
+        await page.route(
+            url => url.pathname.endsWith("/api/fileResources"),
+            route =>
+                route.request().method() === "POST"
+                    ? route.fulfill({ status: 409, json: { httpStatusCode: 409, status: "ERROR", message: failure } })
+                    : route.continue()
+        );
+        await attachFiles(page, module, { batch: "Dataset 1", primary: files.ris });
+
+        await expectMessage(page, /Error in file upload: .*refused the save on purpose/);
+        await expect(page.getByText(path.basename(files.ris))).toBeHidden();
+        await expect(continueButton(page)).toBeDisabled();
+        expect((await getUploads(module)).filter(isTestUpload), "test uploads").toEqual([]);
     });
 
     test("step 2 says so when the error list and the upload status cannot be saved after the import", async ({
