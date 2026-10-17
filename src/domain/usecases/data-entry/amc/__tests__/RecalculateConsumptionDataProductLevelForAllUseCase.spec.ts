@@ -260,10 +260,18 @@ describe("RecalculateConsumptionDataProductLevelForAllUseCase.calculateByOrgUnit
         });
     });
 
-    // Current behaviour, recorded on purpose and a finding for review: the stored events that were not recalculated are
-    // deleted before the result of the import is looked at, so a failed import still deletes them and nothing replaces them.
-    it("deletes the events that were not recalculated even when the import of the recalculated ones failed", async () => {
+    // A failed import leaves the matched events on their old values: deleting the unmatched ones then would leave a
+    // half-updated state. Nothing is deleted, and a rerun completes the recalculation (decision log 2026-10-18).
+    it("deletes nothing when the import of the recalculated rows failed", async () => {
         const { run, deleteEvents } = setup({ importStatus: "ERROR" });
+
+        await run(true);
+
+        expect(deleteEvents).not.toHaveBeenCalled();
+    });
+
+    it("still deletes the events that were not recalculated after an import with warnings", async () => {
+        const { run, deleteEvents } = setup({ importStatus: "WARNING" });
 
         await run(true);
 

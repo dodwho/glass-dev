@@ -49,9 +49,12 @@ const stored = (atc: string, eventId: string) => row(atc, { eventId });
 
 type ImportCalculationsParams = Parameters<AMCSubstanceDataRepository["importCalculations"]>[0];
 
-function setup() {
+function setup(importStatus: TrackerImportResult["status"] = "OK") {
     const importCalculations = vi.fn((_params: ImportCalculationsParams) =>
-        Future.success({ response: okResult({ updated: 1, total: 1 }), eventIdLineNoMap: [] })
+        Future.success({
+            response: { ...okResult({ updated: 1, total: 1 }), status: importStatus },
+            eventIdLineNoMap: [],
+        })
     );
     const deleteCalculatedSubstanceConsumptionDataById = vi.fn(() =>
         Future.success(okResult({ deleted: 1, total: 1 }))
@@ -158,6 +161,32 @@ describe("updateRecalculatedConsumptionData", () => {
 
             expect(deleteCalculatedSubstanceConsumptionDataById).toHaveBeenCalledWith(["evt-old"], 500);
         });
+    });
+
+    // A failed import leaves the stored events on their old values: deleting the unmatched ones then would leave a
+    // half-updated state. Nothing is deleted, and a rerun completes the recalculation.
+    it("deletes nothing when the import of the recalculated rows failed", async () => {
+        const { run, deleteCalculatedSubstanceConsumptionDataById } = setup("ERROR");
+
+        await run({
+            next: [row("J01CA04")],
+            current: [stored("J01CA04", "evt1"), stored("J01OLD01", "evt-old")],
+            allowCreation: true,
+        });
+
+        expect(deleteCalculatedSubstanceConsumptionDataById).not.toHaveBeenCalled();
+    });
+
+    it("still deletes the unmatched events after an import with warnings (the rows were saved)", async () => {
+        const { run, deleteCalculatedSubstanceConsumptionDataById } = setup("WARNING");
+
+        await run({
+            next: [row("J01CA04")],
+            current: [stored("J01CA04", "evt1"), stored("J01OLD01", "evt-old")],
+            allowCreation: true,
+        });
+
+        expect(deleteCalculatedSubstanceConsumptionDataById).toHaveBeenCalledWith(["evt-old"], 500);
     });
 
     it("never deletes unmatched events when another calculation wrote them (preserveUnmatchedEvents)", async () => {
