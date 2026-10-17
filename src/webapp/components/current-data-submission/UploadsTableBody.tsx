@@ -117,7 +117,7 @@ export const UploadsTableBody: React.FC<UploadsTableBodyProps> = ({
                 document.body.appendChild(downloadSimulateAnchor);
                 downloadSimulateAnchor.click();
             },
-            () => {}
+            error => snackbar.error(`${i18n.t("Error downloading file")}: ${error}`)
         );
     };
 

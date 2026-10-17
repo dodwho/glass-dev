@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-17T08:18:55.956Z\n"
-"PO-Revision-Date: 2026-10-17T08:18:55.958Z\n"
+"POT-Creation-Date: 2026-10-17T09:46:02.188Z\n"
+"PO-Revision-Date: 2026-10-17T09:46:02.190Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -201,6 +201,12 @@ msgid ""
 "publication"
 msgstr ""
 
+msgid "The status was updated but the user groups could not be notified"
+msgstr ""
+
+msgid "The data submission status could not be updated"
+msgstr ""
+
 msgid "Request Dataset update"
 msgstr ""
 
@@ -332,12 +338,6 @@ msgid "State"
 msgstr ""
 
 msgid "Data Submission status has errors..."
-msgstr ""
-
-msgid "The status was updated but the user groups could not be notified"
-msgstr ""
-
-msgid "The data submission status could not be updated"
 msgstr ""
 
 msgid "The AMR data submission status could not be updated"
@@ -521,6 +521,9 @@ msgid "Delete"
 msgstr ""
 
 msgid "Complete"
+msgstr ""
+
+msgid "Error downloading file"
 msgstr ""
 
 msgid "Error occurred when removing async uploads"
@@ -944,7 +947,13 @@ msgstr ""
 msgid "Enable message SMS notifications"
 msgstr ""
 
+msgid "Error fetching AMC questionnaire options"
+msgstr ""
+
 msgid "Error fetching user Modules"
+msgstr ""
+
+msgid "The user groups of this module could not be loaded"
 msgstr ""
 
 msgid "Country Information"

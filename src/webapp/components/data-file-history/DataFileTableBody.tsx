@@ -1,4 +1,5 @@
 import i18n from "@eyeseetea/d2-ui-components/locales";
+import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import React, { useCallback } from "react";
 import { Button, TableBody, TableCell, TableRow } from "@material-ui/core";
 import styled from "styled-components";
@@ -21,6 +22,7 @@ export const DataFileTableBody: React.FC<DataFileTableBodyProps> = ({ rows }) =>
     const [importSummaryErrorsToShow, setImportSummaryErrorsToShow] = React.useState<ImportSummaryErrors | null>(null);
 
     const { compositionRoot } = useAppContext();
+    const snackbar = useSnackbar();
     const { currentModuleAccess } = useCurrentModuleContext();
 
     const download = (fileId: string, fileName: string) => {
@@ -34,7 +36,7 @@ export const DataFileTableBody: React.FC<DataFileTableBodyProps> = ({ rows }) =>
                 document.body.appendChild(downloadSimulateAnchor);
                 downloadSimulateAnchor.click();
             },
-            () => {}
+            error => snackbar.error(`${i18n.t("Error downloading file")}: ${error}`)
         );
     };
 
