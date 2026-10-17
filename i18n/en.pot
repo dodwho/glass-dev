@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-16T13:28:38.667Z\n"
-"PO-Revision-Date: 2026-10-16T13:28:38.667Z\n"
+"POT-Creation-Date: 2026-10-17T15:22:00.757Z\n"
+"PO-Revision-Date: 2026-10-17T15:22:00.757Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -745,6 +745,9 @@ msgstr ""
 msgid "Thank you! your data for now is uploaded in our system"
 msgstr ""
 
+msgid "The list of errors found in the file could not be saved"
+msgstr ""
+
 msgid "Failed to set upload status"
 msgstr ""
 
@@ -855,6 +858,9 @@ msgid "Error in file upload"
 msgstr ""
 
 msgid "Select file"
+msgstr ""
+
+msgid "The Batch ID could not be saved"
 msgstr ""
 
 msgid "Error fetching previous uploads."
