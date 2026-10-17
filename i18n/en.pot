@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-17T15:22:00.757Z\n"
-"PO-Revision-Date: 2026-10-17T15:22:00.757Z\n"
+"POT-Creation-Date: 2026-10-17T15:22:04.310Z\n"
+"PO-Revision-Date: 2026-10-17T15:22:04.310Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -198,6 +198,12 @@ msgid ""
 "publication"
 msgstr ""
 
+msgid "The status was updated but the user groups could not be notified"
+msgstr ""
+
+msgid "The data submission status could not be updated"
+msgstr ""
+
 msgid "Request Dataset update"
 msgstr ""
 
@@ -329,12 +335,6 @@ msgid "State"
 msgstr ""
 
 msgid "Data Submission status has errors..."
-msgstr ""
-
-msgid "The status was updated but the user groups could not be notified"
-msgstr ""
-
-msgid "The data submission status could not be updated"
 msgstr ""
 
 msgid "The AMR data submission status could not be updated"
