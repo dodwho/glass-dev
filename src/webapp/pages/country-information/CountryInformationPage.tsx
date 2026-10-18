@@ -43,7 +43,7 @@ export const CountryInformationPage: React.FC = React.memo(() => {
                 </StyledBreadCrumbs>
             </PreContent>
 
-            <ContentLoader content={countryInformationResult} showErrorAsSnackbar={true}>
+            <ContentLoader content={countryInformationResult} hideContentOnError={true}>
                 {countryInformationResult.kind === "loaded" && (
                     <CountryInformationContent countryInformation={countryInformationResult.data} />
                 )}

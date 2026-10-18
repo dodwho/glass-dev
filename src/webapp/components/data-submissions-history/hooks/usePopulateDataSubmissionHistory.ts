@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import i18n from "@eyeseetea/d2-ui-components/locales";
+import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import { useAppContext } from "../../../contexts/app-context";
 import { useCurrentOrgUnitContext } from "../../../contexts/current-orgUnit-context";
 import { useCurrentModuleContext } from "../../../contexts/current-module-context";
@@ -20,6 +22,7 @@ export function usePopulateDataSubmissionHistory() {
         currentOrgUnitAccess.orgUnitId
     );
     const [loading, setLoading] = useState(false);
+    const snackbar = useSnackbar();
 
     useEffect(() => {
         if (dataSubmissions.kind === "loaded") {
@@ -63,7 +66,10 @@ export function usePopulateDataSubmissionHistory() {
                             setLoading(false);
                             setRefetch({});
                         },
-                        () => {
+                        error => {
+                            snackbar.error(
+                                `${i18n.t("The missing years could not be added to the history")}: ${error}`
+                            );
                             setLoading(false);
                         }
                     );
@@ -79,6 +85,7 @@ export function usePopulateDataSubmissionHistory() {
         currentUser.quarterlyPeriodModules,
         dataSubmissions,
         setRefetch,
+        snackbar,
     ]);
 
     return { loading, dataSubmissions, setDataSubmissions };

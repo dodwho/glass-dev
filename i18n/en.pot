@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-17T09:46:02.188Z\n"
-"PO-Revision-Date: 2026-10-17T09:46:02.190Z\n"
+"POT-Creation-Date: 2026-10-17T15:45:05.299Z\n"
+"PO-Revision-Date: 2026-10-17T15:45:05.304Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -169,6 +169,9 @@ msgid "WHO privacy policy"
 msgstr ""
 
 msgid "Terms of Use"
+msgstr ""
+
+msgid "The data could not be loaded"
 msgstr ""
 
 msgid "WHO Region"
@@ -632,6 +635,9 @@ msgid "Select Status"
 msgstr ""
 
 msgid " "
+msgstr ""
+
+msgid "The missing years could not be added to the history"
 msgstr ""
 
 msgid "status"

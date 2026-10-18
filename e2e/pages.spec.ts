@@ -77,6 +77,19 @@ test.describe("Pages", () => {
         });
     }
 
+    test("a page whose data cannot be loaded says so", async ({ page }) => {
+        const pageErrors = await readOnly(page);
+        await selectCountry(page, countries.Angola);
+        // The Data File History table lists the module's uploads (uploads program): DHIS2 refuses to send them.
+        await page.route(
+            url => url.pathname.endsWith("/api/tracker/events") && url.searchParams.get("program") === "yVFQpwmCX0D",
+            route => route.fulfill({ status: 500, json: { status: "ERROR", message: "E2E: DHIS2 refused on purpose" } })
+        );
+        await clickMenuItem(page, "AMR", "Data File History");
+        await expect(page.getByText(/The data could not be loaded: .*refused on purpose/).first()).toBeVisible();
+        expect(pageErrors, "uncaught errors in the page").toEqual([]);
+    });
+
     for (const [name, hash] of [
         ["User profile", "#/user-profile"],
         ["User settings", "#/user-settings"],
