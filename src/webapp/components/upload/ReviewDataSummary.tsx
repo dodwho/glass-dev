@@ -324,7 +324,8 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                                       "The data of this file was saved in DHIS2, but DHIS2 then reported the errors below. This upload cannot be completed. To remove the saved data, delete this upload in the Data File History, correct the file and upload it again."
                                   )
                                 : i18n.t(
-                                      "DHIS2 reported the errors below. This upload cannot be completed: correct the file and upload it again."
+                                      "DHIS2 reported the errors below. This upload cannot be completed: correct the file and upload it again.",
+                                      { nsSeparator: false }
                                   )}
                         </Typography>
                     </SectionCard>
