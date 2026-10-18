@@ -102,6 +102,19 @@ export function updateRecalculatedConsumptionData(
                 .filter((id): id is Id => id !== undefined && !updatedEventIds.has(id));
 
             if (eventIdsNoRecalculated.length) {
+                // After a failed import the matched events keep their old values: deleting the unmatched ones
+                // would leave a half-updated state. A rerun completes it.
+                if (response.status === "ERROR") {
+                    logger.warn(
+                        `[${new Date().toISOString()}] Substance level: NOT deleting ${
+                            eventIdsNoRecalculated.length
+                        } unmatched events for orgUnitId ${orgUnitId} and period ${period} because the import of the recalculated rows failed: events=${eventIdsNoRecalculated.join(
+                            ","
+                        )}`
+                    );
+                    return Future.success(undefined);
+                }
+
                 if (preserveUnmatchedEvents) {
                     logger.warn(
                         `[${new Date().toISOString()}] Substance level: NOT deleting ${

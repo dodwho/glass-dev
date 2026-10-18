@@ -204,8 +204,21 @@ export class RecalculateConsumptionDataProductLevelForAllUseCase {
                                 );
                             }
 
+                            // After a failed import the matched events keep their old values: deleting the
+                            // unmatched ones would leave a half-updated state. A rerun completes it.
+                            const importFailed = response.status === "ERROR";
+                            if (importFailed && !wouldDeleteWithoutReplacement && eventIdsNoRecalculated.length) {
+                                logger.warn(
+                                    `[${new Date().toISOString()}] Product level: NOT deleting ${
+                                        eventIdsNoRecalculated.length
+                                    } unmatched events for orgUnitId ${orgUnitId} and period ${period} because the import of the recalculated rows failed: events=${eventIdsNoRecalculated.join(
+                                        ","
+                                    )}`
+                                );
+                            }
+
                             return this.deleteNoRecalculatedEvents(
-                                wouldDeleteWithoutReplacement ? [] : eventIdsNoRecalculated,
+                                wouldDeleteWithoutReplacement || importFailed ? [] : eventIdsNoRecalculated,
                                 importCalculationChunkSize
                             ).flatMap(() => {
                                 if (response.status === "OK") {
