@@ -4,7 +4,6 @@ import { useCurrentOrgUnitContext } from "../contexts/current-orgUnit-context";
 import { useCurrentPeriodContext } from "../contexts/current-period-context";
 import { useCurrentDataSubmissionId } from "./useCurrentDataSubmissionId";
 import { useAppContext } from "../contexts/app-context";
-import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import { GlassState } from "./State";
 
 type GlassUploadsState = GlassState<string | undefined>;
@@ -21,7 +20,6 @@ export const useFileTypeByDataSubmission = () => {
     } = useCurrentModuleContext();
     const { currentPeriod } = useCurrentPeriodContext();
     const dataSubmissionId = useCurrentDataSubmissionId(moduleId, moduleName, orgUnitId, currentPeriod);
-    const snackbar = useSnackbar();
 
     useEffect(() => {
         moduleName === "AMC" &&
@@ -51,11 +49,9 @@ export const useFileTypeByDataSubmission = () => {
                         });
                     }
                 },
-                () => {
-                    snackbar.error("Error fetching current data submission's upload file type");
-                }
+                error => setFileTypeState({ kind: "error", message: error })
             );
-    }, [compositionRoot.glassUploads, dataSubmissionId, moduleName, snackbar]);
+    }, [compositionRoot.glassUploads, dataSubmissionId, moduleName]);
 
     return fileTypeState;
 };

@@ -1,4 +1,5 @@
 import { useSnackbar } from "@eyeseetea/d2-ui-components";
+import i18n from "@eyeseetea/d2-ui-components/locales";
 import { CircularProgress } from "material-ui";
 import React, { ReactNode, useEffect } from "react";
 
@@ -13,28 +14,25 @@ export interface ContentLoaderValue {
 export interface ContentLoaderProps {
     content: ContentLoaderValue;
     children: ReactNode;
-    showErrorAsSnackbar?: boolean;
+    hideContentOnError?: boolean;
     onError?: () => void;
 }
 
-export const ContentLoader: React.FC<ContentLoaderProps> = ({ content, children, showErrorAsSnackbar, onError }) => {
+export const ContentLoader: React.FC<ContentLoaderProps> = ({ content, children, hideContentOnError, onError }) => {
     const snackbar = useSnackbar();
 
     useEffect(() => {
-        if (content.kind === "error" && showErrorAsSnackbar) {
-            snackbar.error(content.message);
+        if (content.kind === "error") {
+            snackbar.error(`${i18n.t("The data could not be loaded")}: ${content.message}`);
+            onError?.();
         }
-
-        if (content.kind === "error" && onError) {
-            onError();
-        }
-    }, [content, snackbar, showErrorAsSnackbar, onError]);
+    }, [content, snackbar, onError]);
 
     switch (content.kind) {
         case "loading":
             return <CircularProgress />;
         case "error":
-            if (showErrorAsSnackbar) {
+            if (hideContentOnError) {
                 return null;
             } else {
                 return <>{children}</>;
