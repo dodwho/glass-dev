@@ -55,6 +55,8 @@
         "@dhis2/d2-i18n-generate": "1.2.0",
         "@eslint/js": "9.39.5",
         "@playwright/test": "1.63.0",
+        "@testing-library/react": "12.1.5",
+        "@testing-library/user-event": "14.5.2",
         "@types/lodash": "4.14.181",
         "@types/material-ui": "0.21.12",
         "@types/node": "24.19.0",
