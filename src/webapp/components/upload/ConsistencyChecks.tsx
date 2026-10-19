@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { Backdrop, Button, CircularProgress, Typography } from "@material-ui/core";
 import { BlockingErrors } from "./BlockingErrors";
+import { OtherFileErrorsNotice } from "./OtherFileErrorsNotice";
 import styled from "styled-components";
 import { glassColors } from "../../pages/app/themes/dhis2.theme";
 import { NonBlockingWarnings } from "./NonBlockingWarnings";
@@ -52,6 +53,9 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
     const changeType = (fileType: string) => {
         setFileType(fileType);
     };
+
+    const moduleProps = moduleProperties.get(currentModuleAccess.moduleName);
+    const hasFileTabs = !!moduleProps?.isSecondaryFileApplicable && !moduleProps?.isSingleFileTypePerSubmission;
 
     const showErrorListNotSaved = (error: string) =>
         snackbar.error(`${i18n.t("The list of errors found in the file could not be saved")}: ${error}`);
@@ -494,23 +498,28 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                     )}
                 </Typography>
             </div>
-            {moduleProperties.get(currentModuleAccess.moduleName)?.isSecondaryFileApplicable &&
-                !moduleProperties.get(currentModuleAccess.moduleName)?.isSingleFileTypePerSubmission && (
-                    <div className="toggles">
-                        <Button
-                            onClick={() => changeType("primary")}
-                            className={fileType === "primary" ? "current" : ""}
-                        >
-                            {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.primaryFileType} File`)}
-                        </Button>
-                        <Button
-                            onClick={() => changeType("secondary")}
-                            className={fileType === "secondary" ? "current" : ""}
-                        >
-                            {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.secondaryFileType} File`)}
-                        </Button>
-                    </div>
-                )}
+            {hasFileTabs && (
+                <OtherFileErrorsNotice
+                    moduleName={currentModuleAccess.moduleName}
+                    openTab={fileType === "secondary" ? "secondary" : "primary"}
+                    primaryFileImportSummary={primaryFileImportSummary}
+                    secondaryFileImportSummary={secondaryFileImportSummary}
+                    onShow={changeType}
+                />
+            )}
+            {hasFileTabs && (
+                <div className="toggles">
+                    <Button onClick={() => changeType("primary")} className={fileType === "primary" ? "current" : ""}>
+                        {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.primaryFileType} File`)}
+                    </Button>
+                    <Button
+                        onClick={() => changeType("secondary")}
+                        className={fileType === "secondary" ? "current" : ""}
+                    >
+                        {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.secondaryFileType} File`)}
+                    </Button>
+                </div>
+            )}
             {renderTypeContent(
                 fileType,
                 currentModuleAccess.moduleName,

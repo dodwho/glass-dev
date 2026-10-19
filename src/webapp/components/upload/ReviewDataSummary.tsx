@@ -20,6 +20,7 @@ import { useQuestionnaires } from "../current-data-submission/Questionnaires";
 import { QuestionnaireBase } from "../../../domain/entities/Questionnaire";
 import { StyledLoaderContainer } from "./ConsistencyChecks";
 import { BlockingErrors } from "./BlockingErrors";
+import { OtherFileErrorsNotice } from "./OtherFileErrorsNotice";
 import { canCompleteUpload } from "../../../domain/entities/GlassUploads";
 
 interface ReviewDataSummaryProps {
@@ -104,7 +105,11 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
     const hasBlockingErrors = [primaryFileImportSummary, secondaryFileImportSummary].some(
         summary => (summary?.blockingErrors.length ?? 0) > 0
     );
+    // The errors box shows the open tab; the other file's errors are announced by OtherFileErrorsNotice.
+    const openTabHasBlockingErrors = (importSummary?.blockingErrors.length ?? 0) > 0;
     const dataWasSaved = (importSummary?.importCount.imported ?? 0) + (importSummary?.importCount.updated ?? 0) > 0;
+    const moduleProps = moduleProperties.get(currentModuleAccess.moduleName);
+    const hasFileTabs = !!moduleProps?.isSecondaryFileApplicable && !moduleProps?.isSingleFileTypePerSubmission;
 
     const showNotificationError = useCallback(
         (error: string) =>
@@ -297,24 +302,29 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                 </StyledLoaderContainer>
             </Backdrop>
 
-            {moduleProperties.get(currentModuleAccess.moduleName)?.isSecondaryFileApplicable &&
-                !moduleProperties.get(currentModuleAccess.moduleName)?.isSingleFileTypePerSubmission && (
-                    <div className="toggles">
-                        <Button
-                            onClick={() => changeType("primary")}
-                            className={fileType === "primary" ? "current" : ""}
-                        >
-                            {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.primaryFileType} File`)}
-                        </Button>
-                        <Button
-                            onClick={() => changeType("secondary")}
-                            className={fileType === "secondary" ? "current" : ""}
-                        >
-                            {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.secondaryFileType} File`)}
-                        </Button>
-                    </div>
-                )}
-            {hasBlockingErrors && (
+            {hasFileTabs && (
+                <OtherFileErrorsNotice
+                    moduleName={currentModuleAccess.moduleName}
+                    openTab={fileType === "secondary" ? "secondary" : "primary"}
+                    primaryFileImportSummary={primaryFileImportSummary}
+                    secondaryFileImportSummary={secondaryFileImportSummary}
+                    onShow={changeType}
+                />
+            )}
+            {hasFileTabs && (
+                <div className="toggles">
+                    <Button onClick={() => changeType("primary")} className={fileType === "primary" ? "current" : ""}>
+                        {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.primaryFileType} File`)}
+                    </Button>
+                    <Button
+                        onClick={() => changeType("secondary")}
+                        className={fileType === "secondary" ? "current" : ""}
+                    >
+                        {i18n.t(`${moduleProperties.get(currentModuleAccess.moduleName)?.secondaryFileType} File`)}
+                    </Button>
+                </div>
+            )}
+            {openTabHasBlockingErrors && (
                 <Section className="summary">
                     <h3>{i18n.t("Errors found after the import")}</h3>
                     <SectionCard className="wrong">
@@ -324,7 +334,8 @@ export const ReviewDataSummary: React.FC<ReviewDataSummaryProps> = ({
                                       "The data of this file was saved in DHIS2, but DHIS2 then reported the errors below. This upload cannot be completed. To remove the saved data, delete this upload in the Data File History, correct the file and upload it again."
                                   )
                                 : i18n.t(
-                                      "DHIS2 reported the errors below. This upload cannot be completed: correct the file and upload it again."
+                                      "DHIS2 reported the errors below. This upload cannot be completed: correct the file and upload it again.",
+                                      { nsSeparator: false }
                                   )}
                         </Typography>
                     </SectionCard>
