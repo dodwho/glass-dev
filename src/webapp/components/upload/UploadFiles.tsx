@@ -204,27 +204,32 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                                   },
                               };
 
-                        compositionRoot.glassUploads.saveImportSummaryErrorsOfFiles(params).run(
-                            () => {},
-                            error =>
+                        // Saving the summary and setting the status both rewrite the whole upload event, so they
+                        // must not overlap: the later write would bring back the earlier one's old status.
+                        const setStatusAfterSave = () => {
+                            if (
+                                !currentModuleProperties?.isDryRunReq &&
+                                importPrimaryFileSummary.blockingErrors.length === 0
+                            )
+                                compositionRoot.glassUploads
+                                    .setStatus({
+                                        id: primaryUploadId,
+                                        status: moduleName === "AMC" ? "IMPORTED" : "VALIDATED",
+                                    })
+                                    .run(
+                                        () => {},
+                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
+                                    );
+                        };
+
+                        compositionRoot.glassUploads
+                            .saveImportSummaryErrorsOfFiles(params)
+                            .run(setStatusAfterSave, error => {
                                 snackbar.error(
                                     `${i18n.t("The list of errors found in the file could not be saved")}: ${error}`
-                                )
-                        );
-
-                        if (
-                            !currentModuleProperties?.isDryRunReq &&
-                            importPrimaryFileSummary.blockingErrors.length === 0
-                        )
-                            compositionRoot.glassUploads
-                                .setStatus({
-                                    id: primaryUploadId,
-                                    status: moduleName === "AMC" ? "IMPORTED" : "VALIDATED",
-                                })
-                                .run(
-                                    () => {},
-                                    error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
                                 );
+                                setStatusAfterSave();
+                            });
                     }
 
                     setImportLoading(false);
