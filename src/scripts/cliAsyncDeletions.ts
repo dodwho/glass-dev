@@ -50,7 +50,9 @@ import { DeleteSecondaryFileDataUseCase } from "../domain/usecases/data-entry/De
 import { DownloadDocumentAsArrayBufferUseCase } from "../domain/usecases/DownloadDocumentAsArrayBufferUseCase";
 import { GlassAsyncDeletionsDefaultRepository } from "../data/repositories/GlassAsyncDeletionsDefaultRepository";
 import { GlassAsyncDeletionsRepository } from "../domain/repositories/GlassAsyncDeletionsRepository";
-import { GlassAsyncDeletion, GlassAsyncDeletionStatus } from "../domain/entities/GlassAsyncDeletions";
+import { GlassAsyncDeletion, GlassAsyncDeletionStatus, isStaleDeletion } from "../domain/entities/GlassAsyncDeletions";
+import { ASYNC_UPLOAD_STALE_AFTER_MS } from "../domain/entities/AsyncUploadProgress";
+import { reportSignsOfLife } from "../utils/jobActivity";
 import { GeneralInfoDefaultRepository } from "../data/repositories/GeneralInfoDefaultRepository";
 import { GeneralInfoRepository } from "../domain/repositories/GeneralInfoRepository";
 import { GlassGeneralInfo } from "../domain/entities/GlassGeneralInfo";
@@ -69,20 +71,8 @@ const UPLOADED_FILE_STATUS_LOWERCASE = "uploaded";
 const IMPORT_SUMMARY_STATUS_ERROR = "ERROR";
 const DEFAULT_MAX_ATTEMPS_FOR_ASYNC_DELETIONS = 3;
 
-// Any upload stuck in DELETING for longer than this is treated as a zombie left by a crashed run.
-// Genuine in-progress deletions are expected to complete well within this window.
-const DELETING_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
-
-function findZombieUploadIds(asyncDeletions: GlassAsyncDeletion[]): Id[] {
-    const now = Date.now();
-    return asyncDeletions
-        .filter(upload => {
-            if (upload.status !== "DELETING") return false;
-            if (!upload.deletingStartedAt) return true; // legacy record with no timestamp → treat as zombie
-            return now - new Date(upload.deletingStartedAt).getTime() > DELETING_TIMEOUT_MS;
-        })
-        .map(upload => upload.uploadId);
-}
+// A running deletion records a sign of life this often, while DHIS2 keeps answering it (see isStaleDeletion).
+const SIGN_OF_LIFE_INTERVAL_MS = 10 * 60 * 1000;
 
 async function main() {
     const cmd = command({
@@ -134,42 +124,47 @@ async function main() {
                                     return Future.success(undefined);
                                 }
 
-                                // Separate genuinely in-progress deletions from zombies left by a crashed run.
-                                // A DELETING upload with no timestamp or one older than DELETING_TIMEOUT_MS
-                                // is considered a zombie and will be reset to PENDING so it can be retried.
-                                const zombieUploadIds = findZombieUploadIds(asyncUploadsToDelete);
+                                // Separate deletions still working from those left by a crashed or hung run.
+                                // A stale one is reset to PENDING and counts one attempt, so a deletion that
+                                // stops the server every time ends as an error instead of looping for ever.
+                                const zombieUploadIds = asyncUploadsToDelete
+                                    .filter(upload => isStaleDeletion(upload))
+                                    .map(upload => upload.uploadId);
                                 const genuinelyDeletingCount = asyncUploadsToDelete.filter(
                                     u => u.status === "DELETING" && !zombieUploadIds.includes(u.uploadId)
                                 ).length;
 
                                 if (genuinelyDeletingCount > 0) {
                                     consoleLogger.debug(
-                                        `Skipping ${genuinelyDeletingCount} uploads currently being deleted (started within the last ${
-                                            DELETING_TIMEOUT_MS / 3600000
+                                        `Skipping ${genuinelyDeletingCount} uploads currently being deleted (sign of life within the last ${
+                                            ASYNC_UPLOAD_STALE_AFTER_MS / 3600000
                                         }h)`
                                     );
                                 }
                                 if (zombieUploadIds.length > 0) {
                                     consoleLogger.debug(
-                                        `Resetting ${zombieUploadIds.length} uploads stuck in DELETING status back to PENDING for retry`
+                                        `Resetting ${zombieUploadIds.length} uploads stuck in DELETING status back to PENDING for retry, counting one attempt`
                                     );
                                 }
 
                                 // Update local state so the rest of the logic sees zombies as PENDING
                                 const normalizedUploads: GlassAsyncDeletion[] = asyncUploadsToDelete.map(upload =>
                                     zombieUploadIds.includes(upload.uploadId)
-                                        ? { ...upload, status: "PENDING" as GlassAsyncDeletionStatus }
+                                        ? {
+                                              ...upload,
+                                              status: "PENDING" as GlassAsyncDeletionStatus,
+                                              attempts: upload.attempts + 1,
+                                          }
                                         : upload
                                 );
 
-                                const resetZombiesFuture: FutureData<void> =
-                                    zombieUploadIds.length > 0
-                                        ? setAsyncDeletionsStatus(
-                                              glassAsyncDeletionsRepository,
-                                              zombieUploadIds,
-                                              "PENDING"
-                                          )
-                                        : Future.success(undefined);
+                                const resetZombiesFuture: FutureData<void> = Future.sequential(
+                                    zombieUploadIds.map(uploadId =>
+                                        new IncrementAsyncDeletionAttemptsAndResetStatusUseCase(
+                                            glassAsyncDeletionsRepository
+                                        ).execute(uploadId)
+                                    )
+                                ).toVoid();
 
                                 return resetZombiesFuture.flatMap(() => {
                                     const uploadIdsToSetAsyncDeletionErrorStatus = normalizedUploads
@@ -395,6 +390,37 @@ function incrementAsyncDeletionOrDeleteIfMaxAttemptAndSetErrorStatus(
             upload.id
         );
     }
+}
+
+/**
+ * Runs the data deletion of an upload while recording signs of life on its queue entry. The reports have
+ * stopped before the deletion's result is used, so they never overwrite the entry's own final update.
+ */
+function withSignsOfLife<Data>(
+    glassAsyncDeletionsRepository: GlassAsyncDeletionsRepository,
+    uploadId: Id,
+    deletion: () => FutureData<Data>
+): FutureData<Data> {
+    return Future.success<void, string>(undefined).flatMap(() => {
+        const stopReports = reportSignsOfLife(
+            () =>
+                glassAsyncDeletionsRepository
+                    .setLastSeenAt(uploadId, new Date().toISOString())
+                    .toPromise()
+                    .catch(error => {
+                        consoleLogger.error(
+                            `Could not record that deletion of upload ${uploadId} is running: ${error}`
+                        );
+                        throw error;
+                    }),
+            SIGN_OF_LIFE_INTERVAL_MS
+        );
+        const stopped = () => Future.fromPromise(stopReports());
+
+        return deletion()
+            .flatMap(result => stopped().map(() => result))
+            .flatMapError(error => stopped().flatMap(() => Future.error<string, Data>(error)));
+    });
 }
 
 function isPendingDeletion(
@@ -712,13 +738,18 @@ function deleteUploadedDatasets(
                                                 : Future.success(undefined),
                                         }).flatMap(({ primaryArrayBuffer, secondaryArrayBuffer }) => {
                                             if (primaryUploadToDelete && primaryArrayBuffer) {
-                                                return deleteDatasetValuesOrEvents(
-                                                    primaryUploadToDelete,
-                                                    secondaryUploadToDelete,
-                                                    primaryArrayBuffer,
-                                                    secondaryArrayBuffer,
-                                                    currentModule,
-                                                    repositories
+                                                return withSignsOfLife(
+                                                    repositories.glassAsyncDeletionsRepository,
+                                                    uploadToDelete.id,
+                                                    () =>
+                                                        deleteDatasetValuesOrEvents(
+                                                            primaryUploadToDelete,
+                                                            secondaryUploadToDelete,
+                                                            primaryArrayBuffer,
+                                                            secondaryArrayBuffer,
+                                                            currentModule,
+                                                            repositories
+                                                        )
                                                 ).flatMap(
                                                     ({ deletePrimaryFileSummary, deleteSecondaryFileSummary }) => {
                                                         if (deletePrimaryFileSummary) {
@@ -805,11 +836,16 @@ function deleteUploadedDatasets(
                                                     UPLOADED_FILE_STATUS_LOWERCASE
                                                 ) {
                                                     consoleLogger.debug(`Delete only secondary uploaded dataset`);
-                                                    return deleteDatasetValuesOrEventsFromSecondaryUploaded(
-                                                        currentModule,
-                                                        secondaryUploadToDelete,
-                                                        secondaryArrayBuffer,
-                                                        repositories
+                                                    return withSignsOfLife(
+                                                        repositories.glassAsyncDeletionsRepository,
+                                                        uploadToDelete.id,
+                                                        () =>
+                                                            deleteDatasetValuesOrEventsFromSecondaryUploaded(
+                                                                currentModule,
+                                                                secondaryUploadToDelete,
+                                                                secondaryArrayBuffer,
+                                                                repositories
+                                                            )
                                                     ).flatMap(deleteSecondaryFileSummary => {
                                                         if (deleteSecondaryFileSummary) {
                                                             consoleLogger.debug(

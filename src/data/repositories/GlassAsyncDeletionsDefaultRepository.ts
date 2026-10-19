@@ -77,6 +77,7 @@ export class GlassAsyncDeletionsDefaultRepository implements GlassAsyncDeletions
                             ...asyncDeletion,
                             status: newStatus,
                             deletingStartedAt,
+                            lastSeenAt: undefined,
                         };
                     } else {
                         return asyncDeletion;
@@ -86,6 +87,21 @@ export class GlassAsyncDeletionsDefaultRepository implements GlassAsyncDeletions
                     return Future.success(undefined);
                 });
             });
+    }
+
+    /** Only for a deletion still running: a finished or reset one is left as it is. */
+    setLastSeenAt(uploadId: Id, lastSeenAt: string): FutureData<void> {
+        return this.getAsyncDeletions().flatMap(asyncDeletionsArray => {
+            const isRunning = asyncDeletionsArray.some(
+                asyncDeletion => asyncDeletion.uploadId === uploadId && asyncDeletion.status === "DELETING"
+            );
+            if (!isRunning) return Future.success<void, string>(undefined);
+
+            const newAsyncDeletions: GlassAsyncDeletion[] = asyncDeletionsArray.map(asyncDeletion =>
+                asyncDeletion.uploadId === uploadId ? { ...asyncDeletion, lastSeenAt } : asyncDeletion
+            );
+            return this.dataStoreClient.saveObject(DataStoreKeys.ASYNC_DELETIONS, newAsyncDeletions);
+        });
     }
 
     incrementAsyncDeletionAttemptsAndResetStatus(uploadId: Id): FutureData<void> {
@@ -104,6 +120,7 @@ export class GlassAsyncDeletionsDefaultRepository implements GlassAsyncDeletions
                             attempts: uploadIdToUpdate.attempts + 1,
                             status: "PENDING",
                             deletingStartedAt: undefined,
+                            lastSeenAt: undefined,
                         },
                     ];
                     return this.dataStoreClient

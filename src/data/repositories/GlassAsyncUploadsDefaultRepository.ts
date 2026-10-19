@@ -24,12 +24,14 @@ export class GlassAsyncUploadsDefaultRepository implements GlassAsyncUploadsRepo
     }
 
     setStatus(uploadId: Id, newStatus: GlassAsyncUploadStatus): FutureData<void> {
+        const uploadingStartedAt = newStatus === "UPLOADING" ? new Date().toISOString() : undefined;
         return this.getAsyncUploads().flatMap(asyncUploadsArray => {
             const newAsyncUploads: GlassAsyncUpload[] = asyncUploadsArray.map(asyncUpload => {
                 return asyncUpload.uploadId === uploadId
                     ? {
                           ...asyncUpload,
                           status: newStatus,
+                          uploadingStartedAt,
                       }
                     : asyncUpload;
             });
@@ -92,6 +94,7 @@ export class GlassAsyncUploadsDefaultRepository implements GlassAsyncUploadsRepo
                             ...asyncUploadToUpdate,
                             attempts: asyncUploadToUpdate.attempts + 1,
                             status: "PENDING",
+                            uploadingStartedAt: undefined,
                         },
                     ];
                     return this.dataStoreClient.saveObject(DataStoreKeys.ASYNC_UPLOADS, updatedAsyncUploads);

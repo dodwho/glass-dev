@@ -6,6 +6,7 @@ type GlassAsyncBaseUpload = {
     uploadId: Id;
     attempts: number;
     status: GlassAsyncUploadStatus;
+    uploadingStartedAt?: string; // ISO timestamp recorded when status is set to UPLOADING
 };
 
 export type GlassAsyncPrimaryUpload = GlassAsyncBaseUpload & {
