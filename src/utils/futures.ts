@@ -1,10 +1,14 @@
 import { CancelableResponse } from "@eyeseetea/d2-api/repositories/CancelableResponse";
 import { Future, FutureData } from "../domain/entities/Future";
+import { noteDhis2Response } from "./jobActivity";
 
 export function apiToFuture<Data>(res: CancelableResponse<Data>): FutureData<Data> {
     return Future.fromComputation((resolve, reject) => {
         res.getData()
-            .then(resolve)
+            .then(data => {
+                noteDhis2Response();
+                resolve(data);
+            })
             .catch(err => {
                 const message = err?.response?.data?.message || err?.message || "Unknown error";
                 // Never log the request itself: its headers carry the credentials or access token.

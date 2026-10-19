@@ -1,5 +1,6 @@
-import { AsyncUploadProgress, isInterrupted } from "../../../entities/AsyncUploadProgress";
+import { AsyncUploadProgress, ASYNC_UPLOAD_STALE_AFTER_MS, isInterrupted } from "../../../entities/AsyncUploadProgress";
 import { Future, FutureData } from "../../../entities/Future";
+import { GlassAsyncUpload } from "../../../entities/GlassAsyncUploads";
 import { generateId, Id } from "../../../entities/Ref";
 import { AsyncUploadProgressRepository } from "../../../repositories/AsyncUploadProgressRepository";
 import { TrackerRepository } from "../../../repositories/TrackerRepository";
@@ -132,4 +133,45 @@ export function recoverInterruptedAsyncUploads(repositories: Repositories): Futu
                 )
         ).map(recovered => recovered.flat())
     );
+}
+
+export type StuckAsyncUploads = {
+    /** Stopped while no progress record existed (file download, SAMPLE import, just after the record was removed). */
+    retry: Id[];
+    /** Imported, but the run stopped before saving the final status: the next run reads the saved summaries. */
+    finish: Id[];
+    /** Left UPLOADING before uploadingStartedAt existed: stamped now so a later run can tell if they are stuck. */
+    stamp: Id[];
+};
+
+/**
+ * Finds the queue items left UPLOADING by a run that stopped outside the reach of recoverInterruptedAsyncUploads.
+ * An item with a live or interrupted IN_PROGRESS record, or an UNDO_REQUIRED one, is left to that recovery.
+ */
+export function findStuckAsyncUploads(
+    asyncUploads: GlassAsyncUpload[],
+    progresses: AsyncUploadProgress[],
+    now = new Date()
+): StuckAsyncUploads {
+    const isOlderThanStaleWindow = (timestamp: string) =>
+        now.getTime() - new Date(timestamp).getTime() > ASYNC_UPLOAD_STALE_AFTER_MS;
+    const stuck: StuckAsyncUploads = { retry: [], finish: [], stamp: [] };
+
+    asyncUploads
+        .filter(asyncUpload => asyncUpload.status === "UPLOADING")
+        .forEach(({ uploadId, uploadingStartedAt }) => {
+            const progress = progresses.find(progress => progress.uploadId === uploadId);
+            if (progress) {
+                // A COMPLETED record was last written when the import finished, whenever the upload started.
+                if (progress.state === "COMPLETED" && isOlderThanStaleWindow(progress.heartbeatAt)) {
+                    stuck.finish.push(uploadId);
+                }
+            } else if (!uploadingStartedAt) {
+                stuck.stamp.push(uploadId);
+            } else if (isOlderThanStaleWindow(uploadingStartedAt)) {
+                stuck.retry.push(uploadId);
+            }
+        });
+
+    return stuck;
 }

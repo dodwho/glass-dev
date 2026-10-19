@@ -9,5 +9,6 @@ export interface GlassAsyncDeletionsRepository {
     removeAsyncDeletionById(uploadIdToRemove: Id): FutureData<void>;
     removeAsyncDeletions(uploadIdsToRemove: Id[]): FutureData<void>;
     setStatus(uploadIds: Id[], newStatus: GlassAsyncDeletionStatus): FutureData<void>;
+    setLastSeenAt(uploadId: Id, lastSeenAt: string): FutureData<void>;
     incrementAsyncDeletionAttemptsAndResetStatus(uploadId: Id): FutureData<void>;
 }

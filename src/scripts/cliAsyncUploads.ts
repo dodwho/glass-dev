@@ -46,6 +46,7 @@ import { AsyncUploadProgressRepository } from "../domain/repositories/AsyncUploa
 import { TrackerDefaultRepository } from "../data/repositories/TrackerDefaultRepository";
 import { AsyncUploadProgressDataStoreRepository } from "../data/repositories/AsyncUploadProgressDataStoreRepository";
 import {
+    findStuckAsyncUploads,
     recoverInterruptedAsyncUploads,
     removeCompletedProgress,
 } from "../domain/usecases/data-entry/utils/AsyncUploadProgressTracker";
@@ -235,6 +236,45 @@ function recoverInterruptedImports(repositories: {
         .toVoid()
         .flatMapError(error => {
             consoleLogger.error(`Recovery of interrupted imports failed, will retry on the next run: ${error}`);
+            return Future.success<void, string>(undefined);
+        })
+        .flatMap(() => requeueStuckUploads(repositories));
+}
+
+/** Puts back in the queue the uploads left UPLOADING by a run that stopped before or after its import. */
+function requeueStuckUploads(repositories: {
+    asyncUploadProgressRepository: AsyncUploadProgressRepository;
+    glassAsyncUploadsRepository: GlassAsyncUploadsRepository;
+}): FutureData<void> {
+    const { glassAsyncUploadsRepository } = repositories;
+
+    return Future.joinObj({
+        asyncUploads: getAsyncUploadsFromDatastore(glassAsyncUploadsRepository),
+        progresses: repositories.asyncUploadProgressRepository.getAll(),
+    })
+        .flatMap(({ asyncUploads, progresses }) => {
+            const { retry, finish, stamp } = findStuckAsyncUploads(asyncUploads, progresses);
+
+            return Future.sequential([
+                ...retry.map(uploadId => {
+                    consoleLogger.debug(`Upload ${uploadId} stopped before its import: queued again`);
+                    return new IncrementAsyncUploadAttemptsAndResetStatusUseCase(glassAsyncUploadsRepository).execute(
+                        uploadId
+                    );
+                }),
+                ...finish.map(uploadId => {
+                    consoleLogger.debug(`Upload ${uploadId} was imported but its status was not saved: queued again`);
+                    return setAsyncUploadStatus(glassAsyncUploadsRepository, uploadId, "PENDING");
+                }),
+                ...stamp.map(uploadId => {
+                    consoleLogger.debug(`Upload ${uploadId} has no start time: recorded now`);
+                    return setAsyncUploadStatus(glassAsyncUploadsRepository, uploadId, "UPLOADING");
+                }),
+            ]);
+        })
+        .toVoid()
+        .flatMapError(error => {
+            consoleLogger.error(`Recovery of stuck uploads failed, will retry on the next run: ${error}`);
             return Future.success<void, string>(undefined);
         });
 }
