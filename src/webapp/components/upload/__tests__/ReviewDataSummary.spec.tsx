@@ -5,6 +5,7 @@ import { Future } from "../../../../domain/entities/Future";
 import { GlassUploadsStatus } from "../../../../domain/entities/GlassUploads";
 import { ImportSummary } from "../../../../domain/entities/data-entry/ImportSummary";
 import { AppContext, AppContextState } from "../../../contexts/app-context";
+import { CurrentModuleContext, defaultModuleContextState } from "../../../contexts/current-module-context";
 import { ReviewDataSummary } from "../ReviewDataSummary";
 
 /*
@@ -39,7 +40,11 @@ const summary = (overrides: Partial<ImportSummary> = {}): ImportSummary => ({
     ...overrides,
 });
 
-function renderStep(options: { importSummary: ImportSummary; uploadStatus: GlassUploadsStatus }) {
+function renderStep(options: {
+    importSummary: ImportSummary;
+    secondaryImportSummary?: ImportSummary;
+    uploadStatus: GlassUploadsStatus;
+}) {
     const setStatus = vi.fn((_params: { id: string; status: GlassUploadsStatus }) => Future.success(undefined));
     const changeStep = vi.fn();
     const compositionRoot = {
@@ -55,15 +60,28 @@ function renderStep(options: { importSummary: ImportSummary; uploadStatus: Glass
         currentUser: { id: "user-1", username: "tester" },
     } as unknown as AppContextState;
 
+    // AMR aggregate has a RIS (primary) and a SAMPLE (secondary) file, shown in two tabs.
+    const moduleContext = {
+        ...defaultModuleContextState,
+        currentModuleAccess: {
+            ...defaultModuleContextState.currentModuleAccess,
+            moduleId: "AVnpk4xiXGG",
+            moduleName: "AMR",
+        },
+    };
+
     localStorage.setItem("primaryUploadId", "upload-1");
     render(
         <AppContext.Provider value={context}>
-            <ReviewDataSummary
-                changeStep={changeStep}
-                primaryFileImportSummary={options.importSummary}
-                isRunningCalculation={false}
-                primaryFile={new File(["x"], "file.csv")}
-            />
+            <CurrentModuleContext.Provider value={moduleContext}>
+                <ReviewDataSummary
+                    changeStep={changeStep}
+                    primaryFileImportSummary={options.importSummary}
+                    secondaryFileImportSummary={options.secondaryImportSummary}
+                    isRunningCalculation={false}
+                    primaryFile={new File(["x"], "file.csv")}
+                />
+            </CurrentModuleContext.Provider>
         </AppContext.Provider>
     );
     const continueButton = () => screen.getByRole("button", { name: /continue/i });
@@ -129,5 +147,46 @@ describe("ReviewDataSummary (summary step)", () => {
         expect(snackbar.error.mock.calls[0]?.[0]).toMatch(/cannot be completed/);
         expect(setStatus).not.toHaveBeenCalled();
         expect(changeStep).not.toHaveBeenCalled();
+    });
+
+    // Users used to see only the open tab (RIS) and had to click SAMPLE to find out that it had errors.
+    it("tells the user on the RIS tab that the SAMPLE file has errors, and shows them when asked", async () => {
+        const { continueButton } = renderStep({
+            importSummary: summary(),
+            secondaryImportSummary: summary({ status: "ERROR", blockingErrors: [blockingError] }),
+            uploadStatus: "IMPORTED",
+        });
+
+        expect(screen.getByText(/The SAMPLE file has errors/)).toBeTruthy();
+        expect(screen.queryByText("Errors found after the import")).toBeNull();
+        expect(continueButton().hasAttribute("disabled")).toBe(true);
+
+        await userEvent.click(screen.getByRole("button", { name: "Show the SAMPLE file errors" }));
+
+        expect(screen.getByText("Errors found after the import")).toBeTruthy();
+        expect(screen.getByText("Validation rule 'R1' violated")).toBeTruthy();
+        expect(screen.queryByText(/The SAMPLE file has errors/)).toBeNull();
+    });
+
+    it("tells the user on the SAMPLE tab that the RIS file has errors", async () => {
+        renderStep({
+            importSummary: summary({ status: "ERROR", blockingErrors: [blockingError] }),
+            secondaryImportSummary: summary(),
+            uploadStatus: "IMPORTED",
+        });
+        await userEvent.click(screen.getByRole("button", { name: "SAMPLE File" }));
+
+        expect(screen.getByText(/The RIS file has errors/)).toBeTruthy();
+        expect(screen.queryByText("Errors found after the import")).toBeNull();
+    });
+
+    it("shows no notice when the open tab is the one with the errors, or when neither has", () => {
+        renderStep({
+            importSummary: summary({ status: "ERROR", blockingErrors: [blockingError] }),
+            secondaryImportSummary: summary(),
+            uploadStatus: "IMPORTED",
+        });
+        expect(screen.getByText("Errors found after the import")).toBeTruthy();
+        expect(screen.queryByText(/file has errors/)).toBeNull();
     });
 });

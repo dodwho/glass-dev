@@ -33,6 +33,7 @@ const blockingError = { error: "Validation rule 'R1' violated", count: 2, lines:
 
 type Options = {
     dryRunSummary: ImportSummary;
+    secondaryDryRunSummary?: ImportSummary;
     realImport?: FutureData<ImportSummary>;
     setStatusFails?: boolean;
 };
@@ -40,6 +41,7 @@ type Options = {
 function renderStep(options: Options) {
     const {
         dryRunSummary,
+        secondaryDryRunSummary,
         realImport = Future.success<ImportSummary, string>(summary()),
         setStatusFails = false,
     } = options;
@@ -67,7 +69,7 @@ function renderStep(options: Options) {
 
     const Step = () => {
         const [primarySummary, setPrimarySummary] = useState<ImportSummary | undefined>(dryRunSummary);
-        const [secondarySummary, setSecondarySummary] = useState<ImportSummary | undefined>(undefined);
+        const [secondarySummary, setSecondarySummary] = useState<ImportSummary | undefined>(secondaryDryRunSummary);
         return (
             <ConsistencyChecks
                 changeStep={changeStep}
@@ -163,5 +165,31 @@ describe("ConsistencyChecks (consistency checks step)", () => {
         // The message carries DHIS2's reason.
         await waitFor(() => expect(snackbar.error).toHaveBeenCalledWith("Failed to set upload status: network error"));
         expect(changeStep).not.toHaveBeenCalled();
+    });
+
+    // Users used to see only the open tab (RIS) and had to click SAMPLE to find out that it had errors.
+    it("tells the user on the RIS tab that the SAMPLE file has errors, and shows them when asked", async () => {
+        renderStep({
+            dryRunSummary: summary(),
+            secondaryDryRunSummary: summary({ status: "ERROR", blockingErrors: [blockingError] }),
+        });
+
+        expect(screen.getByText(/The SAMPLE file has errors/)).toBeTruthy();
+        expect(screen.queryByText("Validation rule 'R1' violated")).toBeNull();
+
+        await userEvent.click(screen.getByRole("button", { name: "Show the SAMPLE file errors" }));
+
+        expect(screen.getByText("Validation rule 'R1' violated")).toBeTruthy();
+        expect(screen.queryByText(/The SAMPLE file has errors/)).toBeNull();
+    });
+
+    it("shows no notice when the open tab is the one with the errors", () => {
+        renderStep({
+            dryRunSummary: summary({ status: "ERROR", blockingErrors: [blockingError] }),
+            secondaryDryRunSummary: summary(),
+        });
+
+        expect(screen.getByText("Validation rule 'R1' violated")).toBeTruthy();
+        expect(screen.queryByText(/file has errors/)).toBeNull();
     });
 });

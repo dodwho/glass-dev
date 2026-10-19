@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-10-18T22:12:46.256Z\n"
-"PO-Revision-Date: 2026-10-18T22:12:46.258Z\n"
+"POT-Creation-Date: 2026-10-19T11:57:45.041Z\n"
+"PO-Revision-Date: 2026-10-19T11:57:45.043Z\n"
 
 msgid "TEI Instances tab — rows with a blank \"TEIid\""
 msgstr ""
@@ -794,6 +794,14 @@ msgid "Continue"
 msgstr ""
 
 msgid "Non-blocking warnings"
+msgstr ""
+
+msgid ""
+"The {{fileType}} file has errors that must be corrected before you can "
+"continue."
+msgstr ""
+
+msgid "Show the {{fileType}} file errors"
 msgstr ""
 
 msgid ""
