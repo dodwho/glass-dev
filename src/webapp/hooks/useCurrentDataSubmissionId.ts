@@ -8,8 +8,10 @@ export function useCurrentDataSubmissionId(moduleId: string, moduleName: string,
     const snackbar = useSnackbar();
 
     useEffect(() => {
+        //On reload the module/org unit/period are restored from the url a moment later, so wait for them.
+        if (!moduleId || !orgUnit || !period) return;
         const isQuarterlyModule = currentUser.quarterlyPeriodModules.find(m => m.id === moduleId) ? true : false;
-        compositionRoot.glassDataSubmission
+        return compositionRoot.glassDataSubmission
             .getSpecificDataSubmission(moduleId, moduleName, orgUnit, period, isQuarterlyModule)
             .run(
                 currentDataSubmission => {
