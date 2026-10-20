@@ -20,8 +20,10 @@ export function useStatusDataSubmission(
     });
 
     useEffect(() => {
+        //On reload the module/org unit/period are restored from the url a moment later, so wait for them.
+        if (!module.id || !orgUnit || !period) return;
         const isQuarterlyModule = currentUser.quarterlyPeriodModules.find(m => m.id === module.id) ? true : false;
-        compositionRoot.glassDataSubmission
+        return compositionRoot.glassDataSubmission
             .getSpecificDataSubmission(module.id, module.name, orgUnit, period, isQuarterlyModule)
             .run(
                 currentDataSubmission => {
