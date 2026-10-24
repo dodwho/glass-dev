@@ -157,6 +157,9 @@ const DEFAULT_CONCURRENCY = 4;
 const UPLOADS_PAGE_SIZE = 500;
 const DEFAULT_OUT_DIR = "amr-agg-orphan-deletions";
 
+/** The server closed the connection (preprod and prod both do under load, or on a connection left idle). */
+const isDroppedConnection = (error: unknown) => /socket hang up|ECONNRESET|ETIMEDOUT/i.test(String(error));
+
 interface Context {
     api: D2Api;
     instance: Instance;
@@ -289,7 +292,7 @@ async function loadContext(
         downloadFile: fileId =>
             retryAsync(() => downloadUseCase.execute(fileId).toPromise(), {
                 attempts: 4,
-                shouldRetry: error => /socket hang up|ECONNRESET|ETIMEDOUT/i.test(String(error)),
+                shouldRetry: isDroppedConnection,
             }),
     };
 }
@@ -1228,7 +1231,11 @@ async function deleteTarget(
         console.log(`  Backup (with values, importable as CREATE_AND_UPDATE): ${outcome.backupFile}`);
 
         const repository = new DataValuesDefaultRepository(context.instance);
-        const dryRun = await repository.save(dataValues, "DELETE", true).toPromise();
+        // A dry run writes nothing, so a dropped connection is retried (prod drops the first request on a connection
+        // left idle while the files are read: PER 2022 and IND 2024 failed here every time). The real delete is not.
+        const dryRun = await retryAsync(() => repository.save(dataValues, "DELETE", true).toPromise(), {
+            shouldRetry: isDroppedConnection,
+        });
         outcome.dryRunDeleted = dryRun.importCount.deleted;
         console.log(`  Dry run: ${dryRun.status}, would delete ${dryRun.importCount.deleted}`);
         if (dryRun.status === "ERROR" || dryRun.importCount.deleted !== dataValues.length)
