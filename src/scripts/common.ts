@@ -129,7 +129,8 @@ export function getTokenMismatchWarning(url: string, kind: TokenKind): string | 
     return undefined;
 }
 
-function getInstanceKey(url: string): string | undefined {
+/** Host plus first path segment, lower-cased, e.g. "extranet.who.int/dhis2-indiv". */
+export function getInstanceKey(url: string): string | undefined {
     try {
         const { host, pathname } = new URL(url);
         const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";

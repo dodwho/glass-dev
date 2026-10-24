@@ -65,6 +65,8 @@ snyk-results.json
 # local run outputs of the CLI scripts (reports, logs, checkpoints)
 /AMC_*
 /AMR-AGG_*
+/AMR_AGG_reset_*.json
+/amr-agg-orphan-deletions/
 /AMU_upload_*
 *.checkpoint
 *.checkpoint.*

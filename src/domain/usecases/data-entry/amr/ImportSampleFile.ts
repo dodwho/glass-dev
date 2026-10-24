@@ -8,20 +8,17 @@ import { checkBatchId } from "../utils/checkBatchId";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkYear } from "../utils/checkYear";
-import {
-    AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID,
-    getCategoryOptionComboByDataElement,
-    getCategoryOptionComboByOptionCodes,
-} from "../utils/getCategoryOptionCombo";
+import { AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID } from "../utils/getCategoryOptionCombo";
 import { includeBlockingErrors } from "../utils/includeBlockingErrors";
 import { groupLineErrors } from "../utils/groupLineErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
 import { SampleDataRepository } from "../../../repositories/data-entry/SampleDataRepository";
-import { SAMPLE_COUNT_COLUMNS, SampleData } from "../../../entities/data-entry/amr-external/SampleData";
+import { SAMPLE_COUNT_COLUMNS } from "../../../entities/data-entry/amr-external/SampleData";
 import { checkDuplicateRowsSAMPLE } from "../utils/checkDuplicateRows";
 import { checkWholeNumbers } from "../utils/checkWholeNumbers";
 
 import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
+import { mapSampleDataToDataValues } from "./mapAMRAggFileToDataValues";
 
 export class ImportSampleFile {
     constructor(
@@ -30,7 +27,6 @@ export class ImportSampleFile {
         private dataValuesRepository: DataValuesRepository
     ) {}
 
-    // NOTICE: check also DeleteSampleDatasetUseCase.ts that contains same code adapted for node environment (only DELETE)
     public import(
         inputFile: File,
         batchId: string,
@@ -59,44 +55,13 @@ export class ImportSampleFile {
                 const batchIdErrors = checkBatchId(risDataItems, batchId);
                 const yearErrors = checkYear(risDataItems, year);
                 const countryErrors = checkCountry(risDataItems, countryCode);
-                const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
                 const duplicateRowErrors = checkDuplicateRowsSAMPLE(risDataItems);
                 const wholeNumberErrors = checkWholeNumbers(risDataItems, [...SAMPLE_COUNT_COLUMNS]);
 
-                const dataValues = risDataItems
-                    .map((risData, index) => {
-                        return dataSet.dataElements.map(dataElement => {
-                            const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                risData[category.code as keyof SampleData].toString()
-                            );
-
-                            const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
-                                getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
-
-                            if (aocBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
-
-                            const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
-                                getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
-
-                            if (ccoBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
-
-                            const value = risData[dataElement.code as keyof SampleData]?.toString() || "";
-
-                            const dataValue = {
-                                orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
-                                period: risData.YEAR.toString(),
-                                attributeOptionCombo,
-                                dataElement: dataElement.id,
-                                categoryOptionCombo: categoryOptionCombo,
-                                value,
-                            };
-
-                            return dataValue;
-                        });
-                    })
-                    .flat();
+                const { dataValues, categoryOptionErrors: blockingCategoryOptionErrors } = mapSampleDataToDataValues(
+                    risDataItems,
+                    { dataSet, dataSet_CC, dataElement_CC, orgUnits }
+                );
 
                 const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
                     groupLineErrors(blockingCategoryOptionErrors);

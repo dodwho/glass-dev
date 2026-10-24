@@ -12,19 +12,16 @@ import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkSpecimenPathogen } from "../utils/checkSpecimenPathogen";
 import { checkYear } from "../utils/checkYear";
-import {
-    AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID,
-    getCategoryOptionComboByDataElement,
-    getCategoryOptionComboByOptionCodes,
-} from "../utils/getCategoryOptionCombo";
+import { AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID } from "../utils/getCategoryOptionCombo";
 import { includeBlockingErrors } from "../utils/includeBlockingErrors";
 import { groupLineErrors } from "../utils/groupLineErrors";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
-import { RISData, RIS_RESULT_COLUMNS, toAMRAggDataValue } from "../../../entities/data-entry/amr-external/RISData";
+import { RIS_RESULT_COLUMNS } from "../../../entities/data-entry/amr-external/RISData";
 import { checkDuplicateRowsRIS } from "../utils/checkDuplicateRows";
 import { checkWholeNumbers } from "../utils/checkWholeNumbers";
 
 import { AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID } from "./amrAggMetadataIds";
+import { mapRISDataToDataValues } from "./mapAMRAggFileToDataValues";
 
 export class ImportRISFile {
     constructor(
@@ -34,7 +31,6 @@ export class ImportRISFile {
         private moduleRepository: GlassModuleRepository
     ) {}
 
-    // NOTICE: check also DeleteRISDatasetUseCase.ts that contains same code adapted for node environment (only DELETE)
     public importRISFile(
         inputFile: File,
         batchId: string,
@@ -70,44 +66,13 @@ export class ImportRISFile {
                 const batchIdErrors = checkBatchId(risDataItems, batchId);
                 const yearErrors = checkYear(risDataItems, year);
                 const countryErrors = checkCountry(risDataItems, countryCode);
-                const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
                 const duplicateRowErrors = checkDuplicateRowsRIS(risDataItems);
                 const wholeNumberErrors = checkWholeNumbers(risDataItems, [...RIS_RESULT_COLUMNS]);
 
-                const dataValues = risDataItems
-                    .map((risData, index) => {
-                        return dataSet.dataElements.map(dataElement => {
-                            const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                String(risData[category.code as keyof RISData])
-                            );
-
-                            const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
-                                getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
-
-                            if (aocBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
-
-                            const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
-                                getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
-
-                            if (ccoBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
-
-                            const value = toAMRAggDataValue(risData[dataElement.code as keyof RISData]);
-
-                            const dataValue = {
-                                orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
-                                period: risData.YEAR.toString(),
-                                attributeOptionCombo: attributeOptionCombo,
-                                dataElement: dataElement.id,
-                                categoryOptionCombo: categoryOptionCombo,
-                                value,
-                            };
-
-                            return dataValue;
-                        });
-                    })
-                    .flat();
+                const { dataValues, categoryOptionErrors: blockingCategoryOptionErrors } = mapRISDataToDataValues(
+                    risDataItems,
+                    { dataSet, dataSet_CC, dataElement_CC, orgUnits }
+                );
 
                 const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
                     groupLineErrors(blockingCategoryOptionErrors);

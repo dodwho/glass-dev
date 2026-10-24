@@ -184,21 +184,43 @@ All AMC program, stage and tracked-entity-attribute ids live in
 they were previously spread over seven files, with stage `q8cl5qllyjd` and program `eUmWZeKZNrg`
 each carrying several different names.
 
-## AMR AGG data validation and reset scripts
+## AMR AGG orphaned data: find, verify, audit labels, delete
 
-Due to 'Import Ignore' errors, there could be data corruption AMR Aggregate module.
+AMR aggregate values belong in DHIS2 only if the file of an upload at IMPORTED, VALIDATED or COMPLETED puts them there. An upload still at UPLOADED was never imported as far as the app shows, so it owns nothing. `yarn amr-agg-orphans` checks this, documents every finding, and removes only what does not belong.
 
-1. Run the following script, to detect if there are any errors. Ensure you have `REACT_APP_DHIS2_BASE_URL` and a matching token (`DHIS2_TOKEN_PROD`, `DHIS2_TOKEN_PREPROD`, ...) or `DHIS2_AUTH` in your .env file, and change the .env values based on your environment. The period is optional.
+**Instance.** `--instance preprod` or `--instance prod` targets that server with `DHIS2_TOKEN_PREPROD` / `DHIS2_TOKEN_PROD` from `.env.local`. The other credentials are ignored for that run. Without `--instance`, it uses `REACT_APP_DHIS2_BASE_URL` and the first token in `.env.local`, then `.env`. Outputs go to `amr-agg-orphan-deletions/` (git-ignored: pass `--outDir` to keep backups and reports somewhere durable). `find`, `verify` and `labels` check the whole database by default. Narrow them with `--years 2024` (or `2016-2025`), `--fileType RIS|SAMPLE|BOTH`, `--orgUnits IRQ,...` and `--batchIds DS1,...`; `--concurrency` sets how many are read at once (default 4).
 
-```
-$ yarn amr-agg-data-validation-ris --period 2023
-```
-
-2. Run the following script (with the period and org unit as parameters), to create a json with all valaues to be deleted. Import the json created using Import/Export app with "Delete" option selected.
+1. `find` (read-only, fast): batches with values stored but no imported upload. Reads no files, so these are candidates only.
 
 ```
-$ yarn amr-agg-data-reset-ris --orgUnit ORG_UNIT_ID --period 2023 --batchId BATCH_ID
+$ yarn amr-agg-orphans find --instance preprod
 ```
+
+2. `verify` (read-only): compares every batch, value by value, with its imported upload's file, read and mapped by the app's own import code. The report `amr_agg_verify_*_report.md` opens with two tables: **Safe to delete** (what `delete` would remove, and why) and **Needs a person** (what is wrong, and the next step). The evidence for each finding follows. `amr_agg_verify_*.csv` has one row per batch, and `amr_agg_verify_*_values.csv` every value that differs, including values whose attribute option combo is not a batch combo (UNKNOWN_BATCH_COMBO).
+
+```
+$ yarn amr-agg-orphans verify --instance preprod --years 2024 --orgUnits IRQ
+```
+
+3. `labels` (read-only audit): every live upload whose file's rows name another country, year or batch than the upload itself. For each, it shows where that data is stored, whether it is stored twice or overlaps another upload's cells, and how to fix it. The import stores each value where its row says, and the app's delete re-reads the file, so such an upload's delete removes the wrong values.
+
+```
+$ yarn amr-agg-orphans labels --instance preprod
+```
+
+4. `delete`: for one batch, or every row of a find/verify CSV (from a verify CSV only the Safe to delete rows), it works out the verdict again and deletes only:
+
+    - a whole batch that no imported upload's file accounts for (ORPHAN), or
+    - the values of a submitted batch that no imported upload's file has, under any batch or year label (LEFTOVER_VALUES).
+
+    Nothing is deleted while an UPLOADED upload of that country/year/file type, or the values themselves, are less than 14 days old (an import may be under way); for one batch, `--waitDays 0` lifts that wait once you have confirmed no import is running. Everything else is refused. It backs up the values (re-importable with CREATE_AND_UPDATE), dry-runs the delete with a count check, and checks that no upload record or value changed since the check. Without `--commit` it stops there. With `--commit` (plus `--confirmInstance`) it deletes through the same API call the app uses, then verifies the batch again. Every target, refused and failed ones included, is recorded in `deletion-log.jsonl`, with its evidence in `deletion-report.md`.
+
+```
+$ yarn amr-agg-orphans delete --instance preprod --orgUnit IRQ --period 2024 --batchId DS1 --fileType RIS
+$ yarn amr-agg-orphans delete --instance preprod --file amr-agg-orphan-deletions/amr_agg_verify_....csv --commit --confirmInstance portal-uat.who.int/dhis2-indiv
+```
+
+The older `yarn amr-agg-data-validation-ris` reads the upload list from the datastore, which stopped being updated when uploads moved to the uploads program. Its results are out of date. `yarn amr-agg-data-reset-ris` / `-sample` (kept as a fallback) write every value of a country/year/batch to a JSON for an Import/Export delete. They do not check uploads or files.
 
 ## Some development tips
 

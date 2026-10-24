@@ -140,6 +140,7 @@
         "amr-agg-data-reset-ris": "npx ts-node -r dotenv/config src/scripts/amr_agg_data_reset.ts",
         "amr-agg-data-validation-sample": "npx ts-node -r dotenv/config src/scripts/amr_agg_data_validation_sample.ts",
         "amr-agg-data-reset-sample": "npx ts-node -r dotenv/config src/scripts/amr_agg_data_reset_sample.ts",
+        "amr-agg-orphans": "cross-env NODE_OPTIONS=--max-old-space-size=4096 npx ts-node -r ./src/scripts/registerD2UiComponentsCjsInterop.js src/scripts/amr_agg_orphans.ts",
         "get-max-min-amc-calculated-tons": "npx ts-node -r dotenv/config src/scripts/get_max_min_amc_calculated_tons.ts",
         "generate-secret-key-and-nonce": "npx ts-node src/scripts/generate_secret_key_and_nonce.ts",
         "migrate-uploads-from-datastore-to-program": "npx ts-node -r dotenv/config src/scripts/uploads_datastore_to_uploads_event_program_migration.ts",
