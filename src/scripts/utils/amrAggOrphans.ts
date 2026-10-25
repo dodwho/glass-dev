@@ -7,6 +7,18 @@ import Papa from "papaparse";
 export const AMR_AGG_FILE_TYPES = ["RIS", "SAMPLE"] as const;
 export type AmrAggFileType = typeof AMR_AGG_FILE_TYPES[number];
 
+/**
+ * The AMR aggregate data set an upload's file is stored in. AMR - Individual's "SAMPLE File" goes into the same SAMPLE
+ * data set as AMR's SAMPLE (GNB 2025 on PROD was deleted as an orphan because this was missed); its RIS goes to the
+ * tracker, so it has none.
+ */
+export function toAmrAggFileType(uploadFileType: string): AmrAggFileType | undefined {
+    const fileType = uploadFileType.trim().toUpperCase();
+    if (fileType === "RIS") return "RIS";
+    if (fileType === "SAMPLE" || fileType === "SAMPLE FILE") return "SAMPLE";
+    return undefined;
+}
+
 export interface UploadRecord {
     id: string;
     orgUnitId: string;
@@ -398,6 +410,23 @@ export interface BatchJudgement<Stored extends ComparableValue> {
 }
 
 const IMPORTED_STATUSES = ["IMPORTED", "VALIDATED", "COMPLETED"];
+
+/** An upload of this year whose data may be stored: not deleted, and IMPORTED, VALIDATED or COMPLETED. */
+export const isLiveUpload = (upload: UploadRecord, year: string) =>
+    !upload.deleted && upload.year === year && IMPORTED_STATUSES.includes(upload.status);
+
+/**
+ * The values about to be deleted that a live upload's file maps to. Ownership is decided by the files' rows, not by the
+ * batch or module on the upload records: on 24 Oct GNB 2025 SAMPLE DS1 was deleted on PROD as an orphan although it
+ * was the data of a COMPLETED AMR - Individual upload whose record named DS2 while its rows said DS1.
+ */
+export function valuesHeldByLiveFiles<Value extends ComparableValue>(
+    values: Value[],
+    liveFileValues: ComparableValue[][]
+): Value[] {
+    const held = new Set(liveFileValues.flat().map(valueKey));
+    return values.filter(value => held.has(valueKey(value)));
+}
 
 /**
  * The verdict on one country/year/file type/batch. `owners`, `attempts` and `otherUploads` are classifyLiveUploads'

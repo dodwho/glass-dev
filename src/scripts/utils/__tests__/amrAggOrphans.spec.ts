@@ -16,6 +16,9 @@ import {
     parseOrphanCsv,
     parseYears,
     StoredBatch,
+    toAmrAggFileType,
+    isLiveUpload,
+    valuesHeldByLiveFiles,
     UploadRecord,
 } from "../amrAggOrphans";
 
@@ -602,5 +605,44 @@ describe("evidence helpers", () => {
         const batch = { orgUnitId: "ou-irq", year: "2024", fileType: "RIS" as const, batchId: "DS1" };
         expect(findProbableSource(uploads, batch, "2025-06-24T07:41:50.000+0000")?.id).toBe("source");
         expect(findProbableSource(uploads, batch, "2020-01-01T00:00:00.000+0000")).toBeUndefined();
+    });
+});
+
+describe("toAmrAggFileType", () => {
+    // GNB 2025 on PROD: an AMR - Individual "SAMPLE File" upload held the SAMPLE values deleted as an orphan
+    it("puts AMR - Individual SAMPLE files in the SAMPLE data set, and leaves out files stored elsewhere", () => {
+        expect(["RIS", "SAMPLE", "SAMPLE File", "RIS Individual", "RIS Fungal", "EGASP"].map(toAmrAggFileType)).toEqual(
+            ["RIS", "SAMPLE", "SAMPLE", undefined, undefined, undefined]
+        );
+    });
+});
+
+describe("valuesHeldByLiveFiles", () => {
+    const value = (dataElement: string, aoc: string, v = "1") => ({
+        dataElement,
+        categoryOptionCombo: "coc-1",
+        attributeOptionCombo: aoc,
+        value: v,
+    });
+
+    // GNB 2025 SAMPLE DS1 on PROD: the Individual upload's record said DS2, its rows (so its values) said DS1
+    it("finds the values a live upload's file maps to, whatever their value, and only those", () => {
+        const toDelete = [value("de-1", "aoc-ds1"), value("de-2", "aoc-ds1"), value("de-1", "aoc-ds2")];
+        const individualFile = [value("de-1", "aoc-ds1", "7"), value("de-2", "aoc-ds1")];
+
+        expect(valuesHeldByLiveFiles(toDelete, [individualFile])).toEqual([toDelete[0], toDelete[1]]);
+        expect(valuesHeldByLiveFiles(toDelete, [])).toEqual([]);
+    });
+
+    it("counts only uploads of the year that are not deleted and IMPORTED, VALIDATED or COMPLETED", () => {
+        const statuses = ["UPLOADED", "IMPORTED", "VALIDATED", "COMPLETED"];
+
+        expect(statuses.filter(status => isLiveUpload(upload({ status, year: "2025" }), "2025"))).toEqual([
+            "IMPORTED",
+            "VALIDATED",
+            "COMPLETED",
+        ]);
+        expect(isLiveUpload(upload({ status: "COMPLETED", year: "2024" }), "2025")).toBe(false);
+        expect(isLiveUpload(upload({ status: "COMPLETED", year: "2025", deleted: true }), "2025")).toBe(false);
     });
 });

@@ -75,8 +75,11 @@ import {
     QUIET_VERDICTS,
     RowLabel,
     StoredBatch,
+    toAmrAggFileType,
     UploadRecord,
     uploadedAt,
+    isLiveUpload,
+    valuesHeldByLiveFiles,
     validateTarget,
     valueKey,
     Verdict,
@@ -164,7 +167,8 @@ interface Context {
     api: D2Api;
     instance: Instance;
     instanceKey: string;
-    moduleId: string;
+    /** AMR and AMR - Individual: both store SAMPLE files in the AMR aggregate SAMPLE data set. */
+    uploadModuleIds: string[];
     asyncDeleteChunkSize: number | undefined;
     rootOrgUnitId: string;
     countries: { id: string; code: string }[];
@@ -191,7 +195,9 @@ async function loadContext(
     await warmUpSession(api);
 
     const dataStoreClient = new DataStoreClient(instance);
-    const glassModule = await new GlassModuleDefaultRepository(dataStoreClient).getByName(MODULE_NAMES.AMR).toPromise();
+    const moduleRepository = new GlassModuleDefaultRepository(dataStoreClient);
+    const glassModule = await moduleRepository.getByName(MODULE_NAMES.AMR).toPromise();
+    const individualModule = await moduleRepository.getByName(MODULE_NAMES.AMR_INDIVIDUAL).toPromise();
 
     const combos = await api.models.categoryCombos
         .get({
@@ -277,7 +283,7 @@ async function loadContext(
         api,
         instance,
         instanceKey,
-        moduleId: glassModule.id,
+        uploadModuleIds: [glassModule.id, individualModule.id],
         asyncDeleteChunkSize: glassModule.asyncDeleteChunkSizes?.primaryUpload,
         rootOrgUnitId: root.id,
         countries,
@@ -318,7 +324,7 @@ async function fetchUploads(context: Context, orgUnitId?: string): Promise<Uploa
                         dataValues: { dataElement: true, value: true },
                     },
                     program: AMR_GLASS_PROE_UPLOADS_PROGRAM_ID,
-                    filter: `${uploadsDHIS2Ids.moduleId}:eq:${context.moduleId}`,
+                    filter: `${uploadsDHIS2Ids.moduleId}:in:${context.uploadModuleIds.join(";")}`,
                     ...(orgUnitId
                         ? { orgUnit: orgUnitId, orgUnitMode: "SELECTED" as const }
                         : { orgUnit: context.rootOrgUnitId, orgUnitMode: "DESCENDANTS" as const }),
@@ -334,11 +340,13 @@ async function fetchUploads(context: Context, orgUnitId?: string): Promise<Uploa
 
         for (const event of result.instances) {
             const value = (dataElement: string) => getValueById(event.dataValues, dataElement) ?? "";
+            const fileType = toAmrAggFileType(value(uploadsDHIS2Ids.documentFileType));
+            if (!fileType) continue;
             uploads.push({
                 id: event.event,
                 orgUnitId: event.orgUnit,
                 year: value(uploadsDHIS2Ids.period).match(/\d{4}/)?.[0] ?? "",
-                fileType: value(uploadsDHIS2Ids.documentFileType),
+                fileType,
                 batchId: value(uploadsDHIS2Ids.batchId),
                 status: value(uploadsDHIS2Ids.status),
                 deleted: Boolean(event.deleted),
@@ -1216,6 +1224,28 @@ async function deleteTarget(
 
         const dataValues = judgement.deletable;
         outcome.toDelete = dataValues.length;
+
+        // Every live upload's file of this country, year and data set, in AMR or AMR - Individual, whatever batch its
+        // record names: a value one of them maps to is that upload's data, so nothing of the batch is deleted.
+        const liveUploads = checked.uploads.filter(upload => isLiveUpload(upload, target.year));
+        const liveFileValues = [];
+        for (const upload of liveUploads) {
+            const fileValues = await readFileValues(context, upload, target.fileType);
+            if (fileValues === "unreadable")
+                return finish(
+                    "REFUSED",
+                    `The file of live upload ${describeUploads([upload])} could not be read, so it may hold these ` +
+                        `values. Nothing deleted.`
+                );
+            liveFileValues.push(fileValues);
+        }
+        const held = valuesHeldByLiveFiles(dataValues, liveFileValues);
+        if (held.length > 0)
+            return finish(
+                "REFUSED",
+                `${held.length} of the ${dataValues.length} values are in the file of a live upload ` +
+                    `(${describeUploads(liveUploads)}). Nothing deleted.`
+            );
         console.log(
             `  ${judgement.verdict}: ${dataValues.length} of ${evaluation.stored.length} stored values do not belong ` +
                 `(those last written ${latestWrite(dataValues)}). Why: ${plainReason(evaluation)}.`
