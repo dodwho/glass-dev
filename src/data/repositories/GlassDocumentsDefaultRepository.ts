@@ -121,15 +121,15 @@ export class GlassDocumentsDefaultRepository implements GlassDocumentsRepository
 
     delete(id: string): FutureData<string> {
         return this.dataStoreClient.listCollection<GlassDocuments>(DataStoreKeys.DOCUMENTS).flatMap(documents => {
-            const document = documents.find(document => document.id === id);
-            if (document) {
-                documents.splice(documents.indexOf(document), 1);
-                return this.dataStoreClient
-                    .saveObject(DataStoreKeys.DOCUMENTS, documents)
-                    .flatMap(() => Future.success(document.id));
-            } else {
-                return Future.error("Document could not be found");
-            }
+            // The list can miss a document: every upload rewrites it whole, so two files attached together can lose
+            // an entry. Nothing reads the list, so a missing entry must not stop the file itself from being deleted.
+            if (!documents.some(document => document.id === id)) return Future.success(id);
+            return this.dataStoreClient
+                .saveObject(
+                    DataStoreKeys.DOCUMENTS,
+                    documents.filter(document => document.id !== id)
+                )
+                .map(() => id);
         });
     }
 

@@ -6,6 +6,7 @@ import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRe
 import { GlassModuleRepository } from "../../../repositories/GlassModuleRepository";
 import { GlassUploadsRepository } from "../../../repositories/GlassUploadsRepository";
 import { moduleProperties } from "../../../utils/ModuleProperties";
+import { retryAsync } from "../../../../utils/promises";
 import { DownloadDocumentAsArrayBufferUseCase } from "../../DownloadDocumentAsArrayBufferUseCase";
 import { GetGlassUploadsIncludedSharedByModuleOUPeriodUseCase } from "../../GetGlassUploadsIncludedSharedByModuleOUPeriodUseCase";
 
@@ -26,7 +27,8 @@ const cellKey = (value: DataValue) =>
  * (IMPORTED, VALIDATED or COMPLETED) upload's file of the same country, year and data set maps to, in AMR or
  * AMR - Individual. Such a cell is that upload's data too (the same batch uploaded twice, a file whose rows name
  * another batch, or an AMR - Individual SAMPLE file).
- * If another upload's file cannot be read, nothing is returned but the error: a blind delete could remove its data.
+ * If another upload's file cannot be read (after retries), nothing is returned but the error: a blind delete could
+ * remove its data.
  */
 export function excludeValuesOfOtherUploads(
     upload: GlassUploads,
@@ -55,8 +57,8 @@ export function excludeValuesOfOtherUploads(
 
             return Future.sequential(
                 otherLiveUploads.map(other =>
-                    downloadFile
-                        .execute(other.fileId)
+                    // A dropped connection (PROD drops some under load) is retried before the delete is refused.
+                    Future.fromPromise(retryAsync(() => downloadFile.execute(other.fileId).toPromise()))
                         .flatMap(mapFile)
                         .mapError(
                             error =>
