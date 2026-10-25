@@ -1,30 +1,58 @@
 import { Future, FutureData } from "../../../entities/Future";
+import { DataValue } from "../../../entities/data-entry/DataValue";
 import { ImportSummary } from "../../../entities/data-entry/ImportSummary";
+import { GlassUploads } from "../../../entities/GlassUploads";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
+import { GlassDocumentsRepository } from "../../../repositories/GlassDocumentsRepository";
+import { GlassUploadsRepository } from "../../../repositories/GlassUploadsRepository";
+import { GlassModuleRepository } from "../../../repositories/GlassModuleRepository";
 import { DataValuesRepository } from "../../../repositories/data-entry/DataValuesRepository";
 import { RISDataRepository } from "../../../repositories/data-entry/RISDataRepository";
-import {
-    AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID,
-    getCategoryOptionComboByDataElement,
-    getCategoryOptionComboByOptionCodes,
-} from "../utils/getCategoryOptionCombo";
+import { AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID } from "../utils/getCategoryOptionCombo";
 import { mapDataValuesToImportSummary } from "../utils/mapDhis2Summary";
-import { RISData, toAMRAggDataValue } from "../../../entities/data-entry/amr-external/RISData";
 import { AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID } from "./amrAggMetadataIds";
 import { Maybe } from "../../../../utils/ts-utils";
 import { deleteDataValues } from "../utils/deleteDataValues";
+import { mapRISDataToDataValues } from "./mapAMRAggFileToDataValues";
+import { excludeValuesOfOtherUploads } from "./excludeValuesOfOtherUploads";
 
-// NOTICE: code adapted for node environment from ImportRISFile.ts (only DELETE)
+// Removes the values the upload's file maps to (mapRISDataToDataValues), except those another live upload holds
 export class DeleteRISDataset {
     constructor(
         private options: {
             risDataRepository: RISDataRepository;
             metadataRepository: MetadataRepository;
             dataValuesRepository: DataValuesRepository;
+            glassUploadsRepository: GlassUploadsRepository;
+            glassDocumentsRepository: GlassDocumentsRepository;
+            glassModuleRepository: GlassModuleRepository;
         }
     ) {}
 
-    public delete(arrayBuffer: ArrayBuffer, asyncDeleteChunkSize: Maybe<number>): FutureData<ImportSummary> {
+    public delete(
+        upload: GlassUploads,
+        arrayBuffer: ArrayBuffer,
+        asyncDeleteChunkSize: Maybe<number>
+    ): FutureData<ImportSummary> {
+        const mapFile = (file: ArrayBuffer) => this.mapFileToDataValues(file);
+
+        return mapFile(arrayBuffer)
+            .flatMap(dataValues => excludeValuesOfOtherUploads(upload, dataValues, mapFile, this.options))
+            .flatMap(dataValues =>
+                deleteDataValues(dataValues, asyncDeleteChunkSize, this.options.dataValuesRepository).map(
+                    saveSummary => {
+                        const importSummary = mapDataValuesToImportSummary(saveSummary, "DELETE");
+
+                        return {
+                            ...importSummary,
+                            importTime: saveSummary.importTime,
+                        };
+                    }
+                )
+            );
+    }
+
+    private mapFileToDataValues(arrayBuffer: ArrayBuffer): FutureData<DataValue[]> {
         return this.options.risDataRepository
             .getFromArrayBuffer(arrayBuffer)
             .flatMap(risDataItems => {
@@ -42,54 +70,9 @@ export class DeleteRISDataset {
                     ]),
                 });
             })
-            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits }) => {
-                const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
-
-                const dataValues = risDataItems
-                    .map((risData, index) => {
-                        return dataSet.dataElements.map(dataElement => {
-                            const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                String(risData[category.code as keyof RISData])
-                            );
-
-                            const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
-                                getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
-
-                            if (aocBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
-
-                            const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
-                                getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
-
-                            if (ccoBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
-
-                            const value = toAMRAggDataValue(risData[dataElement.code as keyof RISData]);
-
-                            const dataValue = {
-                                orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
-                                period: risData.YEAR.toString(),
-                                attributeOptionCombo: attributeOptionCombo,
-                                dataElement: dataElement.id,
-                                categoryOptionCombo: categoryOptionCombo,
-                                value,
-                            };
-
-                            return dataValue;
-                        });
-                    })
-                    .flat();
-
-                return deleteDataValues(dataValues, asyncDeleteChunkSize, this.options.dataValuesRepository).map(
-                    saveSummary => {
-                        const importSummary = mapDataValuesToImportSummary(saveSummary, "DELETE");
-
-                        return {
-                            ...importSummary,
-                            importTime: saveSummary.importTime,
-                        };
-                    }
-                );
-            });
+            .map(
+                ({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits }) =>
+                    mapRISDataToDataValues(risDataItems, { dataSet, dataSet_CC, dataElement_CC, orgUnits }).dataValues
+            );
     }
 }

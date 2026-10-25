@@ -12,7 +12,7 @@ import { GetGlassUploadsByIdsUseCase } from "../domain/usecases/GetGlassUploadsB
 import { Future, FutureData } from "../domain/entities/Future";
 import { GlassModule, GlassModuleName, isGlassModuleName } from "../domain/entities/GlassModule";
 import { GlassModuleRepository } from "../domain/repositories/GlassModuleRepository";
-import { GlassUploads } from "../domain/entities/GlassUploads";
+import { GlassUploads, secondaryUploadMayHoldValues } from "../domain/entities/GlassUploads";
 import { GlassModuleDefaultRepository } from "../data/repositories/GlassModuleDefaultRepository";
 import { ModuleDetails, moduleProperties } from "../domain/utils/ModuleProperties";
 import { GlassDocumentsRepository } from "../domain/repositories/GlassDocumentsRepository";
@@ -67,7 +67,6 @@ import { GetGlassUploadsByCorrespondingRisUploadIdUseCase } from "../domain/usec
 import { GetGlassUploadByIdUseCase } from "../domain/usecases/GetGlassUploadByIdUseCase";
 import { getUploadsFormDataBuilder } from "../utils/getUploadsFormDataBuilder";
 
-const UPLOADED_FILE_STATUS_LOWERCASE = "uploaded";
 const IMPORT_SUMMARY_STATUS_ERROR = "ERROR";
 const DEFAULT_MAX_ATTEMPS_FOR_ASYNC_DELETIONS = 3;
 
@@ -499,6 +498,7 @@ function deleteDatasetValuesOrEventsFromPrimaryUploaded(
         glassUploadsRepository: GlassUploadsRepository;
         trackerRepository: TrackerRepository;
         amcSubstanceDataRepository: AMCSubstanceDataRepository;
+        glassModuleRepository: GlassModuleRepository;
     }
 ): FutureData<ImportSummary> {
     consoleLogger.debug(`Deleting data from primary file ${upload.id}`);
@@ -519,6 +519,7 @@ function deleteDatasetValuesOrEventsFromSecondaryUploaded(
         instanceRepository: InstanceRepository;
         glassUploadsRepository: GlassUploadsRepository;
         trackerRepository: TrackerRepository;
+        glassModuleRepository: GlassModuleRepository;
     }
 ): FutureData<ImportSummary> {
     consoleLogger.debug(`Deleting data from secondary file ${upload.id}`);
@@ -554,13 +555,10 @@ function deleteDatasetValuesOrEvents(
     deletePrimaryFileSummary: ImportSummary | undefined;
     deleteSecondaryFileSummary: ImportSummary | undefined;
 }> {
-    const { name: currentModuleName } = currentModule;
+    const isDryRunReq = !!moduleProperties.get(currentModule.name)?.isDryRunReq;
     return Future.joinObj({
         deletePrimaryFileSummary:
-            primaryArrayBuffer &&
-            primaryFileToDelete &&
-            (primaryFileToDelete.status.toLowerCase() !== UPLOADED_FILE_STATUS_LOWERCASE ||
-                !moduleProperties.get(currentModuleName)?.isDryRunReq)
+            primaryArrayBuffer && primaryFileToDelete
                 ? deleteDatasetValuesOrEventsFromPrimaryUploaded(
                       currentModule,
                       primaryFileToDelete,
@@ -571,7 +569,7 @@ function deleteDatasetValuesOrEvents(
         deleteSecondaryFileSummary:
             secondaryArrayBuffer &&
             secondaryFileToDelete &&
-            secondaryFileToDelete.status.toLowerCase() !== UPLOADED_FILE_STATUS_LOWERCASE
+            secondaryUploadMayHoldValues(secondaryFileToDelete.status, isDryRunReq)
                 ? deleteDatasetValuesOrEventsFromSecondaryUploaded(
                       currentModule,
                       secondaryFileToDelete,
@@ -659,7 +657,7 @@ function getPrimaryAndSecondaryUploadsToDelete(
 
 // Deleting a uploaded dataset completely has the following steps:
 // 0. Check if the upload is pending deletion and set status to "DELETING"
-// 1. Delete corresponsding datasetValue/event for each row in the file if the file has status different than "uploaded"
+// 1. Delete corresponsding datasetValue/event for each row in the file if it may hold any (secondaryUploadMayHoldValues)
 // 2. Delete corresponding 'upload' and 'document' from Datastore, and delete corresponding document from DHIS2
 // 3. If some error occurs while deleting the data, increment the attempts and set errorAsyncDeleting in upload if max attempts reached
 // 4. Remove the async-deletion from Datastore
@@ -832,8 +830,10 @@ function deleteUploadedDatasets(
                                                 );
                                             } else if (secondaryUploadToDelete && secondaryArrayBuffer) {
                                                 if (
-                                                    secondaryUploadToDelete.status.toLowerCase() !==
-                                                    UPLOADED_FILE_STATUS_LOWERCASE
+                                                    secondaryUploadMayHoldValues(
+                                                        secondaryUploadToDelete.status,
+                                                        !!moduleProperties.get(currentModule.name)?.isDryRunReq
+                                                    )
                                                 ) {
                                                     consoleLogger.debug(`Delete only secondary uploaded dataset`);
                                                     return withSignsOfLife(

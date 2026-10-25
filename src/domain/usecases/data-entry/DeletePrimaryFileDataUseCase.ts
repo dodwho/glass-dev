@@ -9,6 +9,7 @@ import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepos
 import { TrackerRepository } from "../../repositories/TrackerRepository";
 import { AMCSubstanceDataRepository } from "../../repositories/data-entry/AMCSubstanceDataRepository";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
+import { GlassModuleRepository } from "../../repositories/GlassModuleRepository";
 import { InstanceRepository } from "../../repositories/InstanceRepository";
 import { UseCase } from "../../UseCase";
 import { GlassModule } from "../../entities/GlassModule";
@@ -31,6 +32,7 @@ export class DeletePrimaryFileDataUseCase implements UseCase {
             glassUploadsRepository: GlassUploadsRepository;
             trackerRepository: TrackerRepository;
             amcSubstanceDataRepository: AMCSubstanceDataRepository;
+            glassModuleRepository: GlassModuleRepository;
         }
     ) {}
 
@@ -45,7 +47,7 @@ export class DeletePrimaryFileDataUseCase implements UseCase {
 
         switch (currentModuleName) {
             case "AMR": {
-                return new DeleteRISDataset(this.options).delete(arrayBuffer, asyncDeleteChunkSize);
+                return new DeleteRISDataset(this.options).delete(upload, arrayBuffer, asyncDeleteChunkSize);
             }
 
             case "EGASP": {
