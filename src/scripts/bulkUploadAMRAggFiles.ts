@@ -1,3 +1,10 @@
+/*
+ * DO NOT RUN. Retired on 25 Oct 2026, to be replaced by a bulk loader that runs the app's own upload.
+ * - It never checks whether a batch already holds data, so it can load the same data twice.
+ * - It reads a stale list of uploads and creates submissions in parallel; on PROD that left hidden duplicate upload
+ *   records (MDG and USA 2016).
+ * - It writes no import summary, and an import that stops halfway leaves values that no upload owns.
+ */
 import { D2Api } from "@eyeseetea/d2-api/2.34";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
