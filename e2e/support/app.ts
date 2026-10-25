@@ -144,7 +144,13 @@ export async function deleteTestUploads(page: Page, module: ModuleKey) {
             .filter({ has: page.getByTitle(next.values.fileName ?? "", { exact: true }) })
             .filter({ hasNotText: /Marked to be deleted/i })
             .first();
-        await expect(row).toBeVisible({ timeout: 120_000 });
+        // Deleting an upload can delete its pair too (an AMR RIS takes its SAMPLE along): if DHIS2 drops this one
+        // while its row is gone from the table, there is nothing left to click.
+        const stillListed = async () => (await uploadsToDelete(module)).some(upload => upload.id === next.id);
+        await expect
+            .poll(async () => (await row.isVisible()) || !(await stillListed()), { timeout: 120_000 })
+            .toBe(true);
+        if (!(await row.isVisible())) continue;
         // Delete is the first icon in a row (validated rows also have Complete and an import-summary arrow).
         await row.locator("svg").first().click();
         const dialog = page.getByRole("dialog");
