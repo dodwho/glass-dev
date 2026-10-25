@@ -334,6 +334,7 @@ export function getCompositionRoot(instance: Instance) {
                 glassUploadsRepository,
                 trackerRepository,
                 amcSubstanceDataRepository,
+                glassModuleRepository,
             }),
             deleteSecondaryFile: new DeleteSecondaryFileDataUseCase({
                 sampleDataRepository,
@@ -345,6 +346,7 @@ export function getCompositionRoot(instance: Instance) {
                 instanceRepository,
                 glassUploadsRepository,
                 trackerRepository,
+                glassModuleRepository,
             }),
         }),
         questionnaires: getExecute({

@@ -6,9 +6,12 @@ import { DataValue } from "../../../../entities/data-entry/DataValue";
 import { DataValuesSaveSummary, ImportStrategy } from "../../../../entities/data-entry/DataValuesSaveSummary";
 import { DEFAULT_CATEGORY_COMBO_ID } from "../../../../entities/GlassMetadataReferences";
 import { GlassModule } from "../../../../entities/GlassModule";
+import { GlassUploads, GlassUploadsStatus } from "../../../../entities/GlassUploads";
 import { CategoryCombo } from "../../../../entities/metadata/CategoryCombo";
 import { DataSet } from "../../../../entities/metadata/DataSet";
+import { GlassDocumentsRepository } from "../../../../repositories/GlassDocumentsRepository";
 import { GlassModuleRepository } from "../../../../repositories/GlassModuleRepository";
+import { GlassUploadsRepository } from "../../../../repositories/GlassUploadsRepository";
 import { MetadataRepository } from "../../../../repositories/MetadataRepository";
 import { DataValuesRepository } from "../../../../repositories/data-entry/DataValuesRepository";
 import { RISDataRepository } from "../../../../repositories/data-entry/RISDataRepository";
@@ -20,9 +23,10 @@ import { DeleteSampleDataset } from "../DeleteSampleDataset";
 import { ImportRISFile } from "../ImportRISFile";
 import { ImportSampleFile } from "../ImportSampleFile";
 
-// The background deletion server (cliAsyncDeletions) deletes an AMR aggregate upload's data by reading its stored
-// file again. Values its import wrote but the delete misses are left behind as orphans, so a delete must send
-// exactly the values the import of the same file sent.
+// The app and the background deletion server (cliAsyncDeletions) delete an AMR aggregate upload's data by reading
+// its file again. Values its import wrote but the delete misses are left behind as orphans, so a delete must send
+// exactly the values the import of the same file sent; except cells another live upload's file also holds, which
+// are that upload's data too (CAN 2019, TCD 2023 and mislabelled batches lost data that way on PROD).
 
 const option = (code: string) => ({ id: `opt-${code}`, code });
 
@@ -56,6 +60,7 @@ const pathogenAntibioticBatch: CategoryCombo = {
     categoryOptionCombos: [
         { id: "aoc-escc-amp-ds1", name: "", categoryOptions: [option("ESCCOL"), option("AMP"), option("DS1")] },
         { id: "aoc-escc-cip-ds1", name: "", categoryOptions: [option("ESCCOL"), option("CIP"), option("DS1")] },
+        { id: "aoc-escc-amp-ds2", name: "", categoryOptions: [option("ESCCOL"), option("AMP"), option("DS2")] },
     ],
 };
 
@@ -191,11 +196,69 @@ function metadataRepository(dataSet: DataSet, dataSetCombo: CategoryCombo) {
 
 const sentValues = (save: ReturnType<typeof recordingRepository>["save"]) => save.mock.calls.flatMap(call => call[0]);
 
+const cellKey = (value: DataValue) =>
+    [value.orgUnit, value.period, value.dataElement, value.categoryOptionCombo, value.attributeOptionCombo].join("|");
+
+function upload(overrides: Partial<GlassUploads> = {}): GlassUploads {
+    return {
+        id: "upload-deleted",
+        fileId: "file-0",
+        fileName: "RIS_KOR_2025_DS1.csv",
+        fileType: "RIS",
+        module: "module-amr",
+        orgUnit: "ou-kor",
+        period: "2025",
+        status: "COMPLETED",
+        ...overrides,
+    } as GlassUploads;
+}
+
+type OtherUpload = { status: GlassUploadsStatus; fileType?: string; fileId: string; module?: string };
+
+/**
+ * The deleted upload plus `others` for the same country and year. A stored file "file-N" downloads as an N-byte
+ * buffer, so the data repositories can tell the files apart; "file-unreadable" fails to download.
+ */
+function uploadsAndFiles(others: OtherUpload[], fileType = "RIS") {
+    const glassUploadsRepository = {
+        getUploadsByModuleOUPeriod: () =>
+            Future.success([
+                upload({ fileType }),
+                ...others.map((other, index) =>
+                    upload({
+                        id: `upload-${index}`,
+                        fileName: `other-${index}.csv`,
+                        fileType,
+                        ...other,
+                    })
+                ),
+            ]),
+    } as unknown as GlassUploadsRepository;
+    const glassDocumentsRepository = {
+        download: (fileId: string) =>
+            fileId === "file-unreadable"
+                ? Future.error("404 Not Found")
+                : Future.success({
+                      arrayBuffer: () => Promise.resolve(new ArrayBuffer(Number(fileId.replace("file-", "")))),
+                  } as unknown as Blob),
+    } as unknown as GlassDocumentsRepository;
+    const glassModuleRepository = {
+        getAll: () =>
+            Future.success([
+                { id: "module-amr", name: "AMR" },
+                { id: "module-individual", name: "AMR - Individual" },
+            ]),
+    } as unknown as GlassModuleRepository;
+    return { glassUploadsRepository, glassDocumentsRepository, glassModuleRepository };
+}
+
 describe("DeleteRISDataset", () => {
     const metadata = metadataRepository(risDataSet, pathogenAntibioticBatch);
+    // file-0: the deleted upload's file; file-1: repeats its first row; file-2: the same row, but under batch DS2
+    const filesBySize: Record<number, RISData[]> = { 0: risRows, 1: [risRow()], 2: [risRow({ BATCHIDDS: "DS2" })] };
     const risRepository = {
         get: () => Future.success(risRows),
-        getFromArrayBuffer: () => Future.success(risRows),
+        getFromArrayBuffer: (arrayBuffer: ArrayBuffer) => Future.success(filesBySize[arrayBuffer.byteLength]),
     } as unknown as RISDataRepository;
     const module = {
         consistencyChecks: { specimenPathogen: { BLOOD: [{ ESCCOL: ["AMP", "CIP"] }], URINE: [{ ESCCOL: ["AMP"] }] } },
@@ -211,16 +274,21 @@ describe("DeleteRISDataset", () => {
         return sentValues(save);
     }
 
-    const deleter = (repository: DataValuesRepository) =>
+    const deleter = (
+        repository: DataValuesRepository,
+        others: OtherUpload[] = [],
+        repositories = uploadsAndFiles(others)
+    ) =>
         new DeleteRISDataset({
             risDataRepository: risRepository,
             metadataRepository: metadata,
             dataValuesRepository: repository,
+            ...repositories,
         });
 
     it("deletes exactly the values the import of the same file wrote", async () => {
         const { save, repository } = recordingRepository();
-        const summary = await deleter(repository).delete(new ArrayBuffer(0), undefined).toPromise();
+        const summary = await deleter(repository).delete(upload(), new ArrayBuffer(0), undefined).toPromise();
         expect(sentValues(save)).toEqual(await imported());
         expect(save.mock.calls.map(call => [call[1], call[2]])).toEqual([["DELETE", false]]);
         expect(summary.importCount.deleted).toBe(risRows.length * risDataSet.dataElements.length);
@@ -228,10 +296,60 @@ describe("DeleteRISDataset", () => {
 
     it("deletes in chunks of the module's delete chunk size, sending every value once", async () => {
         const { save, repository } = recordingRepository();
-        const summary = await deleter(repository).delete(new ArrayBuffer(0), 5).toPromise();
+        const summary = await deleter(repository).delete(upload(), new ArrayBuffer(0), 5).toPromise();
         expect(save.mock.calls.map(call => call[0].length)).toEqual([5, 5, 2]);
         expect(sentValues(save)).toEqual(await imported());
         expect(summary.importCount.deleted).toBe(12);
+    });
+
+    it("keeps the cells another live upload's file also holds and deletes the rest", async () => {
+        const { save, repository } = recordingRepository();
+        await deleter(repository, [{ status: "COMPLETED", fileId: "file-1" }])
+            .delete(upload(), new ArrayBuffer(0), undefined)
+            .toPromise();
+
+        const all = await imported();
+        // The first row's 4 cells, including the AB class cell it shares with the third row (same pathogen/antibiotic)
+        const held = new Set(all.slice(0, risDataSet.dataElements.length).map(cellKey));
+        const expected = all.filter(value => !held.has(cellKey(value)));
+        expect(expected).toHaveLength(7);
+        expect(sentValues(save)).toEqual(expected);
+    });
+
+    it("counts IMPORTED and VALIDATED uploads as live too, and compares the rows' batch, not the upload's", async () => {
+        const { save, repository } = recordingRepository();
+        await deleter(repository, [
+            { status: "IMPORTED", fileId: "file-1" },
+            { status: "VALIDATED", fileId: "file-2" },
+        ])
+            .delete(upload(), new ArrayBuffer(0), undefined)
+            .toPromise();
+
+        expect(sentValues(save)).toHaveLength(7);
+    });
+
+    it("ignores uploads that hold no data, other file types and the deleted upload itself", async () => {
+        const { save, repository } = recordingRepository();
+        await deleter(repository, [
+            { status: "UPLOADED", fileId: "file-1" },
+            { status: "COMPLETED", fileType: "SAMPLE", fileId: "file-1" },
+            { status: "COMPLETED", fileType: "RIS Individual", fileId: "file-1", module: "module-individual" },
+        ])
+            .delete(upload({ status: "UPLOADED" }), new ArrayBuffer(0), undefined)
+            .toPromise();
+
+        expect(sentValues(save)).toEqual(await imported());
+    });
+
+    it("deletes nothing when another live upload's file cannot be read", async () => {
+        const { save, repository } = recordingRepository();
+        const result = await deleter(repository, [{ status: "COMPLETED", fileId: "file-unreadable" }])
+            .delete(upload(), new ArrayBuffer(0), undefined)
+            .runAsync();
+
+        expect(result.error).toContain("Nothing was deleted");
+        expect(result.error).toContain("other-0.csv");
+        expect(save).not.toHaveBeenCalled();
     });
 });
 
@@ -251,23 +369,45 @@ describe("DeleteSampleDataset", () => {
         return sentValues(save);
     }
 
-    const deleter = (repository: DataValuesRepository) =>
+    const deleter = (repository: DataValuesRepository, others: OtherUpload[] = []) =>
         new DeleteSampleDataset({
             sampleDataRepository: sampleRepository,
             metadataRepository: metadata,
             dataValuesRepository: repository,
+            ...uploadsAndFiles(others, "SAMPLE"),
         });
+
+    const sampleUpload = upload({ fileType: "SAMPLE" });
 
     it("deletes exactly the values the import of the same file wrote", async () => {
         const { save, repository } = recordingRepository();
-        await deleter(repository).delete(new ArrayBuffer(0), undefined).toPromise();
+        await deleter(repository).delete(sampleUpload, new ArrayBuffer(0), undefined).toPromise();
         expect(sentValues(save)).toEqual(await imported());
     });
 
     it("deletes in chunks, sending every value once", async () => {
         const { save, repository } = recordingRepository();
-        const summary = await deleter(repository).delete(new ArrayBuffer(0), 4).toPromise();
+        const summary = await deleter(repository).delete(sampleUpload, new ArrayBuffer(0), 4).toPromise();
         expect(save.mock.calls.map(call => call[0].length)).toEqual([4, 2]);
         expect(summary.importCount.deleted).toBe(6);
+    });
+
+    // GNB 2025 on PROD: an AMR - Individual "SAMPLE File" upload stores into the same SAMPLE data set
+    it("keeps the cells an AMR - Individual SAMPLE upload holds", async () => {
+        const { save, repository } = recordingRepository();
+        await deleter(repository, [
+            { status: "COMPLETED", fileType: "SAMPLE File", fileId: "file-3", module: "module-individual" },
+        ])
+            .delete(sampleUpload, new ArrayBuffer(0), undefined)
+            .toPromise();
+        expect(sentValues(save)).toEqual([]);
+    });
+
+    it("keeps every cell when another live upload holds the same file (the same batch uploaded twice)", async () => {
+        const { save, repository } = recordingRepository();
+        await deleter(repository, [{ status: "COMPLETED", fileId: "file-3" }])
+            .delete(sampleUpload, new ArrayBuffer(0), undefined)
+            .toPromise();
+        expect(sentValues(save)).toEqual([]);
     });
 });

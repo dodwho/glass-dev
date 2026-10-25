@@ -10,7 +10,7 @@ import CloudDownload from "@material-ui/icons/CloudDownload";
 import i18n from "@eyeseetea/d2-ui-components/locales";
 import { useAppContext } from "../../contexts/app-context";
 import { useCurrentModuleContext } from "../../contexts/current-module-context";
-import { Future } from "../../../domain/entities/Future";
+import { Future, FutureData } from "../../../domain/entities/Future";
 import { ImportSummary } from "../../../domain/entities/data-entry/ImportSummary";
 import { useCurrentPeriodContext } from "../../contexts/current-period-context";
 import { useCurrentOrgUnitContext } from "../../contexts/current-orgUnit-context";
@@ -18,6 +18,7 @@ import { SupportButtons } from "./SupportButtons";
 import { moduleProperties } from "../../../domain/utils/ModuleProperties";
 import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import { csvTextCell } from "../../utils/csv";
+import { importWithImportedStatusFirst } from "../../../domain/usecases/data-entry/amr/importWithImportedStatusFirst";
 
 interface ConsistencyChecksProps {
     changeStep: (step: number) => void;
@@ -161,6 +162,26 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
         );
     };
 
+    const deleteFileValues = (uploadId: string, file: File, fileRole: "primary" | "secondary"): FutureData<void> =>
+        Future.joinObj({
+            module: compositionRoot.glassModules.getByName(
+                currentOrgUnitAccess.orgUnitId,
+                currentModuleAccess.moduleName
+            ),
+            upload: compositionRoot.glassUploads.getById(uploadId),
+            arrayBuffer: Future.fromPromise(file.arrayBuffer()),
+        })
+            .flatMap(({ module, upload, arrayBuffer }) =>
+                fileRole === "primary"
+                    ? compositionRoot.fileSubmission.deletePrimaryFile(module, upload, arrayBuffer, false)
+                    : compositionRoot.fileSubmission.deleteSecondaryFile(module, upload, arrayBuffer, false)
+            )
+            .flatMap(summary =>
+                summary.status === "ERROR"
+                    ? Future.error(i18n.t("The data could not be deleted"))
+                    : Future.success(undefined)
+            );
+
     const runCalculations = useCallback(
         (primaryUploadId: string | null, secondaryUploadId: string | null) => {
             if (primaryUploadId) {
@@ -293,72 +314,90 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
 
     const continueClick = () => {
         if (primaryFile && moduleProperties.get(currentModuleAccess.moduleName)?.isDryRunReq) {
+            const primaryUploadId = localStorage.getItem("primaryUploadId");
+            const secondaryUploadId = secondaryFile ? localStorage.getItem("secondaryUploadId") : null;
+            if (!primaryUploadId) {
+                console.error("Real import not started: no primaryUploadId in localStorage");
+                snackbar.error(
+                    i18n.t("The upload could not be started. Please reload the page and upload the files again.")
+                );
+                return;
+            }
+
             setImportLoading(true);
 
-            Future.joinObj({
-                importPrimaryFileSummary: compositionRoot.fileSubmission.primaryFile(
-                    currentModuleAccess.moduleName,
-                    primaryFile,
-                    batchId,
-                    currentPeriod,
-                    "CREATE_AND_UPDATE",
-                    currentOrgUnitAccess.orgUnitId,
-                    currentOrgUnitAccess.orgUnitName,
-                    currentOrgUnitAccess.orgUnitCode,
-                    false,
-                    "",
-                    allCountries
-                ),
-                importSecondaryFileSummary: secondaryFile
-                    ? compositionRoot.fileSubmission.secondaryFile(
-                          secondaryFile,
-                          batchId,
-                          currentModuleAccess.moduleName,
-                          currentPeriod,
-                          "CREATE_AND_UPDATE",
-                          currentOrgUnitAccess.orgUnitId,
-                          currentOrgUnitAccess.orgUnitName,
-                          currentOrgUnitAccess.orgUnitCode,
-                          false,
-                          ""
-                      )
-                    : Future.success(undefined),
+            importWithImportedStatusFirst({
+                uploadIds: secondaryUploadId ? [primaryUploadId, secondaryUploadId] : [primaryUploadId],
+                setStatus: (id, status) => compositionRoot.glassUploads.setStatus({ id, status }),
+                runImport: () =>
+                    Future.joinObj({
+                        importPrimaryFileSummary: compositionRoot.fileSubmission.primaryFile(
+                            currentModuleAccess.moduleName,
+                            primaryFile,
+                            batchId,
+                            currentPeriod,
+                            "CREATE_AND_UPDATE",
+                            currentOrgUnitAccess.orgUnitId,
+                            currentOrgUnitAccess.orgUnitName,
+                            currentOrgUnitAccess.orgUnitCode,
+                            false,
+                            "",
+                            allCountries
+                        ),
+                        importSecondaryFileSummary: secondaryFile
+                            ? compositionRoot.fileSubmission.secondaryFile(
+                                  secondaryFile,
+                                  batchId,
+                                  currentModuleAccess.moduleName,
+                                  currentPeriod,
+                                  "CREATE_AND_UPDATE",
+                                  currentOrgUnitAccess.orgUnitId,
+                                  currentOrgUnitAccess.orgUnitName,
+                                  currentOrgUnitAccess.orgUnitCode,
+                                  false,
+                                  ""
+                              )
+                            : Future.success(undefined),
+                    }),
+                removeImportedValues: () =>
+                    Future.sequential([
+                        deleteFileValues(primaryUploadId, primaryFile, "primary"),
+                        ...(secondaryUploadId && secondaryFile
+                            ? [deleteFileValues(secondaryUploadId, secondaryFile, "secondary")]
+                            : []),
+                    ])
+                        .toVoid()
+                        .mapError(error => {
+                            console.error(`Clean-up after the failed import did not finish: ${error}`);
+                            return error;
+                        }),
             }).run(
                 ({ importPrimaryFileSummary, importSecondaryFileSummary }) => {
-                    const primaryUploadId = localStorage.getItem("primaryUploadId");
-
                     setPrimaryFileImportSummary(importPrimaryFileSummary);
 
                     if (importSecondaryFileSummary) {
                         setSecondaryFileImportSummary(importSecondaryFileSummary);
                     }
-                    const secondaryUploadId = localStorage.getItem("secondaryUploadId");
-                    if (primaryUploadId) {
-                        if (importPrimaryFileSummary.blockingErrors.length === 0) {
-                            setUploadStatusAndSaveErrors(
-                                primaryUploadId,
-                                secondaryUploadId,
-                                "VALIDATED",
-                                importPrimaryFileSummary,
-                                importSecondaryFileSummary
-                            );
-                        } else {
-                            setUploadStatusAndSaveErrors(
-                                primaryUploadId,
-                                secondaryUploadId,
-                                "IMPORTED",
-                                importPrimaryFileSummary,
-                                importSecondaryFileSummary
-                            );
-                        }
-                    }
+                    setUploadStatusAndSaveErrors(
+                        primaryUploadId,
+                        secondaryUploadId,
+                        importPrimaryFileSummary.blockingErrors.length === 0 ? "VALIDATED" : "IMPORTED",
+                        importPrimaryFileSummary,
+                        importSecondaryFileSummary
+                    );
                 },
-                error => {
+                ({ error, dataMayRemain }) => {
+                    const message = dataMayRemain
+                        ? i18n.t(
+                              "The import stopped and some data may have been saved. Delete this upload in the list of uploads, then upload the files again."
+                          )
+                        : i18n.t("The import could not start, so nothing was saved. Please upload the files again.");
+
                     setPrimaryFileImportSummary({
                         status: "ERROR",
                         importCount: { ignored: 0, imported: 0, deleted: 0, updated: 0, total: 0 },
                         nonBlockingErrors: [],
-                        blockingErrors: [{ error: error, count: 1 }],
+                        blockingErrors: [{ error: `${message} (${error})`, count: 1 }],
                     });
 
                     setImportLoading(false);

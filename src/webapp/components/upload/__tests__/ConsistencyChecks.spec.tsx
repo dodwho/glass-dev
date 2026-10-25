@@ -11,7 +11,9 @@ import { ConsistencyChecks } from "../ConsistencyChecks";
 
 /*
  * The consistency checks step (step 2) of an AMR aggregate upload. It shows the dry-run result; its Continue imports
- * the file for real and marks the upload VALIDATED (no errors) or IMPORTED (errors DHIS2 found after saving).
+ * the file for real and marks the upload VALIDATED (no errors) or IMPORTED (errors DHIS2 found after saving). The upload
+ * is marked IMPORTED before the real import starts, so an import that stops part-way never leaves stored data behind an
+ * upload that says UPLOADED (Norway 2024 on PROD).
  */
 
 const snackbar = { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() };
@@ -50,11 +52,17 @@ function renderStep(options: Options) {
         setStatusFails ? Future.error<string, void>("network error") : Future.success<void, string>(undefined)
     );
     const saveImportSummaryErrorsOfFiles = vi.fn((_params: unknown) => Future.success(undefined));
+    const deletePrimaryFile = vi.fn((..._args: unknown[]) => Future.success<ImportSummary, string>(summary()));
     const changeStep = vi.fn();
     const context = {
         compositionRoot: {
-            fileSubmission: { primaryFile, secondaryFile: () => Future.success(undefined) },
-            glassUploads: { setStatus, saveImportSummaryErrorsOfFiles },
+            fileSubmission: { primaryFile, secondaryFile: () => Future.success(undefined), deletePrimaryFile },
+            glassUploads: {
+                setStatus,
+                saveImportSummaryErrorsOfFiles,
+                getById: (id: string) => Future.success({ id, status: "IMPORTED" }),
+            },
+            glassModules: { getByName: () => Future.success({ name: "AMR" }) },
         },
         allCountries: [],
     } as unknown as AppContextState;
@@ -94,7 +102,7 @@ function renderStep(options: Options) {
         </AppContext.Provider>
     );
     const continueButton = () => screen.getByRole("button", { name: /continue/i });
-    return { continueButton, primaryFile, setStatus, saveImportSummaryErrorsOfFiles, changeStep };
+    return { continueButton, primaryFile, setStatus, saveImportSummaryErrorsOfFiles, deletePrimaryFile, changeStep };
 }
 
 describe("ConsistencyChecks (consistency checks step)", () => {
@@ -144,26 +152,35 @@ describe("ConsistencyChecks (consistency checks step)", () => {
         );
     });
 
-    it("shows the error and stays on the step when the import itself fails", async () => {
-        const { continueButton, setStatus, changeStep } = renderStep({
+    it("removes what the import wrote, keeps the upload IMPORTED and stays on the step when the import fails", async () => {
+        const { continueButton, setStatus, deletePrimaryFile, changeStep } = renderStep({
             dryRunSummary: summary(),
             realImport: Future.error<string, ImportSummary>("DHIS2 could not be reached"),
         });
 
         await userEvent.click(continueButton());
 
-        await waitFor(() => expect(screen.getByText("DHIS2 could not be reached")).toBeTruthy());
-        expect(setStatus).not.toHaveBeenCalled();
+        // The message says what to do and carries DHIS2's reason.
+        await waitFor(() =>
+            expect(screen.getByText(/some data may have been saved.*\(DHIS2 could not be reached\)/)).toBeTruthy()
+        );
+        expect(deletePrimaryFile).toHaveBeenCalledTimes(1);
+        // IMPORTED before the import, and never set back: DHIS2 can still write the import after the app gave up
+        expect(setStatus.mock.calls.map(([params]) => params)).toEqual([{ id: "upload-1", status: "IMPORTED" }]);
         expect(changeStep).not.toHaveBeenCalled();
     });
 
-    it("tells the user when the upload status cannot be saved, and stays on the step", async () => {
-        const { continueButton, changeStep } = renderStep({ dryRunSummary: summary(), setStatusFails: true });
+    it("does not start the import when the upload cannot be marked IMPORTED, and stays on the step", async () => {
+        const { continueButton, primaryFile, changeStep } = renderStep({
+            dryRunSummary: summary(),
+            setStatusFails: true,
+        });
 
         await userEvent.click(continueButton());
 
         // The message carries DHIS2's reason.
-        await waitFor(() => expect(snackbar.error).toHaveBeenCalledWith("Failed to set upload status: network error"));
+        await waitFor(() => expect(screen.getByText(/nothing was saved.*\(network error\)/)).toBeTruthy());
+        expect(primaryFile).not.toHaveBeenCalled();
         expect(changeStep).not.toHaveBeenCalled();
     });
 

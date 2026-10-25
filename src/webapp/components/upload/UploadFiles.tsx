@@ -140,6 +140,13 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
     };
 
     const uploadFileSubmissions = useCallback(() => {
+        // The next step writes the uploads too (the real import marks them IMPORTED first), so it only opens once
+        // this step's own writes have finished: two writes of an upload event at once lose one of them.
+        const goToChecks = () => {
+            setImportLoading(false);
+            changeStep(2);
+        };
+
         if (primaryFile) {
             setImportLoading(true);
             Future.joinObj({
@@ -216,10 +223,11 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                                         id: primaryUploadId,
                                         status: moduleName === "AMC" ? "IMPORTED" : "VALIDATED",
                                     })
-                                    .run(
-                                        () => {},
-                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
-                                    );
+                                    .run(goToChecks, error => {
+                                        snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`);
+                                        goToChecks();
+                                    });
+                            else goToChecks();
                         };
 
                         compositionRoot.glassUploads
@@ -230,10 +238,9 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                                 );
                                 setStatusAfterSave();
                             });
+                    } else {
+                        goToChecks();
                     }
-
-                    setImportLoading(false);
-                    changeStep(2);
                 },
                 error => {
                     setPrimaryFileImportSummary({
@@ -273,18 +280,17 @@ export const UploadFiles: React.FC<UploadFilesProps> = ({
                                 importSubstanceFileSummary.blockingErrors.length === 0 &&
                                 secondaryUploadId
                             )
-                                compositionRoot.glassUploads
+                                return compositionRoot.glassUploads
                                     .setStatus({
                                         id: secondaryUploadId,
                                         status: moduleName === "AMC" ? "IMPORTED" : "VALIDATED",
                                     })
-                                    .run(
-                                        () => {},
-                                        error => snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`)
-                                    );
+                                    .run(goToChecks, error => {
+                                        snackbar.error(`${i18n.t("Failed to set upload status")}: ${error}`);
+                                        goToChecks();
+                                    });
                         }
-                        setImportLoading(false);
-                        changeStep(2);
+                        goToChecks();
                     },
                     error => {
                         setPrimaryFileImportSummary({

@@ -6,6 +6,7 @@ import { SampleDataRepository } from "../../repositories/data-entry/SampleDataRe
 import { ImportSummary } from "../../entities/data-entry/ImportSummary";
 import { ExcelRepository } from "../../repositories/ExcelRepository";
 import { GlassUploadsRepository } from "../../repositories/GlassUploadsRepository";
+import { GlassModuleRepository } from "../../repositories/GlassModuleRepository";
 import { EventsRepository } from "../../repositories/EventsRepository";
 import { GlassDocumentsRepository } from "../../repositories/GlassDocumentsRepository";
 import { InstanceRepository } from "../../repositories/InstanceRepository";
@@ -27,6 +28,7 @@ export class DeleteSecondaryFileDataUseCase implements UseCase {
             instanceRepository: InstanceRepository;
             glassUploadsRepository: GlassUploadsRepository;
             trackerRepository: TrackerRepository;
+            glassModuleRepository: GlassModuleRepository;
         }
     ) {}
 
@@ -42,7 +44,7 @@ export class DeleteSecondaryFileDataUseCase implements UseCase {
         switch (currentModuleName) {
             case "AMR":
             case "AMR - Individual": {
-                return new DeleteSampleDataset(this.options).delete(arrayBuffer, asyncDeleteChunkSize);
+                return new DeleteSampleDataset(this.options).delete(upload, arrayBuffer, asyncDeleteChunkSize);
             }
 
             case "AMC": {
