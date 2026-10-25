@@ -216,9 +216,11 @@ type OtherUpload = { status: GlassUploadsStatus; fileType?: string; fileId: stri
 
 /**
  * The deleted upload plus `others` for the same country and year. A stored file "file-N" downloads as an N-byte
- * buffer, so the data repositories can tell the files apart; "file-unreadable" fails to download.
+ * buffer, so the data repositories can tell the files apart; "file-unreadable" fails to download; "file-dropped-1"
+ * drops the connection once, then downloads as "file-1".
  */
 function uploadsAndFiles(others: OtherUpload[], fileType = "RIS") {
+    let dropped = false;
     const glassUploadsRepository = {
         getUploadsByModuleOUPeriod: () =>
             Future.success([
@@ -234,12 +236,16 @@ function uploadsAndFiles(others: OtherUpload[], fileType = "RIS") {
             ]),
     } as unknown as GlassUploadsRepository;
     const glassDocumentsRepository = {
-        download: (fileId: string) =>
-            fileId === "file-unreadable"
-                ? Future.error("404 Not Found")
-                : Future.success({
-                      arrayBuffer: () => Promise.resolve(new ArrayBuffer(Number(fileId.replace("file-", "")))),
-                  } as unknown as Blob),
+        download: (fileId: string) => {
+            if (fileId === "file-unreadable") return Future.error("404 Not Found");
+            if (fileId === "file-dropped-1" && !dropped) {
+                dropped = true;
+                return Future.error("socket hang up");
+            }
+            return Future.success({
+                arrayBuffer: () => Promise.resolve(new ArrayBuffer(Number(fileId.split("-").pop()))),
+            } as unknown as Blob);
+        },
     } as unknown as GlassDocumentsRepository;
     const glassModuleRepository = {
         getAll: () =>
@@ -338,6 +344,15 @@ describe("DeleteRISDataset", () => {
             .toPromise();
 
         expect(sentValues(save)).toEqual(await imported());
+    });
+
+    it("retries a download whose connection dropped, then keeps that upload's cells", async () => {
+        const { save, repository } = recordingRepository();
+        await deleter(repository, [{ status: "COMPLETED", fileId: "file-dropped-1" }])
+            .delete(upload(), new ArrayBuffer(0), undefined)
+            .toPromise();
+
+        expect(sentValues(save)).toHaveLength(7);
     });
 
     it("deletes nothing when another live upload's file cannot be read", async () => {
