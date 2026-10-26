@@ -10,6 +10,7 @@ import {
     AMC_PRODUCT_REGISTER_PROGRAM_ID,
     AMC_RAW_SUBSTANCE_CONSUMPTION_PROGRAM_ID,
 } from "../domain/entities/data-entry/amc/amcProgramIds";
+import { waitForJob } from "../data/repositories/utils/waitForJob";
 
 dotenv.config();
 
@@ -157,7 +158,7 @@ async function trackerDelete(api: D2Api, payload: unknown, label: string): Promi
         .postAsync({ importStrategy: "DELETE", skipRuleEngine: true }, payload as any)
         .getData();
 
-    const result = await api.system.waitFor("TRACKER_IMPORT_JOB", postResponse.response.id).getData();
+    const result = await waitForJob(api, "TRACKER_IMPORT_JOB", postResponse.response.id).toPromise();
     const anyResult = result as any;
     if (anyResult?.status === "ERROR") {
         console.error(`  ${label}: delete returned ERROR:`, JSON.stringify(anyResult?.validationReport?.errorReports));

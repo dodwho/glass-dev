@@ -6,6 +6,7 @@ import { Instance } from "../../entities/Instance";
 import { DataValue } from "../../../domain/entities/data-entry/DataValue";
 import { DataValuesSaveSummary, ImportStrategy } from "../../../domain/entities/data-entry/DataValuesSaveSummary";
 import { DataValuesRepository } from "../../../domain/repositories/data-entry/DataValuesRepository";
+import { waitForJob } from "../utils/waitForJob";
 
 export class DataValuesDefaultRepository implements DataValuesRepository {
     private api: D2Api;
@@ -27,7 +28,7 @@ export class DataValuesDefaultRepository implements DataValuesRepository {
                 { dataValues }
             )
         ).flatMap(response => {
-            return apiToFuture(this.api.system.waitFor(response.response.jobType, response.response.id)).map(result => {
+            return waitForJob(this.api, response.response.jobType, response.response.id).map(result => {
                 if (result) {
                     const importStatus: DataValuesSaveSummary = {
                         status: result.status,

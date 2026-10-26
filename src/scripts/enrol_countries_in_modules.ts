@@ -17,6 +17,7 @@ import {
     ENROLMENT_PROGRAM_ID,
     MODULE_ENROLMENT_CODES,
 } from "../domain/entities/CountryInformation";
+import { waitForJob } from "../data/repositories/utils/waitForJob";
 
 dotenv.config();
 
@@ -311,7 +312,7 @@ async function postChunk(
         )
         .getData();
 
-    const result = await api.system.waitFor("TRACKER_IMPORT_JOB", postResponse.response.id).getData();
+    const result = await waitForJob(api, "TRACKER_IMPORT_JOB", postResponse.response.id).toPromise();
     const report = result as unknown as {
         bundleReport?: { typeReportMap?: Record<string, { stats?: Stats }> };
         validationReport?: { errorReports?: { uid: string; message: string }[] };

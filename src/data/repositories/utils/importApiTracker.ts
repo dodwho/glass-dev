@@ -16,6 +16,7 @@ import { D2TrackerEnrollmentToPost } from "@eyeseetea/d2-api/api/trackerEnrollme
 import { D2TrackedEntityInstanceToPost } from "@eyeseetea/d2-api/api/trackerTrackedEntities";
 import consoleLogger from "../../../utils/consoleLogger";
 import { isRetryableError, retryAsync } from "../../../utils/promises";
+import { waitForJob } from "./waitForJob";
 
 export function importApiTracker(
     api: D2Api,
@@ -35,7 +36,7 @@ export function importApiTracker(
                 request
             )
         ).flatMap(response => {
-            return apiToFuture(api.system.waitFor("TRACKER_IMPORT_JOB", response.response.id)).map(result => {
+            return waitForJob(api, "TRACKER_IMPORT_JOB", response.response.id).map(result => {
                 if (result) return result;
                 else {
                     return trackerPostResponseDefaultError;
