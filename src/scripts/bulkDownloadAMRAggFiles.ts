@@ -82,6 +82,7 @@ import { getD2APiFromInstance } from "../utils/d2-api";
 import { setupConsoleLogger } from "../utils/logger";
 import { isRetryableError, promiseMapConcurrent, retryAsync } from "../utils/promises";
 import { getEnvVars, getInstance, warmUpSession } from "./common";
+import { CoverageMismatch, findCoverageMismatches } from "./utils/amrAggCoverageCheck";
 import { CsvStreamWriter, escapeCsvField } from "./utils/csvStreamWriter";
 
 // .env.local first, then .env — dotenv never overrides an already-set key, so this gives .env.local
@@ -669,6 +670,8 @@ async function fetchCoverage(moduleId: string): Promise<{ keys: Set<string>; yea
                     fields: { event: true, orgUnit: true, dataValues: { dataElement: true, value: true } },
                     program: AMR_GLASS_PROE_UPLOADS_PROGRAM_ID,
                     filter: `${uploadsDHIS2Ids.moduleId}:eq:${moduleId}`,
+                    // A stable order, or events can repeat or go missing across pages.
+                    order: "createdAt:asc",
                     totalPages: true,
                     page,
                     pageSize: COVERAGE_PAGE_SIZE,
@@ -1341,6 +1344,7 @@ async function main(): Promise<void> {
     }
 
     const results: Record<string, unknown> = {};
+    const coverageMismatches: CoverageMismatch[] = [];
     for (const fileType of FILE_TYPES) {
         const resolved = resolvedSpecs.get(fileType) as ResolvedSpec;
         const units = plannedByFileType.get(fileType) as PlannedUnit[];
@@ -1361,6 +1365,10 @@ async function main(): Promise<void> {
             dataElements: sum("unknownDataElements"),
         });
 
+        const mismatches = coverage ? findCoverageMismatches(fileType, outcomes, coverage.keys) : [];
+        coverageMismatches.push(...mismatches);
+        const countIssue = (issue: CoverageMismatch["issue"]) => mismatches.filter(m => m.issue === issue).length;
+
         results[fileType] = {
             outputFile,
             rowsWritten,
@@ -1375,6 +1383,17 @@ async function main(): Promise<void> {
                 .groupBy(outcome => outcome.year)
                 .mapValues(group => _.sumBy(group, outcome => outcome.rowsWritten))
                 .value(),
+            countriesByYear: _(outcomes)
+                .filter(outcome => outcome.rowsWritten > 0)
+                .groupBy(outcome => outcome.year)
+                .mapValues(group => group.length)
+                .value(),
+            coverageCheck: coverage
+                ? {
+                      dataWithoutUpload: countIssue("DATA_WITHOUT_UPLOAD"),
+                      uploadWithoutData: countIssue("UPLOAD_WITHOUT_DATA"),
+                  }
+                : "skipped: coverage lookup failed",
         };
 
         if (failed.length > 0) {
@@ -1401,6 +1420,31 @@ async function main(): Promise<void> {
 
         manifest.results = results;
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    }
+
+    // Country/years whose stored data and upload records disagree (uploads in COVERAGE_STATUSES count).
+    if (coverage) {
+        const coverageCheckPath = path.join(outputDir, `AMR-AGG_coverage_check_${runTimestamp}.csv`);
+        const header = ["fileType", "orgUnitCode", "year", "issue"] as const;
+        writeFileSync(
+            coverageCheckPath,
+            [header.join(","), ...coverageMismatches.map(m => header.map(key => escapeCsvField(m[key])).join(","))]
+                .map(line => line + "\n")
+                .join("")
+        );
+        log(
+            `Coverage check: ${coverageMismatches.length} country/year(s) where stored data and upload records ` +
+                `disagree. First 20: ${
+                    coverageMismatches
+                        .slice(0, 20)
+                        .map(m => `${m.fileType} ${m.orgUnitCode} ${m.year} ${m.issue}`)
+                        .join("; ") || "none"
+                }. All in ${coverageCheckPath}`,
+            coverageMismatches.length > 0 ? LogLevel.WARN : LogLevel.INFO
+        );
+        manifest.coverageCheckFile = path.basename(coverageCheckPath);
+    } else {
+        log("Coverage check skipped: the upload records could not be read.", LogLevel.WARN);
     }
 
     manifest.unitOutcomesFile = path.basename(progressFilePath);
