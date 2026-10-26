@@ -9,7 +9,12 @@ export function getMajorVersion(version: string): number {
 }
 
 export function getD2APiFromInstance(instance: Instance): D2Api {
-    return new D2Api({ baseUrl: instance.url, auth: getD2ApiAuth(instance), backend: "fetch" });
+    return new D2Api({
+        baseUrl: instance.url,
+        auth: getD2ApiAuth(instance),
+        backend: "fetch",
+        timeout: instance.requestTimeoutMs,
+    });
 }
 
 /**

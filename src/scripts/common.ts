@@ -1,5 +1,7 @@
 import { option, optional, string, Type } from "cmd-ts";
 import _ from "lodash";
+import http from "node:http";
+import https from "node:https";
 import { isElementOfUnion } from "../utils/ts-utils";
 import { D2Api } from "../types/d2-api";
 import { Instance } from "../data/entities/Instance";
@@ -22,6 +24,15 @@ function getSecretEnv(name: string): string | undefined {
 }
 
 const warnedLegacyNames = new Set<string>();
+
+/**
+ * One connection per request, as on Node 16. Node 19+ keeps idle connections for reuse, and DHIS2's front end closes
+ * them after 3-4 s idle. While a script maps a large file, Node is too busy to see that close, so the next request goes
+ * out on the closed connection: "socket hang up" (PREPROD and DEV, 14,000+ data values, 26 Oct 2026). A new connection
+ * costs ~90 ms per request. d2-api's fetch backend uses node-fetch, which takes these default agents.
+ */
+http.globalAgent = new http.Agent({ keepAlive: false });
+https.globalAgent = new https.Agent({ keepAlive: false });
 
 export function getD2Api(url: string): D2Api {
     const token = getSecretEnv("DHIS2_TOKEN");
@@ -60,12 +71,13 @@ export function getD2ApiFromArgs(args: D2ApiArgs): D2Api {
     return new D2Api({ baseUrl, auth });
 }
 
-export function getInstance(args: D2ApiArgs): Instance {
+/** requestTimeoutMs: a script that must not hang on a request that never returns sets one. */
+export function getInstance(args: D2ApiArgs, options: { requestTimeoutMs?: number } = {}): Instance {
     const token = args.token || getSecretEnv("DHIS2_TOKEN");
     if (token) {
-        return new Instance({ url: args.url, token });
+        return new Instance({ url: args.url, token, ...options });
     }
-    return new Instance({ url: args.url, ...args.auth });
+    return new Instance({ url: args.url, ...args.auth, ...options });
 }
 
 function createD2ApiWithToken(baseUrl: string, token: string): D2Api {

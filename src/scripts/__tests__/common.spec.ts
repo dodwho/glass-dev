@@ -1,5 +1,16 @@
 import { vi } from "vitest";
-import { getEnvVars, getTokenMismatchWarning } from "../common";
+import http from "node:http";
+import https from "node:https";
+import { getD2APiFromInstance } from "../../utils/d2-api";
+import { getEnvVars, getInstance, getTokenMismatchWarning } from "../common";
+
+describe("connections", () => {
+    it("opens a new connection per request (a reused one may have been closed by DHIS2 while the script was busy)", () => {
+        const keepAlive = (agent: http.Agent) => (agent as http.Agent & { keepAlive: boolean }).keepAlive;
+        expect(keepAlive(http.globalAgent)).toBe(false);
+        expect(keepAlive(https.globalAgent)).toBe(false);
+    });
+});
 
 const tokenVars = [
     "DHIS2_TOKEN_PROD",
@@ -63,5 +74,18 @@ describe("getTokenMismatchWarning", () => {
         expect(getTokenMismatchWarning("https://portal-uat.who.int/dhis2-indiv", "prod")).toMatch(/not the prod/);
         expect(getTokenMismatchWarning("https://extranet.who.int/dhis2-demo-indiv", "prod")).toMatch(/not the prod/);
         expect(getTokenMismatchWarning("https://extranet.who.int/dhis2-indiv", "preprod")).toMatch(/not the preprod/);
+    });
+});
+
+describe("getInstance", () => {
+    // A script must not hang on a request that never returns (the bulk loader on DEV, 26 Oct 2026).
+    it("carries a request time limit into the API client only when a script asks for one", () => {
+        const args = { url: "https://dhis2.example.org", token: "t" };
+        const limited = getD2APiFromInstance(getInstance(args, { requestTimeoutMs: 600_000 }));
+        const unlimited = getD2APiFromInstance(getInstance(args));
+        expect((limited.apiConnection as unknown as { options: { timeout?: number } }).options.timeout).toBe(600_000);
+        expect(
+            (unlimited.apiConnection as unknown as { options: { timeout?: number } }).options.timeout
+        ).toBeUndefined();
     });
 });
