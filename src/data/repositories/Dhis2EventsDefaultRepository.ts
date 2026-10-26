@@ -13,6 +13,7 @@ import { TrackerEvent, TrackerEventsPostRequest } from "../../domain/entities/Tr
 import { mapTrackerPostRequestToD2TrackerPostRequest } from "./utils/importApiTracker";
 import { ImportStrategy } from "../../domain/entities/data-entry/ImportSummary";
 import { EventsRepository } from "../../domain/repositories/EventsRepository";
+import { waitForJob } from "./utils/waitForJob";
 
 export type { EventStatus } from "../../domain/entities/EventStatus";
 
@@ -56,7 +57,7 @@ export class Dhis2EventsDefaultRepository implements EventsRepository {
         return apiToFuture(
             this.api.tracker.postAsync({ importStrategy: action }, mapTrackerPostRequestToD2TrackerPostRequest(events))
         ).flatMap(response => {
-            return apiToFuture(this.api.system.waitFor("TRACKER_IMPORT_JOB", response.response.id)).flatMap(result => {
+            return waitForJob(this.api, "TRACKER_IMPORT_JOB", response.response.id).flatMap(result => {
                 if (result) {
                     return Future.success(result);
                 } else {

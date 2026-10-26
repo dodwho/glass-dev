@@ -5,6 +5,7 @@ import { DataValue } from "../../../domain/entities/data-entry/DataValue";
 import { DataValuesSaveSummary, ImportStrategy } from "../../../domain/entities/data-entry/DataValuesSaveSummary";
 import { D2Api } from "@eyeseetea/d2-api/2.34";
 import { DataValuesImportRepository } from "../../../domain/repositories/data-entry/DataValuesImportRepository";
+import { waitForJob } from "../utils/waitForJob";
 
 export class DataValuesDefaultImportRepository implements DataValuesImportRepository {
     private api: D2Api;
@@ -41,8 +42,10 @@ export class DataValuesDefaultImportRepository implements DataValuesImportReposi
             const uniquewaitForLabel = `waitFor_${Date.now()}`;
             console.time(uniquewaitForLabel);
 
-            const result = await apiToFuture(
-                this.api.system.waitFor(postResponse.response.jobType, postResponse.response.id, {})
+            const result = await waitForJob(
+                this.api,
+                postResponse.response.jobType,
+                postResponse.response.id
             ).toPromise();
 
             waitForRetries++;

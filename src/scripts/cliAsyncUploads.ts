@@ -39,6 +39,7 @@ import { GlassDocumentsDefaultRepository } from "../data/repositories/GlassDocum
 import { RISIndividualFungalDataCSVDefaultRepository } from "../data/repositories/data-entry/RISIndividualFungalDataCSVDefaultRepository";
 import { SampleDataRepository } from "../domain/repositories/data-entry/SampleDataRepository";
 import { AsyncImportSecondaryFileUseCase } from "../domain/usecases/data-entry/AsyncImportSecondaryFileUseCase";
+import { runAsyncSampleImport } from "../domain/usecases/data-entry/amr/runAsyncSampleImport";
 import { SampleDataCSVDeafultRepository } from "../data/repositories/data-entry/SampleDataCSVDeafultRepository";
 import { MetadataRepository } from "../domain/repositories/MetadataRepository";
 import { TrackerRepository } from "../domain/repositories/TrackerRepository";
@@ -585,25 +586,11 @@ function manageAsyncUploadSecondaryFile(
         () => {
             return downloadBlob(repositories.glassDocumentsRepository, secondaryUpload.fileId).flatMap(inputBlob => {
                 consoleLogger.debug(`Downloaded blob for secondary upload ${secondaryUpload.id}`);
-                const applyDryRun = module.name === "AMR - Individual";
 
-                return asyncSecondaryFileSubmission(repositories, {
-                    secondaryUploadId: secondaryUpload.id,
-                    inputBlob: inputBlob,
-                    glassModule: module,
-                    orgUnitId: secondaryUpload.orgUnit,
-                    countryCode: secondaryUpload.countryCode,
-                    period: secondaryUpload.period,
-                    batchId: secondaryUpload.batchId,
-                    dryRun: applyDryRun,
-                }).flatMap(importSummaries => {
-                    const hasBlockingErrors = importSummaries.some(summary => summary.blockingErrors.length > 0);
-
-                    if (applyDryRun && !hasBlockingErrors) {
-                        consoleLogger.debug(
-                            `No blocking errors found during dry run for secondary upload ${secondaryUpload.id}. Run import without dry run to import data.`
-                        );
-                        return asyncSecondaryFileSubmission(repositories, {
+                return runAsyncSampleImport({
+                    applyDryRun: module.name === "AMR - Individual",
+                    importFile: dryRun =>
+                        asyncSecondaryFileSubmission(repositories, {
                             secondaryUploadId: secondaryUpload.id,
                             inputBlob: inputBlob,
                             glassModule: module,
@@ -611,73 +598,23 @@ function manageAsyncUploadSecondaryFile(
                             countryCode: secondaryUpload.countryCode,
                             period: secondaryUpload.period,
                             batchId: secondaryUpload.batchId,
-                            dryRun: false,
-                        }).flatMap(importSummaries => {
-                            const hasBlockingErrorsWithoutDryRun = importSummaries.some(
-                                summary => summary.blockingErrors.length > 0
-                            );
-                            const hasImportedValuesWithoutDryRun = importSummaries.some(
-                                summary => summary.importCount.imported > 0
-                            );
-
-                            if (hasImportedValuesWithoutDryRun) {
-                                consoleLogger.debug(
-                                    `Data has been imported from upload ${secondaryUpload.id} from module ${
-                                        module.name
-                                    }, org unit ${secondaryUpload.orgUnit} and period ${secondaryUpload.period} ${
-                                        hasBlockingErrorsWithoutDryRun
-                                            ? "with blocking errors"
-                                            : "without blocking errors"
-                                    }`
-                                );
-                            } else {
-                                consoleLogger.debug(
-                                    `Data NOT imported from upload ${secondaryUpload.id} from module ${module.name}, org unit ${secondaryUpload.orgUnit} and period ${secondaryUpload.period} due to blocking errors`
-                                );
-                            }
-
-                            return setFinalStatus(
-                                repositories.glassUploadsRepository,
-                                secondaryUpload.id,
-                                hasBlockingErrorsWithoutDryRun,
-                                hasImportedValuesWithoutDryRun
-                            ).flatMap(() => {
-                                return removeAsyncUploadByIdFromDatastore(
-                                    repositories.glassAsyncUploadsRepository,
-                                    repositories.glassUploadsRepository,
-                                    asyncUpload.uploadId
-                                );
-                            });
-                        });
-                    } else {
-                        const hasImportedValues = importSummaries.some(summary => summary.importCount.imported > 0);
-
-                        if (hasImportedValues) {
-                            consoleLogger.debug(
-                                `Data has been imported from upload ${secondaryUpload.id} from module ${
-                                    module.name
-                                }, org unit ${secondaryUpload.orgUnit} and period ${secondaryUpload.period} ${
-                                    hasBlockingErrors ? "with blocking errors" : "without blocking errors"
-                                }`
-                            );
-                        } else {
-                            consoleLogger.debug(
-                                `Data NOT imported from upload ${secondaryUpload.id} from module ${module.name}, org unit ${secondaryUpload.orgUnit} and period ${secondaryUpload.period} due to blocking errors`
-                            );
-                        }
-                        return setFinalStatus(
-                            repositories.glassUploadsRepository,
-                            secondaryUpload.id,
-                            hasBlockingErrors,
-                            hasImportedValues
-                        ).flatMap(() => {
-                            return removeAsyncUploadByIdFromDatastore(
-                                repositories.glassAsyncUploadsRepository,
-                                repositories.glassUploadsRepository,
-                                asyncUpload.uploadId
-                            );
-                        });
-                    }
+                            dryRun,
+                        }),
+                    setStatus: status =>
+                        setUploadStatus(repositories.glassUploadsRepository, secondaryUpload.id, status),
+                }).flatMap(result => {
+                    consoleLogger.debug(
+                        `Secondary upload ${secondaryUpload.id} from module ${module.name}, org unit ${
+                            secondaryUpload.orgUnit
+                        } and period ${secondaryUpload.period}: ${
+                            result === "NOT_IMPORTED" ? "NOT imported due to blocking errors" : result
+                        }`
+                    );
+                    return removeAsyncUploadByIdFromDatastore(
+                        repositories.glassAsyncUploadsRepository,
+                        repositories.glassUploadsRepository,
+                        asyncUpload.uploadId
+                    );
                 });
             });
         }

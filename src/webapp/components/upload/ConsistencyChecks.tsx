@@ -378,10 +378,14 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
                     if (importSecondaryFileSummary) {
                         setSecondaryFileImportSummary(importSecondaryFileSummary);
                     }
+                    // RIS and SAMPLE are one batch: an error in either file keeps both uploads IMPORTED.
+                    const hasBlockingErrors = [importPrimaryFileSummary, importSecondaryFileSummary].some(
+                        summary => (summary?.blockingErrors.length ?? 0) > 0
+                    );
                     setUploadStatusAndSaveErrors(
                         primaryUploadId,
                         secondaryUploadId,
-                        importPrimaryFileSummary.blockingErrors.length === 0 ? "VALIDATED" : "IMPORTED",
+                        hasBlockingErrors ? "IMPORTED" : "VALIDATED",
                         importPrimaryFileSummary,
                         importSecondaryFileSummary
                     );

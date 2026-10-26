@@ -9,12 +9,8 @@ import { SampleDataRepository } from "../../../repositories/data-entry/SampleDat
 import { Id } from "../../../entities/Ref";
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { DataValuesRepository } from "../../../repositories/data-entry/DataValuesRepository";
-import {
-    AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID,
-    getCategoryOptionComboByDataElement,
-    getCategoryOptionComboByOptionCodes,
-} from "../utils/getCategoryOptionCombo";
-import { SAMPLE_COUNT_COLUMNS, SampleData } from "../../../entities/data-entry/amr-external/SampleData";
+import { AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID } from "../utils/getCategoryOptionCombo";
+import { SAMPLE_COUNT_COLUMNS } from "../../../entities/data-entry/amr-external/SampleData";
 import { checkBatchId } from "../utils/checkBatchId";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
@@ -30,7 +26,9 @@ import {
     getDefaultErrorDataValuesSaveSummary,
 } from "../../../entities/data-entry/DataValuesSaveSummary";
 import consoleLogger from "../../../../utils/consoleLogger";
+import { groupLineErrors } from "../utils/groupLineErrors";
 import { AMR_AMR_DS_Input_files_Sample_DS_ID, AMR_BATCHID_CC_ID } from "./amrAggMetadataIds";
+import { mapSampleDataToDataValues } from "./mapAMRAggFileToDataValues";
 
 const CREATE_AND_UPDATE = "CREATE_AND_UPDATE";
 
@@ -74,52 +72,18 @@ export class AsyncImportSampleFile {
                 const batchIdErrors = checkBatchId(risDataItems, batchId);
                 const yearErrors = checkYear(risDataItems, period);
                 const countryErrors = checkCountry(risDataItems, countryCode);
-                const blockingCategoryOptionErrors: { error: string; line: number }[] = [];
                 const duplicateRowErrors = checkDuplicateRowsSAMPLE(risDataItems);
                 const wholeNumberErrors = checkWholeNumbers(risDataItems, [...SAMPLE_COUNT_COLUMNS]);
 
-                const dataValues: DataValue[] = risDataItems
-                    .map((risData, index) => {
-                        return dataSet.dataElements.map(dataElement => {
-                            const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                risData[category.code as keyof SampleData].toString()
-                            );
-
-                            const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
-                                getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
-
-                            if (aocBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
-
-                            const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
-                                getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
-
-                            if (ccoBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
-
-                            const value = risData[dataElement.code as keyof SampleData]?.toString() || "";
-
-                            const dataValue = {
-                                orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
-                                period: risData.YEAR.toString(),
-                                attributeOptionCombo,
-                                dataElement: dataElement.id,
-                                categoryOptionCombo: categoryOptionCombo,
-                                value,
-                            };
-
-                            return dataValue;
-                        });
-                    })
-                    .flat();
-
-                const blockingCategoryOptionConsistencyErrors: ConsistencyError[] = _(
-                    blockingCategoryOptionErrors.map(error => {
-                        return { error: error.error, count: 1, lines: [error.line] };
-                    })
-                )
-                    .uniqBy("error")
-                    .value();
+                // The same mapping as the app's import, delete and the orphans check (mapAMRAggFileToDataValues).
+                const { dataValues, categoryOptionErrors } = mapSampleDataToDataValues(risDataItems, {
+                    dataSet,
+                    dataSet_CC,
+                    dataElement_CC,
+                    orgUnits,
+                });
+                const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
+                    groupLineErrors(categoryOptionErrors);
 
                 const allBlockingErrors = [
                     ...blockingCategoryOptionConsistencyErrors,
