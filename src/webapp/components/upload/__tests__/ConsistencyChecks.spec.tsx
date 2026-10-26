@@ -37,6 +37,8 @@ type Options = {
     dryRunSummary: ImportSummary;
     secondaryDryRunSummary?: ImportSummary;
     realImport?: FutureData<ImportSummary>;
+    /** With a SAMPLE file: what its real import reports. */
+    secondaryRealImport?: ImportSummary;
     setStatusFails?: boolean;
 };
 
@@ -45,6 +47,7 @@ function renderStep(options: Options) {
         dryRunSummary,
         secondaryDryRunSummary,
         realImport = Future.success<ImportSummary, string>(summary()),
+        secondaryRealImport,
         setStatusFails = false,
     } = options;
     const primaryFile = vi.fn((..._args: unknown[]) => realImport);
@@ -56,7 +59,11 @@ function renderStep(options: Options) {
     const changeStep = vi.fn();
     const context = {
         compositionRoot: {
-            fileSubmission: { primaryFile, secondaryFile: () => Future.success(undefined), deletePrimaryFile },
+            fileSubmission: {
+                primaryFile,
+                secondaryFile: () => Future.success(secondaryRealImport),
+                deletePrimaryFile,
+            },
             glassUploads: {
                 setStatus,
                 saveImportSummaryErrorsOfFiles,
@@ -83,6 +90,7 @@ function renderStep(options: Options) {
                 changeStep={changeStep}
                 batchId="DS1"
                 primaryFile={new File(["x"], "ris.csv")}
+                secondaryFile={secondaryRealImport ? new File(["x"], "sample.csv") : null}
                 primaryFileImportSummary={primarySummary}
                 secondaryFileImportSummary={secondarySummary}
                 setPrimaryFileImportSummary={setPrimarySummary}
@@ -93,7 +101,8 @@ function renderStep(options: Options) {
     };
 
     localStorage.setItem("primaryUploadId", "upload-1");
-    localStorage.removeItem("secondaryUploadId");
+    if (secondaryRealImport) localStorage.setItem("secondaryUploadId", "upload-2");
+    else localStorage.removeItem("secondaryUploadId");
     render(
         <AppContext.Provider value={context}>
             <CurrentModuleContext.Provider value={moduleContext}>
@@ -150,6 +159,21 @@ describe("ConsistencyChecks (consistency checks step)", () => {
                 primaryImportSummaryErrors: { nonBlockingErrors: [], blockingErrors: [blockingError] },
             })
         );
+    });
+
+    // RIS and SAMPLE are one batch: the app used to judge only the RIS file, so a SAMPLE file with errors was completed.
+    it("keeps both uploads IMPORTED when only the SAMPLE import reports errors", async () => {
+        const { continueButton, setStatus, changeStep } = renderStep({
+            dryRunSummary: summary(),
+            secondaryRealImport: summary({ status: "ERROR", blockingErrors: [blockingError] }),
+        });
+
+        await userEvent.click(continueButton());
+
+        await waitFor(() => expect(changeStep).toHaveBeenCalledWith(3));
+        expect(setStatus).not.toHaveBeenCalledWith(expect.objectContaining({ status: "VALIDATED" }));
+        expect(setStatus).toHaveBeenCalledWith({ id: "upload-1", status: "IMPORTED" });
+        expect(setStatus).toHaveBeenCalledWith({ id: "upload-2", status: "IMPORTED" });
     });
 
     it("removes what the import wrote, keeps the upload IMPORTED and stays on the step when the import fails", async () => {
