@@ -140,9 +140,22 @@ describe("getBatchCodeByAoc", () => {
         expect(byAoc.get("aoc-10")).toBe("DS10");
     });
 
-    it("fails rather than guess when a combo has no batch option", () => {
-        const broken = { ...combo, categoryOptionCombos: [{ id: "x", categoryOptions: [{ id: "p1" }] }] };
-        expect(() => getBatchCodeByAoc(broken, "BATCHIDDS")).toThrow(/0 BATCHIDDS/);
+    it("leaves out a stale combo with no batch option rather than guess its batch", () => {
+        const stale = { id: "stale", categoryOptions: [{ id: "p1" }] };
+        const byAoc = getBatchCodeByAoc(
+            { ...combo, categoryOptionCombos: [...combo.categoryOptionCombos, stale] },
+            "BATCHIDDS"
+        );
+        expect(byAoc.has("stale")).toBe(false);
+        expect(byAoc.size).toBe(2);
+    });
+
+    it("fails rather than guess when a combo has two batch options", () => {
+        const broken = {
+            ...combo,
+            categoryOptionCombos: [{ id: "x", categoryOptions: [{ id: "b1" }, { id: "b10" }] }],
+        };
+        expect(() => getBatchCodeByAoc(broken, "BATCHIDDS")).toThrow(/2 BATCHIDDS/);
     });
 
     it("fails when the batch category is missing", () => {

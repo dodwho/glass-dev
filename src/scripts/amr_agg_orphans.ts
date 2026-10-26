@@ -19,22 +19,13 @@ import {
     getValueById,
     uploadsDHIS2Ids,
 } from "../data/repositories/GlassUploadsProgramRepository";
-import { MetadataDefaultRepository } from "../data/repositories/MetadataDefaultRepository";
 import { DataValue } from "../domain/entities/data-entry/DataValue";
 import { MODULE_NAMES } from "../domain/entities/GlassModule";
 import {
-    AMR_AMR_DS_INPUT_FILES_RIS_DS_ID,
-    AMR_AMR_DS_Input_files_Sample_DS_ID,
-    AMR_BATCHID_CC_ID,
-    AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID,
-} from "../domain/usecases/data-entry/amr/amrAggMetadataIds";
-import {
-    AMRAggFileMetadata,
     mapRISDataToDataValues,
     mapSampleDataToDataValues,
 } from "../domain/usecases/data-entry/amr/mapAMRAggFileToDataValues";
 import { DownloadDocumentAsArrayBufferUseCase } from "../domain/usecases/DownloadDocumentAsArrayBufferUseCase";
-import { AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID } from "../domain/usecases/data-entry/utils/getCategoryOptionCombo";
 import { deleteDataValues } from "../domain/usecases/data-entry/utils/deleteDataValues";
 import { getD2APiFromInstance } from "../utils/d2-api";
 import { promiseMapConcurrent, retryAsync } from "../utils/promises";
@@ -63,8 +54,6 @@ import {
     findForeignLabels,
     findOrphans,
     findProbableSource,
-    getAocTranslator,
-    getBatchCodeByAoc,
     judgeBatch,
     MislabelFinding,
     WAITING_PERIOD_DAYS,
@@ -85,43 +74,23 @@ import {
     Verdict,
     VERDICTS,
 } from "./utils/amrAggOrphans";
+import {
+    AmrAggMetadata,
+    Country,
+    DATA_SETS,
+    getAmrAggMetadata,
+    getCountries,
+    instanceArg,
+    InstanceName,
+    isDroppedConnection,
+    readStoredValues,
+    selectInstance,
+} from "./utils/amrAggDhis2";
 
 // .env.local (the secrets) first, then .env: dotenv never overrides a key already set, so .env.local wins. Run
 // without `-r dotenv/config`, which would read the tracked .env (a test server) first.
 dotenv.config({ path: ".env.local" });
 dotenv.config();
-
-const INSTANCES = {
-    prod: { url: "https://extranet.who.int/dhis2-indiv", tokenName: "DHIS2_TOKEN_PROD" },
-    preprod: { url: "https://portal-uat.who.int/dhis2-indiv", tokenName: "DHIS2_TOKEN_PREPROD" },
-} as const;
-type InstanceName = keyof typeof INSTANCES;
-
-/**
- * Points this run at prod or preprod with that instance's own token from .env.local. The other credentials are
- * cleared for this process only (getEnvVars takes the first token it finds), so a token can't reach the wrong server.
- */
-function selectInstance(name: InstanceName) {
-    const { url, tokenName } = INSTANCES[name];
-    const token = process.env[tokenName] || process.env[`REACT_APP_${tokenName}`];
-    if (!token) throw new Error(`--instance ${name} needs ${tokenName} in .env.local`);
-    for (const secret of [
-        "DHIS2_TOKEN_PROD",
-        "DHIS2_TOKEN_PREPROD",
-        "DHIS2_TOKEN_TRAINING",
-        "DHIS2_TOKEN",
-        "DHIS2_AUTH",
-    ])
-        for (const variable of [secret, `REACT_APP_${secret}`]) process.env[variable] = "";
-    process.env[tokenName] = token;
-    process.env.REACT_APP_DHIS2_BASE_URL = url;
-}
-
-const instanceArg = option({
-    type: optional(choiceOf(["prod", "preprod"] as const)),
-    long: "instance",
-    description: "prod or preprod, with DHIS2_TOKEN_PROD / DHIS2_TOKEN_PREPROD from .env.local (default: the .env URL)",
-});
 
 /*
 ================================================================
@@ -147,23 +116,11 @@ asyncDeleteChunkSizes. DHIS2 keeps a data value audit entry for every deleted va
 ================================================================
 */
 
-const BATCH_CATEGORY_CODE = "BATCHIDDS";
-
-const DATA_SETS: Record<AmrAggFileType, { dataSetId: string; categoryComboId: string }> = {
-    RIS: { dataSetId: AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, categoryComboId: AMR_DATA_PATHOGEN_ANTIBIOTIC_BATCHID_CC_ID },
-    SAMPLE: { dataSetId: AMR_AMR_DS_Input_files_Sample_DS_ID, categoryComboId: AMR_BATCHID_CC_ID },
-};
-
-/** Kosovo is not a level-3 org unit on every instance, so the AMC/AMR scripts add it by uid. */
-const KOSOVO_ORG_UNIT_ID = "I8AMbKhxlj9";
 const DEFAULT_CONCURRENCY = 4;
 const UPLOADS_PAGE_SIZE = 500;
 const DEFAULT_OUT_DIR = "amr-agg-orphan-deletions";
 
-/** The server closed the connection (preprod and prod both do under load, or on a connection left idle). */
-const isDroppedConnection = (error: unknown) => /socket hang up|ECONNRESET|ETIMEDOUT/i.test(String(error));
-
-interface Context {
+interface Context extends AmrAggMetadata {
     api: D2Api;
     instance: Instance;
     instanceKey: string;
@@ -171,12 +128,7 @@ interface Context {
     uploadModuleIds: string[];
     asyncDeleteChunkSize: number | undefined;
     rootOrgUnitId: string;
-    countries: { id: string; code: string }[];
-    batchCodeByAoc: Record<AmrAggFileType, Map<string, string>>;
-    aocTranslators: Record<AmrAggFileType, (aoc: string, batchCode: string) => string | undefined>;
-    batchCodes: string[];
-    fileMetadata: Record<AmrAggFileType, AMRAggFileMetadata>;
-    zeroNotStoredDataElements: Set<string>;
+    countries: Country[];
     waitingDays: number;
     downloadFile: (fileId: string) => Promise<ArrayBuffer>;
 }
@@ -199,83 +151,21 @@ async function loadContext(
     const glassModule = await moduleRepository.getByName(MODULE_NAMES.AMR).toPromise();
     const individualModule = await moduleRepository.getByName(MODULE_NAMES.AMR_INDIVIDUAL).toPromise();
 
-    const combos = await api.models.categoryCombos
-        .get({
-            fields: {
-                id: true,
-                categories: { code: true, categoryOptions: { id: true, code: true } },
-                categoryOptionCombos: { id: true, categoryOptions: { id: true } },
-            },
-            filter: { id: { in: Object.values(DATA_SETS).map(dataSet => dataSet.categoryComboId) } },
-            paging: false,
-        })
-        .getData();
-
-    const comboOf = (categoryComboId: string) => {
-        const combo = combos.objects.find(object => object.id === categoryComboId);
-        if (!combo) throw new Error(`Category combo ${categoryComboId} not found on this instance`);
-        return combo;
-    };
-    const batchCodeByAoc = _.mapValues(DATA_SETS, ({ categoryComboId }) =>
-        getBatchCodeByAoc(comboOf(categoryComboId), BATCH_CATEGORY_CODE)
-    );
-    const aocTranslators = _.mapValues(DATA_SETS, ({ categoryComboId }) =>
-        getAocTranslator(comboOf(categoryComboId), BATCH_CATEGORY_CODE)
-    );
-    const batchCodes = _.uniq(Object.values(batchCodeByAoc).flatMap(byAoc => [...byAoc.values()])).sort();
-
     const roots = await api.models.organisationUnits
         .get({ fields: { id: true }, filter: { level: { eq: "1" } }, paging: false })
         .getData();
     const root = roots.objects[0];
     if (!root || roots.objects.length > 1) throw new Error(`Expected one root org unit, found ${roots.objects.length}`);
 
-    const levelThree = await api.models.organisationUnits
-        .get({ fields: { id: true, code: true }, filter: { level: { eq: "3" } }, paging: false })
-        .getData();
-    const kosovo = await api.models.organisationUnits
-        .get({ fields: { id: true, code: true }, filter: { id: { eq: KOSOVO_ORG_UNIT_ID } } })
-        .getData();
-    const countries = _.uniqBy([...levelThree.objects, ...kosovo.objects], ou => ou.id).filter(
-        (ou): ou is { id: string; code: string } => Boolean(ou.code)
-    );
-
-    // The same metadata the app's import reads, so a file maps to exactly the values it imported.
-    const metadataRepository = new MetadataDefaultRepository(instance);
-    const dataElement_CC = await metadataRepository
-        .getCategoryCombination(AMR_SPECIMEN_GENDER_AGE_ORIGIN_CC_ID)
-        .toPromise();
-    const fileMetadata = {} as Record<AmrAggFileType, AMRAggFileMetadata>;
-    for (const fileType of AMR_AGG_FILE_TYPES) {
-        const { dataSetId, categoryComboId } = DATA_SETS[fileType];
-        fileMetadata[fileType] = {
-            dataSet: await metadataRepository.getDataSet(dataSetId).toPromise(),
-            dataSet_CC: await metadataRepository.getCategoryCombination(categoryComboId).toPromise(),
-            dataElement_CC,
-            orgUnits: countries,
-        };
-    }
-
-    const dataSets = await api.models.dataSets
-        .get({
-            fields: { dataSetElements: { dataElement: { id: true, zeroIsSignificant: true } } },
-            filter: { id: { in: Object.values(DATA_SETS).map(dataSet => dataSet.dataSetId) } },
-            paging: false,
-        })
-        .getData();
-    const zeroNotStoredDataElements = new Set(
-        dataSets.objects
-            .flatMap(dataSet => dataSet.dataSetElements.map(element => element.dataElement))
-            .filter(dataElement => !dataElement.zeroIsSignificant)
-            .map(dataElement => dataElement.id)
-    );
+    const countries = await getCountries(api);
+    const metadata = await getAmrAggMetadata(api, instance, countries);
 
     const downloadUseCase = new DownloadDocumentAsArrayBufferUseCase(
         new GlassDocumentsDefaultRepository(dataStoreClient, instance)
     );
 
     console.log(
-        `AMR module ${glassModule.id}; batch codes ${batchCodes.join(", ")}; ${countries.length} countries; ` +
+        `AMR module ${glassModule.id}; batch codes ${metadata.batchCodes.join(", ")}; ${countries.length} countries; ` +
             `delete chunk size ${glassModule.asyncDeleteChunkSizes?.primaryUpload ?? "none (one request)"}`
     );
 
@@ -287,11 +177,7 @@ async function loadContext(
         asyncDeleteChunkSize: glassModule.asyncDeleteChunkSizes?.primaryUpload,
         rootOrgUnitId: root.id,
         countries,
-        batchCodeByAoc,
-        aocTranslators,
-        batchCodes,
-        fileMetadata,
-        zeroNotStoredDataElements,
+        ...metadata,
         waitingDays,
         // Preprod drops some connections under load, so those are retried. Any other failure (a document missing
         // on the server comes back the same way every time) is reported at once as unreadable, never guessed at.
@@ -361,23 +247,6 @@ async function fetchUploads(context: Context, orgUnitId?: string): Promise<Uploa
     } while (result.page < Math.ceil((result.total as number) / UPLOADS_PAGE_SIZE));
 
     return uploads;
-}
-
-async function readDataValues(
-    context: Context,
-    fileType: AmrAggFileType,
-    orgUnitId: string,
-    year: string
-): Promise<DataValueSetsDataValue[]> {
-    // Up to about 2.5 minutes of retries: a full scan is long enough to meet a bad patch on the server.
-    const response = await retryAsync(
-        () =>
-            context.api.dataValues
-                .getSet({ dataSet: [DATA_SETS[fileType].dataSetId], orgUnit: [orgUnitId], period: [year] })
-                .getData(),
-        { attempts: 6, baseDelayMs: 5000 }
-    );
-    return response.dataValues;
 }
 
 /** The values an upload's file maps to, with the app's own reader and mapping; "unreadable" if that fails. */
@@ -463,7 +332,7 @@ async function evaluateUnit(
 ): Promise<{ evaluations: BatchEvaluation[]; unmapped: DataValueSetsDataValue[] }> {
     const { fileType, country, year } = unit;
     const storedByBatch = _.groupBy(
-        await readDataValues(context, fileType, country.id, year),
+        await readStoredValues(context.api, fileType, country.id, year),
         dataValue => batchOf(context, fileType, dataValue) ?? ""
     );
     const unitUploads = uploads.filter(u => u.orgUnitId === country.id && u.year === year && u.fileType === fileType);
@@ -702,7 +571,7 @@ const find = command({
             await promiseMapConcurrent(
                 units,
                 async ({ fileType, country, year }): Promise<StoredBatch[]> => {
-                    const dataValues = await readDataValues(context, fileType, country.id, year).catch(error => {
+                    const dataValues = await readStoredValues(context.api, fileType, country.id, year).catch(error => {
                         failedUnits.push({ fileType, country, year });
                         console.warn(
                             `  ${country.code} ${year} ${fileType}: could not be read (${errorMessage(error)})`
@@ -1283,7 +1152,7 @@ async function deleteTarget(
             { uploads: checked.uploads, deletable: dataValues },
             {
                 uploads: (await fetchUploads(context, countryId)).filter(u => u.fileType === target.fileType),
-                stored: await readDataValues(context, target.fileType, countryId, target.year),
+                stored: await readStoredValues(context.api, target.fileType, countryId, target.year),
             }
         );
         if (changes.length > 0)
@@ -1589,7 +1458,7 @@ const labels = command({
         const read = {
             stored: (fileType: AmrAggFileType, orgUnitId: string, year: string) =>
                 cached(storedCache, `${fileType}|${orgUnitId}|${year}`, () =>
-                    readDataValues(context, fileType, orgUnitId, year)
+                    readStoredValues(context.api, fileType, orgUnitId, year)
                 ),
             file: (upload: UploadRecord) =>
                 cached(fileCache, upload.id, () => readFileValues(context, upload, upload.fileType as AmrAggFileType)),

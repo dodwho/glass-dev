@@ -97,7 +97,7 @@ type DataSet = {
     dataSetElements: { dataElement: Metadata & { categoryCombo: { id: string } } }[];
 };
 
-// The rules of AMRAggDataValuesImportHelper / getCategoryOptionCombo.tsx, restated so the check stays independent:
+// The rules of mapAMRAggFileToDataValues / getCategoryOptionCombo.tsx, restated so the check stays independent:
 // option codes are compared trimmed ("M " in DHIS2 is "M" in a file), UNK means a different option per category,
 // the first matching combination is used, ABCLASS is not in the files yet and is stored as "ABCLASS Missing", and a
 // data element whose combo is the hard-coded default id gets the default combination.

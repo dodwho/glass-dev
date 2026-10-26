@@ -67,6 +67,7 @@ snyk-results.json
 /AMR-AGG_*
 /AMR_AGG_reset_*.json
 /amr-agg-orphan-deletions/
+/amr-agg-bulk-upload/
 /AMU_upload_*
 *.checkpoint
 *.checkpoint.*

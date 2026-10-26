@@ -222,6 +222,17 @@ $ yarn amr-agg-orphans delete --instance preprod --file amr-agg-orphan-deletions
 
 The older `yarn amr-agg-data-validation-ris` reads the upload list from the datastore, which stopped being updated when uploads moved to the uploads program. Its results are out of date. `yarn amr-agg-data-reset-ris` / `-sample` (kept as a fallback) write every value of a country/year/batch to a JSON for an Import/Export delete. They do not check uploads or files.
 
+## AMR AGG bulk upload
+
+`yarn amr-agg-bulk-upload` uploads every RIS/SAMPLE batch in a folder with the app's own upload steps, as if a user uploaded each one in the app. Instance options are the same as for `amr-agg-orphans`. Each file's country, year and batch come from its rows, not its name; a SAMPLE file is paired with the RIS file of the same country, year and batch (RIS alone is fine, SAMPLE alone is left out).
+
+Before writing anything, a batch is refused when the country is not enrolled in AMR or the year's submission is closed for uploads, and skipped when it already has data: values stored under it, or an upload of it beyond UPLOADED (or queued for the async import) in AMR or AMR - Individual. An earlier upload that stayed at UPLOADED was never imported, so it does not block. The app's dry run of both files follows; an error in either file refuses the batch. Without `--commit` it stops there. With `--commit` (plus `--confirmInstance`) it saves the upload records, marks them IMPORTED, imports, reads the batch back and compares it value by value with the files, and only then sets VALIDATED and COMPLETED. An import that ends with errors, or whose stored values differ from the files, is rolled back (the app's delete, then the upload records). An import that stops part-way deletes what it wrote and leaves the uploads IMPORTED, in case DHIS2 goes on writing. When every batch of a country/year is loaded or already there, the year goes COMPLETE, then PENDING_APPROVAL, as with the app's buttons (a REJECTED year is left to a person; no notification is sent). `--concurrency N` loads N country/years at a time. `results.csv` (one row per batch, with each step's seconds and the next step for any failure), `submissions.csv` and `file-problems.csv` go to `amr-agg-bulk-upload/<instance>_<time>/`.
+
+```
+$ yarn amr-agg-bulk-upload --instance preprod --folder ./to-load
+$ yarn amr-agg-bulk-upload --instance preprod --folder ./to-load --commit --confirmInstance portal-uat.who.int/dhis2-indiv
+```
+
 ## Some development tips
 
 ### Structure

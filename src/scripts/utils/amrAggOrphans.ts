@@ -72,7 +72,9 @@ interface CategoryComboWithOptions {
 
 /**
  * Batch code of every attribute option combo, read from the combo's batch category option rather than matched as
- * text, so DS1 can never pick up a DS10 or any other option whose code merely starts with DS1.
+ * text, so DS1 can never pick up a DS10 or any other option whose code merely starts with DS1. A combo with no batch
+ * option is left out: it is stale, from before the batch category was added (DEV keeps one from 2022), no import can
+ * write to it, and its values are reported as outside every batch rather than guessed into one.
  */
 export function getBatchCodeByAoc(combo: CategoryComboWithOptions, batchCategoryCode: string): Map<string, string> {
     const batchCategories = combo.categories.filter(category => category.code === batchCategoryCode);
@@ -83,12 +85,13 @@ export function getBatchCodeByAoc(combo: CategoryComboWithOptions, batchCategory
     const codeByOptionId = new Map(batchCategory.categoryOptions.map(option => [option.id, option.code]));
 
     return new Map(
-        combo.categoryOptionCombos.map(aoc => {
+        combo.categoryOptionCombos.flatMap(aoc => {
             const codes = aoc.categoryOptions.flatMap(option => codeByOptionId.get(option.id) ?? []);
             const code = codes[0];
-            if (!code || codes.length > 1)
+            if (!code) return [];
+            if (codes.length > 1)
                 throw new Error(`Attribute option combo ${aoc.id} has ${codes.length} ${batchCategoryCode} options`);
-            return [aoc.id, code];
+            return [[aoc.id, code] as const];
         })
     );
 }

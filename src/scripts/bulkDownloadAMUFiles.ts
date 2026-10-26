@@ -45,8 +45,7 @@ CONFIG — edit before each run
 // streams every country and year with no row cap, and is not built on this workbook path.
 //
 // DHIS2 org unit codes (ISO/M49 country codes) to include. Leave EMPTY to consider every country in
-// the system — the script fetches the full org unit list at startup (initializeOrgUnits(), same
-// pattern as bulkUploadAMRAggFiles.ts) and, combined with PRUNE_BY_COVERAGE below, downloads only
+// the system — the script fetches the full org unit list at startup (initializeOrgUnits()) and, combined with PRUNE_BY_COVERAGE below, downloads only
 // from the ones that actually have submitted data. Set specific codes here to restrict to a subset
 // instead (coverage filtering still applies on top of it).
 const ORG_UNIT_CODES: string[] = [];
