@@ -46,13 +46,20 @@ describe("checkCopiedBatch", () => {
         expect(warnings).toEqual([]);
     });
 
-    it("warns, with the lines, when any row is already stored under another dataset", () => {
+    it("warns, with the lines, when a quarter or more of the rows is already stored under another dataset", () => {
         const stored = [...row("CIP", "DS1", "5"), ...row("AMP", "DS1", "9")];
         const { blockingErrors, warnings } = checkCopiedBatch(file("DS2"), stored, dataSet_CC, "DS2");
         expect(blockingErrors).toEqual([]);
         expect(warnings).toHaveLength(1);
         expect(warnings[0]?.error).toContain("1 of the 2 rows");
         expect(warnings[0]?.lines).toEqual([2]);
+    });
+
+    it("does not warn for fewer than a quarter of the rows, which are the same by chance (2 of 8,813 on PROD)", () => {
+        const threeRows = ["AMP", "CIP", "GEN"].map(antibiotic => row(antibiotic, "DS2", "3"));
+        const fileRows = [...threeRows, row("AMP", "DS2", "4"), row("CIP", "DS2", "4")];
+        const stored = row("AMP", "DS1", "3"); // 1 of the 5 rows: 20%
+        expect(checkCopiedBatch(fileRows, stored, dataSet_CC, "DS2")).toEqual(none);
     });
 
     it("warns, never blocks, for rows already stored under the dataset being uploaded", () => {

@@ -8,10 +8,18 @@ const isBatchCode = (code: string) => /^DS\d+$/.test(code);
 const isInformative = (value: string) => value !== "" && value !== "0";
 
 /**
+ * From this share of a file's rows already stored under one dataset, the upload gets a warning. Any single row was too
+ * many: re-uploading each batch on PROD (27 Oct 2026) would have warned 11% of them, nearly all for a few rows that are
+ * the same by chance (2 of 8,813). From 25% only the real copies and subsets were left (about 1%).
+ */
+const WARNING_SHARE = 0.25;
+
+/**
  * File rows already stored for the same country and year. India 2024 RIS DS2 repeated DS1, and the UK 2024 UKHSA
  * file was stored under DS2 and DS3, so the data was counted twice. A row is the same when every result in it is
  * (zeros and empty results left out, so a row of only zeros is never compared). A file whose every row is already
- * stored under one other dataset is blocked; any row already stored, under any dataset, gives a warning with its lines.
+ * stored under one other dataset is blocked; a quarter or more of its rows stored under any dataset gives a warning
+ * with their lines.
  * `fileRows` holds the data values of each file line, in file order.
  */
 export function checkCopiedBatch(
@@ -79,7 +87,7 @@ export function checkCopiedBatch(
                 count: lines.length,
                 lines,
             });
-        else
+        else if (lines.length >= WARNING_SHARE * comparedRows)
             warnings.push({
                 error:
                     `${lines.length} of the ${comparedRows} rows of this file are already stored under ${where} of ` +
