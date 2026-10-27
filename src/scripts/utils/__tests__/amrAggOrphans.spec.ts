@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
     classifyLiveUploads,
     compareValues,
+    describeOverlap,
     describeWrites,
     explainMislabel,
+    findBatchOverlaps,
     findChangesBeforeDelete,
     findForeignLabels,
     findProbableSource,
@@ -657,5 +659,37 @@ describe("valuesHeldByLiveFiles", () => {
         ]);
         expect(isLiveUpload(upload({ status: "COMPLETED", year: "2024" }), "2025")).toBe(false);
         expect(isLiveUpload(upload({ status: "COMPLETED", year: "2025", deleted: true }), "2025")).toBe(false);
+    });
+});
+
+describe("findBatchOverlaps", () => {
+    // Cells: categoryOptionCombo "coc-<n>", attribute option combo "<cell>-<batch>" (cellOf strips the batch).
+    const cellOf = (aoc: string) => (aoc.startsWith("other") ? undefined : aoc.split("-")[0]);
+    const row = (n: number, batch: string, resistant = "1") => [
+        { dataElement: "res", categoryOptionCombo: `coc-${n}`, attributeOptionCombo: `amp-${batch}`, value: resistant },
+        { dataElement: "sus", categoryOptionCombo: `coc-${n}`, attributeOptionCombo: `amp-${batch}`, value: "0" },
+    ];
+    const rows = (from: number, to: number, batch: string) =>
+        Array.from({ length: to - from }, (_v, i) => row(from + i, batch)).flat();
+
+    it("finds an upload stored twice (IND 2024 RIS: DS2 = DS1)", () => {
+        const overlaps = findBatchOverlaps({ DS1: rows(0, 12, "DS1"), DS2: rows(0, 12, "DS2") }, cellOf);
+        expect(overlaps).toEqual([
+            { batchA: "DS1", batchB: "DS2", rowsA: 12, rowsB: 12, shared: 12, kind: "IDENTICAL" },
+        ]);
+        expect(describeOverlap(overlaps[0]!)).toBe("DS1 and DS2 are identical (12 shared rows; DS1 12, DS2 12)");
+    });
+
+    it("finds a file stored inside another batch (GBR 2024 RIS: DS2 inside DS3)", () => {
+        const overlaps = findBatchOverlaps({ DS2: rows(0, 12, "DS2"), DS3: rows(0, 20, "DS3") }, cellOf);
+        expect(overlaps.map(o => o.kind)).toEqual(["A_INSIDE_B"]);
+    });
+
+    it("ignores rows equal in only some data elements, small overlaps and combos outside the batches", () => {
+        const differentResistant = Array.from({ length: 12 }, (_v, i) => row(i, "DS2", "5")).flat();
+        const outside = rows(0, 12, "DS1").map(value => ({ ...value, attributeOptionCombo: "other-DS9" }));
+        expect(findBatchOverlaps({ DS1: rows(0, 12, "DS1"), DS2: differentResistant }, cellOf)).toEqual([]);
+        expect(findBatchOverlaps({ DS1: rows(0, 9, "DS1"), DS2: rows(0, 9, "DS2") }, cellOf)).toEqual([]);
+        expect(findBatchOverlaps({ DS1: rows(0, 12, "DS1"), DS9: outside }, cellOf)).toEqual([]);
     });
 });

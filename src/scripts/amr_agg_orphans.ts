@@ -50,6 +50,8 @@ import {
     DeleteTarget,
     explainMislabel,
     FileMatch,
+    describeOverlap,
+    findBatchOverlaps,
     findChangesBeforeDelete,
     findForeignLabels,
     findOrphans,
@@ -329,7 +331,7 @@ async function evaluateUnit(
     unit: Unit,
     uploads: UploadRecord[],
     batchIds?: string[]
-): Promise<{ evaluations: BatchEvaluation[]; unmapped: DataValueSetsDataValue[] }> {
+): Promise<{ evaluations: BatchEvaluation[]; unmapped: DataValueSetsDataValue[]; overlaps: string[] }> {
     const { fileType, country, year } = unit;
     const storedByBatch = _.groupBy(
         await readStoredValues(context.api, fileType, country.id, year),
@@ -412,7 +414,14 @@ async function evaluateUnit(
             labelMismatches.push(`${upload.id} is ${own} but its file's rows say ${labels.join(", ")}`);
     }
     for (const evaluation of evaluations) evaluation.labelMismatches = labelMismatches;
-    return { evaluations, unmapped: storedByBatch[""] ?? [] };
+
+    // A cell is its attribute option combo moved to one fixed batch, so the same pathogen/antibiotic lines up across
+    // batches.
+    const toFirstBatch = (aoc: string) => context.aocTranslators[fileType](aoc, context.batchCodes[0] ?? "");
+    const overlaps = findBatchOverlaps(_.omit(storedByBatch, ""), toFirstBatch).map(
+        overlap => `${describeUnit(unit)}: ${describeOverlap(overlap)}`
+    );
+    return { evaluations, unmapped: storedByBatch[""] ?? [], overlaps };
 }
 
 function describeUnit(unit: Unit): string {
@@ -870,6 +879,7 @@ const verify = command({
 
         const tick = progress(units.length);
         const unmappedUnits: string[] = [];
+        const overlapLines: string[] = [];
         // Report sections are kept as text, not evaluations, so a full scan never holds every stored value.
         const sections: { key: string; text: string }[] = [];
         const failedUnits: Unit[] = [];
@@ -888,6 +898,7 @@ const verify = command({
                     }
                     if (result.unmapped.length > 0)
                         unmappedUnits.push(`${describeUnit(unit)}: ${result.unmapped.length}`);
+                    overlapLines.push(...result.overlaps);
                     // Written as it goes, so the per-value detail of a large scan is never all held in memory.
                     const details = [
                         ...result.evaluations.flatMap(detailRows),
@@ -935,6 +946,17 @@ const verify = command({
             `Values with an attribute option combo outside the batch combos (kind UNKNOWN_BATCH_COMBO in the values ` +
             `file): ${unmappedUnits.length ? unmappedUnits.sort().join("; ") : "none"}.`;
         if (unmappedUnits.length > 0) console.warn(`Warning: ${unmappedLine}`);
+        // Each batch can equal its own file and still repeat another batch: data counted twice.
+        const overlapSection = [
+            `## Batches holding the same rows: ${overlapLines.length} pair(s)`,
+            "",
+            "A copy (identical, or one batch inside another) counts the same data twice: ask the country which " +
+                "batch is right. A partial overlap can be a subset the country sent on purpose.",
+            "",
+            ...overlapLines.sort().map(line => `- ${line}`),
+            "",
+        ];
+        if (overlapLines.length > 0) console.warn(`\n${overlapSection.join("\n")}`);
 
         const tables = actionTables(rows);
         console.log(`\n${tables.slice(0, 40).join("\n")}${tables.length > 40 ? "\n(... more in the report)" : ""}`);
@@ -959,6 +981,7 @@ const verify = command({
                 "",
                 unmappedLine,
                 "",
+                ...overlapSection,
                 ...(failedUnits.length
                     ? [
                           `**Incomplete: ${failedUnits.length} unit(s) could not be read** and were not checked: ` +

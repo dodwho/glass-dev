@@ -684,3 +684,70 @@ export function validateTarget(target: DeleteTarget, validBatchCodes: string[]):
         return `batchId must be one of ${validBatchCodes.join(", ")}, got "${target.batchId}"`;
     return undefined;
 }
+
+/** Two batches of one country, year and file type that hold the same rows. */
+export interface BatchOverlap {
+    batchA: string;
+    batchB: string;
+    rowsA: number;
+    rowsB: number;
+    shared: number;
+    /** IDENTICAL, A_INSIDE_B (every row of A is also in B), B_INSIDE_A, or PARTIAL. */
+    kind: "IDENTICAL" | "A_INSIDE_B" | "B_INSIDE_A" | "PARTIAL";
+}
+
+/**
+ * Batches holding the same rows (a cell whose every data element has the same value): one upload stored twice
+ * (IND 2024 RIS DS2 = DS1), one file stored under two batches (GBR 2024 RIS DS2 inside DS3), or a smaller data set a
+ * country sent as a subset of a larger one (FRA 2020, SWE 2016 and 2020). Rows, not single values: the same cell
+ * often holds 0 in unrelated batches. `cellOf` gives an attribute option combo's cell without its batch; values on
+ * other combos are left out. A pair is reported from `minShared` shared rows that are at least `minShare` of the
+ * smaller batch.
+ */
+export function findBatchOverlaps(
+    storedByBatch: Record<string, ComparableValue[]>,
+    cellOf: (aoc: string) => string | undefined,
+    minShared = 10,
+    minShare = 0.5
+): BatchOverlap[] {
+    const rowsOf = (values: ComparableValue[]) => {
+        const cells = new Map<string, string[]>();
+        for (const value of values) {
+            const cell = cellOf(value.attributeOptionCombo ?? "");
+            if (cell === undefined) continue;
+            const key = `${value.categoryOptionCombo ?? ""}|${cell}`;
+            cells.set(key, [...(cells.get(key) ?? []), `${value.dataElement}=${value.value}`]);
+        }
+        return new Set([...cells].map(([cell, entries]) => `${cell}#${entries.sort().join(",")}`));
+    };
+    const rowsByBatch = new Map(Object.entries(storedByBatch).map(([batch, values]) => [batch, rowsOf(values)]));
+    const batches = [...rowsByBatch.keys()].sort();
+    return batches.flatMap((batchA, index) =>
+        batches.slice(index + 1).flatMap(batchB => {
+            const rowsA = rowsByBatch.get(batchA) ?? new Set<string>();
+            const rowsB = rowsByBatch.get(batchB) ?? new Set<string>();
+            const shared = [...rowsA].filter(row => rowsB.has(row)).length;
+            if (shared < minShared || shared < minShare * Math.min(rowsA.size, rowsB.size)) return [];
+            const kind =
+                shared === rowsA.size && shared === rowsB.size
+                    ? "IDENTICAL"
+                    : shared === rowsA.size
+                    ? "A_INSIDE_B"
+                    : shared === rowsB.size
+                    ? "B_INSIDE_A"
+                    : "PARTIAL";
+            return [{ batchA, batchB, rowsA: rowsA.size, rowsB: rowsB.size, shared, kind }];
+        })
+    );
+}
+
+export function describeOverlap(overlap: BatchOverlap): string {
+    const { batchA, batchB, rowsA, rowsB, shared, kind } = overlap;
+    const how = {
+        IDENTICAL: `${batchA} and ${batchB} are identical`,
+        A_INSIDE_B: `every row of ${batchA} is also in ${batchB}`,
+        B_INSIDE_A: `every row of ${batchB} is also in ${batchA}`,
+        PARTIAL: `${batchA} and ${batchB} share rows`,
+    }[kind];
+    return `${how} (${shared} shared rows; ${batchA} ${rowsA}, ${batchB} ${rowsB})`;
+}
