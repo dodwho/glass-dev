@@ -181,7 +181,7 @@ function recordingRepository() {
             importTime: new Date("2026-10-24T10:00:00Z"),
         })
     );
-    return { save, repository: { save } as unknown as DataValuesRepository };
+    return { save, repository: { save, getStored: () => Future.success([]) } as unknown as DataValuesRepository };
 }
 
 function metadataRepository(dataSet: DataSet, dataSetCombo: CategoryCombo) {

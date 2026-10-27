@@ -90,7 +90,7 @@ function setup(rows: SampleData[]) {
     const importer = new ImportSampleFile(
         { get: () => Future.success(rows) } as unknown as SampleDataRepository,
         metadataRepository,
-        { save } as unknown as DataValuesRepository
+        { save, getStored: () => Future.success([]) } as unknown as DataValuesRepository
     );
     const run = (action: ImportStrategy = "CREATE_AND_UPDATE") =>
         importer.import({} as File, "DS1", "2025", action, "ou-kor", "KOR", false).toPromise();

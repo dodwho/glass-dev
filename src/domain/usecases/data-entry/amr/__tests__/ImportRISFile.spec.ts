@@ -28,6 +28,7 @@ const pathogenAntibioticBatch: CategoryCombo = {
     categoryOptionCombos: [
         { id: "aoc-escc-amp-ds1", name: "", categoryOptions: [option("ESCCOL"), option("AMP"), option("DS1")] },
         { id: "aoc-escc-cip-ds1", name: "", categoryOptions: [option("ESCCOL"), option("CIP"), option("DS1")] },
+        { id: "aoc-escc-amp-ds2", name: "", categoryOptions: [option("ESCCOL"), option("AMP"), option("DS2")] },
     ],
 };
 
@@ -100,7 +101,8 @@ const saveSummary: DataValuesSaveSummary = {
 
 function setup(
     rows: RISData[],
-    validations: { validationRuleViolations: { validationRule: { id: string } }[] }[] = []
+    validations: { validationRuleViolations: { validationRule: { id: string } }[] }[] = [],
+    stored: DataValue[] = []
 ) {
     const save = vi.fn((_values: DataValue[], _action: ImportStrategy, _dryRun: boolean) =>
         Future.success(saveSummary)
@@ -116,7 +118,10 @@ function setup(
         getValidationRuleInstructions: (ids: string[]) =>
             Future.success(ids.map(id => ({ id, instruction: `Rule ${id} failed` }))),
     } as unknown as MetadataRepository;
-    const dataValuesRepository = { save } as unknown as DataValuesRepository;
+    const dataValuesRepository = {
+        save,
+        getStored: () => Future.success(stored),
+    } as unknown as DataValuesRepository;
     const moduleRepository = { getByName: () => Future.success(module) } as unknown as GlassModuleRepository;
     const importer = new ImportRISFile(risDataRepository, metadataRepository, dataValuesRepository, moduleRepository);
     const run = (action: ImportStrategy = "CREATE_AND_UPDATE", dryRun = false) =>
@@ -125,6 +130,24 @@ function setup(
 }
 
 describe("ImportRISFile", () => {
+    it("blocks a file whose values are all stored already under another dataset, and writes nothing", async () => {
+        const storedUnderDS2 = ["de-res", "de-sus", "de-abc"].map((dataElement, index) => ({
+            orgUnit: "ou-kor",
+            period: "2025",
+            attributeOptionCombo: "aoc-escc-amp-ds2",
+            dataElement,
+            categoryOptionCombo: dataElement === "de-abc" ? "" : "coc-blood-m-unko-15",
+            value: ["3", "10", "ABCLASS Missing"][index] ?? "",
+        }));
+        const { run, save } = setup([risRow()], [], storedUnderDS2);
+
+        const summary = await run("CREATE_AND_UPDATE", true);
+
+        expect(summary.status).toBe("ERROR");
+        expect(summary.blockingErrors[0]?.error).toContain("already stored under dataset DS2");
+        expect(save).not.toHaveBeenCalled();
+    });
+
     it("writes one data value per data element for each row, with the right combinations", async () => {
         const { run, save } = setup([risRow(), risRow({ ANTIBIOTIC: "CIP", RESISTANT: 1, SUSCEPTIBLE: 7 })]);
 

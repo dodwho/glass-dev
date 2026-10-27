@@ -80,14 +80,18 @@ export function useBatchedDataSubmissions(props: UsePreviousDataSubmissionsProps
 
     const changeBatchId = useCallback(
         async (event: React.ChangeEvent<{ value: unknown }>) => {
-            const batchId = event.target.value as string;
+            const previousBatchId = batchId;
+            const newBatchId = event.target.value as string;
             const primaryUploadId = localStorage.getItem("primaryUploadId");
             const secondaryUploadId = localStorage.getItem("secondaryUploadId");
-            setBatchId(batchId);
+            setBatchId(newBatchId);
 
-            const upload = (id: string) => compositionRoot.glassUploads.setBatchId({ id, batchId });
+            const upload = (id: string) => compositionRoot.glassUploads.setBatchId({ id, batchId: newBatchId });
+            // The upload record keeps the previous dataset, so the screen goes back to it; the import also refuses
+            // to start while a record names another dataset than the screen.
             const showError = (error: string) => {
                 snackbar.error(`${i18n.t("The Batch ID could not be saved")}: ${error}`);
+                setBatchId(previousBatchId);
                 setLoading(false);
             };
 
@@ -103,7 +107,7 @@ export function useBatchedDataSubmissions(props: UsePreviousDataSubmissionsProps
                 upload(secondaryUploadId).run(() => setLoading(false), showError);
             }
         },
-        [compositionRoot.glassUploads, setLoading, setBatchId, snackbar]
+        [batchId, compositionRoot.glassUploads, setLoading, setBatchId, snackbar]
     );
 
     useEffect(() => {

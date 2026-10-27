@@ -40,6 +40,8 @@ type Options = {
     /** With a SAMPLE file: what its real import reports. */
     secondaryRealImport?: ImportSummary;
     setStatusFails?: boolean;
+    /** The dataset saved on the upload records (the screen shows DS1). */
+    recordBatchId?: string;
 };
 
 function renderStep(options: Options) {
@@ -49,6 +51,7 @@ function renderStep(options: Options) {
         realImport = Future.success<ImportSummary, string>(summary()),
         secondaryRealImport,
         setStatusFails = false,
+        recordBatchId = "DS1",
     } = options;
     const primaryFile = vi.fn((..._args: unknown[]) => realImport);
     const setStatus = vi.fn((_params: { id: string; status: GlassUploadsStatus }) =>
@@ -67,7 +70,8 @@ function renderStep(options: Options) {
             glassUploads: {
                 setStatus,
                 saveImportSummaryErrorsOfFiles,
-                getById: (id: string) => Future.success({ id, status: "IMPORTED" }),
+                getById: (id: string) =>
+                    Future.success({ id, status: "IMPORTED", batchId: recordBatchId, fileName: "ris.csv" }),
             },
             glassModules: { getByName: () => Future.success({ name: "AMR" }) },
         },
@@ -174,6 +178,22 @@ describe("ConsistencyChecks (consistency checks step)", () => {
         expect(setStatus).not.toHaveBeenCalledWith(expect.objectContaining({ status: "VALIDATED" }));
         expect(setStatus).toHaveBeenCalledWith({ id: "upload-1", status: "IMPORTED" });
         expect(setStatus).toHaveBeenCalledWith({ id: "upload-2", status: "IMPORTED" });
+    });
+
+    // UK 2024: the dataset was changed on screen after the file was chosen, its save to the upload failed unnoticed, and
+    // the file was written under another dataset than the upload list shows.
+    it("does not start the import, and writes nothing, when the upload record names another dataset", async () => {
+        const { continueButton, primaryFile, setStatus, changeStep } = renderStep({
+            dryRunSummary: summary(),
+            recordBatchId: "DS2",
+        });
+
+        await userEvent.click(continueButton());
+
+        await waitFor(() => expect(screen.getByText(/could not be confirmed.*saved as DS2, chosen DS1/)).toBeTruthy());
+        expect(primaryFile).not.toHaveBeenCalled();
+        expect(setStatus).not.toHaveBeenCalled();
+        expect(changeStep).not.toHaveBeenCalled();
     });
 
     it("removes what the import wrote, keeps the upload IMPORTED and stays on the step when the import fails", async () => {

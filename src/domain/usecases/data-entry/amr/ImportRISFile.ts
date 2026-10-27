@@ -8,6 +8,7 @@ import { DataValuesRepository } from "../../../repositories/data-entry/DataValue
 import { RISDataRepository } from "../../../repositories/data-entry/RISDataRepository";
 import { checkASTResults } from "../utils/checkASTResults";
 import { checkBatchId } from "../utils/checkBatchId";
+import { checkCopiedBatch } from "../utils/checkCopiedBatch";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkSpecimenPathogen } from "../utils/checkSpecimenPathogen";
@@ -56,9 +57,13 @@ export class ImportRISFile {
                         ...new Set(risDataItems.map(item => item.COUNTRY)),
                     ]),
                     module: this.moduleRepository.getByName("AMR"),
+                    storedValues:
+                        action === "DELETE"
+                            ? Future.success([])
+                            : this.dataValuesRepository.getStored(AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, orgUnit, year),
                 });
             })
-            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits, module }) => {
+            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits, module, storedValues }) => {
                 const specimenPathogenAntibioticErrors = module.consistencyChecks
                     ? checkSpecimenPathogen(risDataItems, module.consistencyChecks.specimenPathogen)
                     : [];
@@ -73,9 +78,16 @@ export class ImportRISFile {
                     risDataItems,
                     { dataSet, dataSet_CC, dataElement_CC, orgUnits }
                 );
+                // The shared mapping gives one value per data set data element for each row, in row order.
+                const rowValues = _.chunk(dataValues, dataSet.dataElements.length);
 
                 const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
                     groupLineErrors(blockingCategoryOptionErrors);
+                const copyCheck = checkCopiedBatch(rowValues, storedValues, dataSet_CC, batchId);
+                const withCopyWarnings = (summary: ImportSummary): ImportSummary => ({
+                    ...summary,
+                    nonBlockingErrors: [...summary.nonBlockingErrors, ...copyCheck.warnings],
+                });
 
                 const allBlockingErrors =
                     action === "DELETE" //If delete, ignore consistency checks
@@ -89,6 +101,7 @@ export class ImportRISFile {
                               ...countryErrors,
                               ...duplicateRowErrors,
                               ...wholeNumberErrors,
+                              ...copyCheck.blockingErrors,
                           ];
 
                 if (allBlockingErrors.length > 0) {
@@ -148,7 +161,7 @@ export class ImportRISFile {
 
                                         summaryWithConsistencyBlokingErrors.importTime = saveSummary.importTime;
 
-                                        return summaryWithConsistencyBlokingErrors;
+                                        return withCopyWarnings(summaryWithConsistencyBlokingErrors);
                                     });
                             });
                     }
@@ -161,7 +174,7 @@ export class ImportRISFile {
                         ]);
 
                         summaryWithConsistencyBlokingErrors.importTime = saveSummary.importTime;
-                        return Future.success(summaryWithConsistencyBlokingErrors);
+                        return Future.success(withCopyWarnings(summaryWithConsistencyBlokingErrors));
                     }
                 });
             });

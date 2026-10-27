@@ -5,6 +5,7 @@ import { ConsistencyError, ImportSummary } from "../../../entities/data-entry/Im
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { DataValuesRepository } from "../../../repositories/data-entry/DataValuesRepository";
 import { checkBatchId } from "../utils/checkBatchId";
+import { checkCopiedBatch } from "../utils/checkCopiedBatch";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkYear } from "../utils/checkYear";
@@ -49,9 +50,13 @@ export class ImportSampleFile {
                     orgUnits: this.metadataRepository.getOrgUnitsByCode([
                         ...new Set(risDataItems.map(item => item.COUNTRY)),
                     ]),
+                    storedValues:
+                        action === "DELETE"
+                            ? Future.success([])
+                            : this.dataValuesRepository.getStored(AMR_AMR_DS_Input_files_Sample_DS_ID, orgUnit, year),
                 });
             })
-            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits }) => {
+            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits, storedValues }) => {
                 const batchIdErrors = checkBatchId(risDataItems, batchId);
                 const yearErrors = checkYear(risDataItems, year);
                 const countryErrors = checkCountry(risDataItems, countryCode);
@@ -62,9 +67,12 @@ export class ImportSampleFile {
                     risDataItems,
                     { dataSet, dataSet_CC, dataElement_CC, orgUnits }
                 );
+                // The shared mapping gives one value per data set data element for each row, in row order.
+                const rowValues = _.chunk(dataValues, dataSet.dataElements.length);
 
                 const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
                     groupLineErrors(blockingCategoryOptionErrors);
+                const copyCheck = checkCopiedBatch(rowValues, storedValues, dataSet_CC, batchId);
 
                 const allBlockingErrors =
                     action === "DELETE" //If delete, ignore consistency checks
@@ -76,6 +84,7 @@ export class ImportSampleFile {
                               ...countryErrors,
                               ...duplicateRowErrors,
                               ...wholeNumberErrors,
+                              ...copyCheck.blockingErrors,
                           ];
 
                 if (allBlockingErrors.length > 0) {
@@ -129,7 +138,13 @@ export class ImportSampleFile {
                                         blockingErrorWithDHISValidation
                                     );
 
-                                    return summaryWithConsistencyBlokingErrors;
+                                    return {
+                                        ...summaryWithConsistencyBlokingErrors,
+                                        nonBlockingErrors: [
+                                            ...summaryWithConsistencyBlokingErrors.nonBlockingErrors,
+                                            ...copyCheck.warnings,
+                                        ],
+                                    };
                                 });
                         });
                 });
