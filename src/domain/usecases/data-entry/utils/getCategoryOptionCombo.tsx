@@ -28,16 +28,35 @@ export function getCategoryOptionComboByDataElement(
           ]);
 }
 
-export function getCategoryOptionComboByOptionCodes(categoryCombo: CategoryCombo, codes: string[]) {
+type CategoryOptionComboLookup = { categoryOptionComboId: string; error: string };
+
+/**
+ * Answers already found, per category combo and codes. A file repeats a few hundred code combinations across all its
+ * values, and scanning every option combo for each value took 81 s for an 87,000-value RIS file (27 Oct 2026).
+ * Category combos are read-only metadata, so the same codes always get the same answer.
+ */
+const lookupsByCategoryCombo = new WeakMap<CategoryCombo, Map<string, CategoryOptionComboLookup>>();
+
+export function getCategoryOptionComboByOptionCodes(
+    categoryCombo: CategoryCombo,
+    codes: string[]
+): CategoryOptionComboLookup {
+    const lookups = lookupsByCategoryCombo.get(categoryCombo) ?? new Map<string, CategoryOptionComboLookup>();
+    lookupsByCategoryCombo.set(categoryCombo, lookups);
+    const key = codes.join("\u0000");
+    const known = lookups.get(key);
+    if (known) return known;
+
     const categoryOptionCombo = categoryCombo.categoryOptionCombos.find(
         catOpComb =>
             catOpComb.categoryOptions.filter(catOp => codes.includes(catOp.code.trim())).length === codes.length
     );
-
-    if (!categoryOptionCombo) {
-        const errorMessage = `Combination of ${categoryCombo.name} not found for codes: "${codes.join(",")}"`;
-        return { categoryOptionComboId: "", error: errorMessage };
-    }
-
-    return { categoryOptionComboId: categoryOptionCombo.id, error: "" };
+    const lookup = categoryOptionCombo
+        ? { categoryOptionComboId: categoryOptionCombo.id, error: "" }
+        : {
+              categoryOptionComboId: "",
+              error: `Combination of ${categoryCombo.name} not found for codes: "${codes.join(",")}"`,
+          };
+    lookups.set(key, lookup);
+    return lookup;
 }

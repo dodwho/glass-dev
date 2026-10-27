@@ -284,6 +284,30 @@ describe("AMR aggregate file checks", () => {
                 error: 'Combination of Specimen, gender, origin, age group not found for codes: "URINE,M,UNKO,15-24"',
             });
         });
+
+        it("scans the combinations once per codes, however many values repeat them", () => {
+            let scans = 0;
+            const combinations = [...demographyCombo.categoryOptionCombos];
+            const find = combinations.find.bind(combinations);
+            const combo: CategoryCombo = {
+                ...demographyCombo,
+                categoryOptionCombos: Object.assign(combinations, {
+                    find: (...args: Parameters<typeof find>) => {
+                        scans++;
+                        return find(...args);
+                    },
+                }),
+            };
+            const found = ["BLOOD", "M", "UNKO", "15-24"];
+            const missing = ["URINE", "M", "UNKO", "15-24"];
+            for (let i = 0; i < 3; i++) {
+                expect(getCategoryOptionComboByOptionCodes(combo, found).categoryOptionComboId).toBe(
+                    "coc-blood-m-unko-15"
+                );
+                expect(getCategoryOptionComboByOptionCodes(combo, missing).error).toContain('"URINE,M,UNKO,15-24"');
+            }
+            expect(scans).toBe(2);
+        });
     });
 
     describe("includeBlockingErrors", () => {
