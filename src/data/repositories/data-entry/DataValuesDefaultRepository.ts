@@ -62,4 +62,10 @@ export class DataValuesDefaultRepository implements DataValuesRepository {
             });
         });
     }
+
+    getStored(dataSetId: string, orgUnitId: string, period: string): FutureData<DataValue[]> {
+        return apiToFuture(
+            this.api.dataValues.getSet({ dataSet: [dataSetId], orgUnit: [orgUnitId], period: [period] })
+        ).map(response => response.dataValues);
+    }
 }

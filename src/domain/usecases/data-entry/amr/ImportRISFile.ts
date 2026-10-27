@@ -8,6 +8,7 @@ import { DataValuesRepository } from "../../../repositories/data-entry/DataValue
 import { RISDataRepository } from "../../../repositories/data-entry/RISDataRepository";
 import { checkASTResults } from "../utils/checkASTResults";
 import { checkBatchId } from "../utils/checkBatchId";
+import { checkCopiedBatch } from "../utils/checkCopiedBatch";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkSpecimenPathogen } from "../utils/checkSpecimenPathogen";
@@ -60,9 +61,13 @@ export class ImportRISFile {
                         ...new Set(risDataItems.map(item => item.COUNTRY)),
                     ]),
                     module: this.moduleRepository.getByName("AMR"),
+                    storedValues:
+                        action === "DELETE"
+                            ? Future.success([])
+                            : this.dataValuesRepository.getStored(AMR_AMR_DS_INPUT_FILES_RIS_DS_ID, orgUnit, year),
                 });
             })
-            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits, module }) => {
+            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits, module, storedValues }) => {
                 const specimenPathogenAntibioticErrors = module.consistencyChecks
                     ? checkSpecimenPathogen(risDataItems, module.consistencyChecks.specimenPathogen)
                     : [];
@@ -74,43 +79,47 @@ export class ImportRISFile {
                 const duplicateRowErrors = checkDuplicateRowsRIS(risDataItems);
                 const wholeNumberErrors = checkWholeNumbers(risDataItems, [...RIS_RESULT_COLUMNS]);
 
-                const dataValues = risDataItems
-                    .map((risData, index) => {
-                        return dataSet.dataElements.map(dataElement => {
-                            const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                String(risData[category.code as keyof RISData])
-                            );
+                const rowValues = risDataItems.map((risData, index) => {
+                    return dataSet.dataElements.map(dataElement => {
+                        const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
+                            String(risData[category.code as keyof RISData])
+                        );
 
-                            const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
-                                getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
+                        const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
+                            getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
 
-                            if (aocBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
+                        if (aocBlockingError !== "")
+                            blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
 
-                            const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
-                                getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
+                        const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
+                            getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
 
-                            if (ccoBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
+                        if (ccoBlockingError !== "")
+                            blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
 
-                            const value = toAMRAggDataValue(risData[dataElement.code as keyof RISData]);
+                        const value = toAMRAggDataValue(risData[dataElement.code as keyof RISData]);
 
-                            const dataValue = {
-                                orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
-                                period: risData.YEAR.toString(),
-                                attributeOptionCombo: attributeOptionCombo,
-                                dataElement: dataElement.id,
-                                categoryOptionCombo: categoryOptionCombo,
-                                value,
-                            };
+                        const dataValue = {
+                            orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
+                            period: risData.YEAR.toString(),
+                            attributeOptionCombo: attributeOptionCombo,
+                            dataElement: dataElement.id,
+                            categoryOptionCombo: categoryOptionCombo,
+                            value,
+                        };
 
-                            return dataValue;
-                        });
-                    })
-                    .flat();
+                        return dataValue;
+                    });
+                });
+                const dataValues = rowValues.flat();
 
                 const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
                     groupLineErrors(blockingCategoryOptionErrors);
+                const copyCheck = checkCopiedBatch(rowValues, storedValues, dataSet_CC, batchId);
+                const withCopyWarnings = (summary: ImportSummary): ImportSummary => ({
+                    ...summary,
+                    nonBlockingErrors: [...summary.nonBlockingErrors, ...copyCheck.warnings],
+                });
 
                 const allBlockingErrors =
                     action === "DELETE" //If delete, ignore consistency checks
@@ -124,6 +133,7 @@ export class ImportRISFile {
                               ...countryErrors,
                               ...duplicateRowErrors,
                               ...wholeNumberErrors,
+                              ...copyCheck.blockingErrors,
                           ];
 
                 if (allBlockingErrors.length > 0) {
@@ -183,7 +193,7 @@ export class ImportRISFile {
 
                                         summaryWithConsistencyBlokingErrors.importTime = saveSummary.importTime;
 
-                                        return summaryWithConsistencyBlokingErrors;
+                                        return withCopyWarnings(summaryWithConsistencyBlokingErrors);
                                     });
                             });
                     }
@@ -196,7 +206,7 @@ export class ImportRISFile {
                         ]);
 
                         summaryWithConsistencyBlokingErrors.importTime = saveSummary.importTime;
-                        return Future.success(summaryWithConsistencyBlokingErrors);
+                        return Future.success(withCopyWarnings(summaryWithConsistencyBlokingErrors));
                     }
                 });
             });

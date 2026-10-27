@@ -19,6 +19,7 @@ import { moduleProperties } from "../../../domain/utils/ModuleProperties";
 import { useSnackbar } from "@eyeseetea/d2-ui-components";
 import { csvTextCell } from "../../utils/csv";
 import { importWithImportedStatusFirst } from "../../../domain/usecases/data-entry/amr/importWithImportedStatusFirst";
+import { uploadBatchMismatches } from "../../../domain/usecases/data-entry/amr/uploadBatchMismatches";
 
 interface ConsistencyChecksProps {
     changeStep: (step: number) => void;
@@ -325,88 +326,117 @@ export const ConsistencyChecks: React.FC<ConsistencyChecksProps> = ({
             }
 
             setImportLoading(true);
+            const uploadIds = secondaryUploadId ? [primaryUploadId, secondaryUploadId] : [primaryUploadId];
 
-            importWithImportedStatusFirst({
-                uploadIds: secondaryUploadId ? [primaryUploadId, secondaryUploadId] : [primaryUploadId],
-                setStatus: (id, status) => compositionRoot.glassUploads.setStatus({ id, status }),
-                runImport: () =>
-                    Future.joinObj({
-                        importPrimaryFileSummary: compositionRoot.fileSubmission.primaryFile(
-                            currentModuleAccess.moduleName,
-                            primaryFile,
-                            batchId,
-                            currentPeriod,
-                            "CREATE_AND_UPDATE",
-                            currentOrgUnitAccess.orgUnitId,
-                            currentOrgUnitAccess.orgUnitName,
-                            currentOrgUnitAccess.orgUnitCode,
-                            false,
-                            "",
-                            allCountries
-                        ),
-                        importSecondaryFileSummary: secondaryFile
-                            ? compositionRoot.fileSubmission.secondaryFile(
-                                  secondaryFile,
-                                  batchId,
-                                  currentModuleAccess.moduleName,
-                                  currentPeriod,
-                                  "CREATE_AND_UPDATE",
-                                  currentOrgUnitAccess.orgUnitId,
-                                  currentOrgUnitAccess.orgUnitName,
-                                  currentOrgUnitAccess.orgUnitCode,
-                                  false,
-                                  ""
-                              )
-                            : Future.success(undefined),
-                    }),
-                removeImportedValues: () =>
-                    Future.sequential([
-                        deleteFileValues(primaryUploadId, primaryFile, "primary"),
-                        ...(secondaryUploadId && secondaryFile
-                            ? [deleteFileValues(secondaryUploadId, secondaryFile, "secondary")]
-                            : []),
-                    ])
-                        .toVoid()
-                        .mapError(error => {
-                            console.error(`Clean-up after the failed import did not finish: ${error}`);
-                            return error;
+            const startImport = () =>
+                importWithImportedStatusFirst({
+                    uploadIds,
+                    setStatus: (id, status) => compositionRoot.glassUploads.setStatus({ id, status }),
+                    runImport: () =>
+                        Future.joinObj({
+                            importPrimaryFileSummary: compositionRoot.fileSubmission.primaryFile(
+                                currentModuleAccess.moduleName,
+                                primaryFile,
+                                batchId,
+                                currentPeriod,
+                                "CREATE_AND_UPDATE",
+                                currentOrgUnitAccess.orgUnitId,
+                                currentOrgUnitAccess.orgUnitName,
+                                currentOrgUnitAccess.orgUnitCode,
+                                false,
+                                "",
+                                allCountries
+                            ),
+                            importSecondaryFileSummary: secondaryFile
+                                ? compositionRoot.fileSubmission.secondaryFile(
+                                      secondaryFile,
+                                      batchId,
+                                      currentModuleAccess.moduleName,
+                                      currentPeriod,
+                                      "CREATE_AND_UPDATE",
+                                      currentOrgUnitAccess.orgUnitId,
+                                      currentOrgUnitAccess.orgUnitName,
+                                      currentOrgUnitAccess.orgUnitCode,
+                                      false,
+                                      ""
+                                  )
+                                : Future.success(undefined),
                         }),
-            }).run(
-                ({ importPrimaryFileSummary, importSecondaryFileSummary }) => {
-                    setPrimaryFileImportSummary(importPrimaryFileSummary);
+                    removeImportedValues: () =>
+                        Future.sequential([
+                            deleteFileValues(primaryUploadId, primaryFile, "primary"),
+                            ...(secondaryUploadId && secondaryFile
+                                ? [deleteFileValues(secondaryUploadId, secondaryFile, "secondary")]
+                                : []),
+                        ])
+                            .toVoid()
+                            .mapError(error => {
+                                console.error(`Clean-up after the failed import did not finish: ${error}`);
+                                return error;
+                            }),
+                }).run(
+                    ({ importPrimaryFileSummary, importSecondaryFileSummary }) => {
+                        setPrimaryFileImportSummary(importPrimaryFileSummary);
 
-                    if (importSecondaryFileSummary) {
-                        setSecondaryFileImportSummary(importSecondaryFileSummary);
+                        if (importSecondaryFileSummary) {
+                            setSecondaryFileImportSummary(importSecondaryFileSummary);
+                        }
+                        // RIS and SAMPLE are one batch: an error in either file keeps both uploads IMPORTED.
+                        const hasBlockingErrors = [importPrimaryFileSummary, importSecondaryFileSummary].some(
+                            summary => (summary?.blockingErrors.length ?? 0) > 0
+                        );
+                        setUploadStatusAndSaveErrors(
+                            primaryUploadId,
+                            secondaryUploadId,
+                            hasBlockingErrors ? "IMPORTED" : "VALIDATED",
+                            importPrimaryFileSummary,
+                            importSecondaryFileSummary
+                        );
+                    },
+                    ({ error, dataMayRemain }) => {
+                        const message = dataMayRemain
+                            ? i18n.t(
+                                  "The import stopped and some data may have been saved. Delete this upload in the list of uploads, then upload the files again."
+                              )
+                            : i18n.t(
+                                  "The import could not start, so nothing was saved. Please upload the files again."
+                              );
+
+                        setPrimaryFileImportSummary({
+                            status: "ERROR",
+                            importCount: { ignored: 0, imported: 0, deleted: 0, updated: 0, total: 0 },
+                            nonBlockingErrors: [],
+                            blockingErrors: [{ error: `${message} (${error})`, count: 1 }],
+                        });
+
+                        setImportLoading(false);
                     }
-                    // RIS and SAMPLE are one batch: an error in either file keeps both uploads IMPORTED.
-                    const hasBlockingErrors = [importPrimaryFileSummary, importSecondaryFileSummary].some(
-                        summary => (summary?.blockingErrors.length ?? 0) > 0
-                    );
-                    setUploadStatusAndSaveErrors(
-                        primaryUploadId,
-                        secondaryUploadId,
-                        hasBlockingErrors ? "IMPORTED" : "VALIDATED",
-                        importPrimaryFileSummary,
-                        importSecondaryFileSummary
-                    );
-                },
-                ({ error, dataMayRemain }) => {
-                    const message = dataMayRemain
-                        ? i18n.t(
-                              "The import stopped and some data may have been saved. Delete this upload in the list of uploads, then upload the files again."
-                          )
-                        : i18n.t("The import could not start, so nothing was saved. Please upload the files again.");
+                );
 
-                    setPrimaryFileImportSummary({
-                        status: "ERROR",
-                        importCount: { ignored: 0, imported: 0, deleted: 0, updated: 0, total: 0 },
-                        nonBlockingErrors: [],
-                        blockingErrors: [{ error: `${message} (${error})`, count: 1 }],
-                    });
-
-                    setImportLoading(false);
-                }
-            );
+            // Checked before anything is written: a refusal inside the import would run its clean-up.
+            const refuse = (reason: string) => {
+                setPrimaryFileImportSummary({
+                    status: "ERROR",
+                    importCount: { ignored: 0, imported: 0, deleted: 0, updated: 0, total: 0 },
+                    nonBlockingErrors: [],
+                    blockingErrors: [
+                        {
+                            error: `${i18n.t(
+                                "The dataset of this upload could not be confirmed, so nothing was imported. Delete this upload in the list of uploads, then upload the files again."
+                            )} (${reason})`,
+                            count: 1,
+                        },
+                    ],
+                });
+                setImportLoading(false);
+            };
+            if (!moduleProps?.isbatchReq) startImport();
+            else
+                Future.sequential(uploadIds.map(id => compositionRoot.glassUploads.getById(id))).run(uploads => {
+                    const mismatches = uploadBatchMismatches(uploads, batchId);
+                    if (mismatches.length > 0) refuse(mismatches.join("; "));
+                    else startImport();
+                }, refuse);
         } else if (secondaryFile && moduleProperties.get(currentModuleAccess.moduleName)?.isExternalSecondaryFile) {
             setImportLoading(true);
 

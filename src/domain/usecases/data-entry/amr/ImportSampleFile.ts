@@ -5,6 +5,7 @@ import { ConsistencyError, ImportSummary } from "../../../entities/data-entry/Im
 import { MetadataRepository } from "../../../repositories/MetadataRepository";
 import { DataValuesRepository } from "../../../repositories/data-entry/DataValuesRepository";
 import { checkBatchId } from "../utils/checkBatchId";
+import { checkCopiedBatch } from "../utils/checkCopiedBatch";
 import { checkCountry } from "../utils/checkCountry";
 import { checkDhis2Validations } from "../utils/checkDhis2Validations";
 import { checkYear } from "../utils/checkYear";
@@ -53,9 +54,13 @@ export class ImportSampleFile {
                     orgUnits: this.metadataRepository.getOrgUnitsByCode([
                         ...new Set(risDataItems.map(item => item.COUNTRY)),
                     ]),
+                    storedValues:
+                        action === "DELETE"
+                            ? Future.success([])
+                            : this.dataValuesRepository.getStored(AMR_AMR_DS_Input_files_Sample_DS_ID, orgUnit, year),
                 });
             })
-            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits }) => {
+            .flatMap(({ risDataItems, dataSet, dataSet_CC, dataElement_CC, orgUnits, storedValues }) => {
                 const batchIdErrors = checkBatchId(risDataItems, batchId);
                 const yearErrors = checkYear(risDataItems, year);
                 const countryErrors = checkCountry(risDataItems, countryCode);
@@ -63,43 +68,43 @@ export class ImportSampleFile {
                 const duplicateRowErrors = checkDuplicateRowsSAMPLE(risDataItems);
                 const wholeNumberErrors = checkWholeNumbers(risDataItems, [...SAMPLE_COUNT_COLUMNS]);
 
-                const dataValues = risDataItems
-                    .map((risData, index) => {
-                        return dataSet.dataElements.map(dataElement => {
-                            const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
-                                risData[category.code as keyof SampleData].toString()
-                            );
+                const rowValues = risDataItems.map((risData, index) => {
+                    return dataSet.dataElements.map(dataElement => {
+                        const dataSetCategoryOptionValues = dataSet_CC.categories.map(category =>
+                            risData[category.code as keyof SampleData].toString()
+                        );
 
-                            const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
-                                getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
+                        const { categoryOptionComboId: attributeOptionCombo, error: aocBlockingError } =
+                            getCategoryOptionComboByOptionCodes(dataSet_CC, dataSetCategoryOptionValues);
 
-                            if (aocBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
+                        if (aocBlockingError !== "")
+                            blockingCategoryOptionErrors.push({ error: aocBlockingError, line: index + 1 });
 
-                            const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
-                                getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
+                        const { categoryOptionComboId: categoryOptionCombo, error: ccoBlockingError } =
+                            getCategoryOptionComboByDataElement(dataElement, dataElement_CC, risData);
 
-                            if (ccoBlockingError !== "")
-                                blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
+                        if (ccoBlockingError !== "")
+                            blockingCategoryOptionErrors.push({ error: ccoBlockingError, line: index + 1 });
 
-                            const value = risData[dataElement.code as keyof SampleData]?.toString() || "";
+                        const value = risData[dataElement.code as keyof SampleData]?.toString() || "";
 
-                            const dataValue = {
-                                orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
-                                period: risData.YEAR.toString(),
-                                attributeOptionCombo,
-                                dataElement: dataElement.id,
-                                categoryOptionCombo: categoryOptionCombo,
-                                value,
-                            };
+                        const dataValue = {
+                            orgUnit: orgUnits.find(ou => ou.code === risData.COUNTRY)?.id || "",
+                            period: risData.YEAR.toString(),
+                            attributeOptionCombo,
+                            dataElement: dataElement.id,
+                            categoryOptionCombo: categoryOptionCombo,
+                            value,
+                        };
 
-                            return dataValue;
-                        });
-                    })
-                    .flat();
+                        return dataValue;
+                    });
+                });
+                const dataValues = rowValues.flat();
 
                 const blockingCategoryOptionConsistencyErrors: ConsistencyError[] =
                     groupLineErrors(blockingCategoryOptionErrors);
+                const copyCheck = checkCopiedBatch(rowValues, storedValues, dataSet_CC, batchId);
 
                 const allBlockingErrors =
                     action === "DELETE" //If delete, ignore consistency checks
@@ -111,6 +116,7 @@ export class ImportSampleFile {
                               ...countryErrors,
                               ...duplicateRowErrors,
                               ...wholeNumberErrors,
+                              ...copyCheck.blockingErrors,
                           ];
 
                 if (allBlockingErrors.length > 0) {
@@ -164,7 +170,13 @@ export class ImportSampleFile {
                                         blockingErrorWithDHISValidation
                                     );
 
-                                    return summaryWithConsistencyBlokingErrors;
+                                    return {
+                                        ...summaryWithConsistencyBlokingErrors,
+                                        nonBlockingErrors: [
+                                            ...summaryWithConsistencyBlokingErrors.nonBlockingErrors,
+                                            ...copyCheck.warnings,
+                                        ],
+                                    };
                                 });
                         });
                 });
